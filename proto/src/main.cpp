@@ -27,6 +27,8 @@ int main( int argc, const char **argv )
     options.run_jit = true;
     options.no_bc_output = true;
 #endif
+    // FIXME: Stripping debug info is currently default since it crashes LLVM (probably malformed)
+    options.strip_debug = true;
 
     options.txPath = ".";
 
@@ -49,6 +51,7 @@ int main( int argc, const char **argv )
                 printf( "  %-22s %s\n", "-dl", "Print debugging output from lexer (token scanner)" );
                 printf( "  %-22s %s\n", "-dy", "Print debugging output from grammar parser" );
                 printf( "  %-22s %s\n", "-nodbg", "Strip debugging information from generated code" );
+                printf( "  %-22s %s\n", "-dbg", "Include debugging information in generated code" );
                 printf( "  %-22s %s\n", "-nover", "Disable verifying generated code after successful compilation (default if release build)" );
                 printf( "  %-22s %s\n", "-ver", "Run generated code verifier after successful compilation" );
                 printf( "  %-22s %s\n", "-nojit", "Disable running program in JIT mode after successful compilation (default if release build)" );
@@ -95,8 +98,12 @@ int main( int argc, const char **argv )
                 options.debug_lexer = true;
             else if ( !strcmp( argv[a], "-dy" ) )
                 options.debug_parser = true;
+            else if ( !strcmp( argv[a], "-dbg" ) )
+                options.strip_debug = false;
             else if ( !strcmp( argv[a], "-nodbg" ) )
                 options.strip_debug = true;
+            else if ( !strcmp( argv[a], "-ver" ) )
+                options.run_verifier = true;
             else if ( !strcmp( argv[a], "-nover" ) )
                 options.run_verifier = false;
             else if ( !strcmp( argv[a], "-nojit" ) )
@@ -164,6 +171,7 @@ int main( int argc, const char **argv )
     if ( options.sourceSearchPaths.empty() )
         options.sourceSearchPaths.push_back( "." );  // if no search paths provided, the current directory is searched
 
+    // TODO: by default strip directory of outputFileName (write it to current directory unless output dir specified)
     if ( separateJobs ) {
         if ( !outputFileName.empty() && outputFileName != "-" )
             LOG.info( "Since compiling as separate jobs, specified output file name '%s' will be used as path prefix", outputFileName.c_str() );

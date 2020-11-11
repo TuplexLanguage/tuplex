@@ -156,7 +156,7 @@ int LlvmGenerationContext::verify_code() {
 void LlvmGenerationContext::print_IR() {
     // FUTURE: support writing to a .ll file
     this->LOGGER()->info( "Printing LLVM bytecode with pass is currently broken, dumping instead..." );
-    this->llvmModule().print(llvm::errs(), nullptr);
+    this->llvmModule().print(outs(), nullptr);
 
     // FIXME: This crashes but need to set up IDE with LLVM source code to find cause
 //    this->LOGGER()->info( "Printing LLVM bytecode..." );
