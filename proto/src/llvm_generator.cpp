@@ -1,8 +1,6 @@
 #include <iostream>
 #include <stack>
-#include <unordered_map>
 #include <set>
-#include <typeinfo>
 
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/DerivedTypes.h>
@@ -156,7 +154,7 @@ int LlvmGenerationContext::verify_code() {
 }
 
 void LlvmGenerationContext::print_IR() {
-    // TODO: support writing to a .ll file
+    // FUTURE: support writing to a .ll file
     this->LOGGER()->info( "Printing LLVM bytecode with pass is currently broken, dumping instead..." );
     this->llvmModule().print(llvm::errs(), nullptr);
 
@@ -166,7 +164,8 @@ void LlvmGenerationContext::print_IR() {
 //    PassManager<Module> pm;
 //    pm.addPass( printPass );
 //    AnalysisManager<Module> am;
-//    pm.run( this->llvmModule(), am );
+//    auto& module = this->llvmModule();
+//    pm.run( module, am );
 //    std::cout << std::endl;
 }
 

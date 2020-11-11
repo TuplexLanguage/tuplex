@@ -2,6 +2,10 @@
 
 cmake_minimum_required (VERSION 3.8)
 
+# these options need to be set before PROJECT keyword (note, undocumented, but widely used)
+set(CMAKE_DISABLE_SOURCE_CHANGES ON)
+set(CMAKE_DISABLE_IN_SOURCE_BUILD ON)
+
 # project name
 project(Tuplex)
 

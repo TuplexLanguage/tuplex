@@ -16,23 +16,22 @@
 .cproject
 .settings/
 
-# CLion files
-txc.cbp
+# ignore build directories
+/cmake-build*/
+/build*/
 
-# ignore all files in the build/ directory
-cmake-build-debug/
+# ignore all built files in case of in-source build
 generated/
 bin/
-cov/
-test/
-releases/
+lib/
 
-# CMake files
+# ignore all CMake files in case of in-source build
 CMakeFiles/
 CMakeCache.txt
 cmake_install.cmake
 Makefile
 compile_commands.json
+*.cbp
 
 # emacs backup files
 *~
@@ -42,4 +41,5 @@ compile_commands.json
 /*.o
 /*.out
 
+# ignore a tmp directory in this directory
 /tmp/
