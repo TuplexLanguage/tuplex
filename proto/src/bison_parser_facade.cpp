@@ -7,7 +7,7 @@
 #include "tx_options.hpp"
 
 // bison's generated header file:
-#include "parser.hpp"
+#include "bison_parser.hpp"
 
 extern FILE * yyin;
 extern void yyrestart ( FILE *input_file );

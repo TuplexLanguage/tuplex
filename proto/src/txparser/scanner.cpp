@@ -186,7 +186,8 @@ const std::vector<TxTokenDef> tokenDefinitions = {
         TOKDEF( LPAREN, new TxExactMatcher( "(" )),
         TOKDEF( RPAREN, new TxExactMatcher( ")" )),
         TOKDEF( SEMICOLON, new TxExactMatcher( ";" )),
-        TOKDEF( PACKAGE, new TxExactMatcher( "package" )),
+
+        TOKDEF( KW_MODULE, new TxExactMatcher( "module" )),
 
         TOKDEF( COMMENT, new TxCommentMatcher( "/*", "*/" )),
         TOKDEF( COMMENT, new TxLineCommentMatcher()),

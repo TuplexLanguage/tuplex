@@ -14,6 +14,7 @@ class location;
 }
 
 class TxDriver;
+class TxScanState;
 class TxNode;
 class TxParsingUnitNode;
 class LlvmGenerationContext;
@@ -47,6 +48,9 @@ class TxParserContext : public Printable {
 
 public:
     /** set directly by parser */
+    TxScanState* scanState = nullptr;
+
+    /** set directly by parser */
     TxParsingUnitNode* parsingUnit = nullptr;
 
     /** used by lexer to track nested comments */
@@ -61,7 +65,7 @@ public:
         this->_currentInputFilename = new std::string( filePath );
     }
 
-    virtual ~TxParserContext() = default;
+    ~TxParserContext() override = default;
 
     inline TxDriver& driver() const {
         return this->_driver;
@@ -79,7 +83,7 @@ public:
     bool is_internal_builtin();
 
     /** Returns true if this parser context is processing user source code. */
-    bool is_user_source() {
+    bool is_user_source() const {
         return ( this->parseInputSourceSet == FIRST_USER_SOURCE || this->parseInputSourceSet == REST_USER_SOURCES );
     }
 
@@ -117,5 +121,5 @@ public:
     void begin_exp_err( const TxLocation& loc, ExpectedErrorClause* expError );
     ExpectedErrorClause* end_exp_err( const TxLocation& loc );
 
-    virtual std::string str() const override;
+    std::string str() const override;
 };

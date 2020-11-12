@@ -4,7 +4,10 @@
 #include <vector>
 #include <stack>
 
+#include "tx_tokens.hpp"
 
+
+/** Contains a handle or reference to the source buffer / stream / file */
 struct TxSourceBuffer {
     const char* source;
 };
@@ -14,30 +17,6 @@ struct TxLineIndex {
     /** The source buffer index of each line. */
     std::vector<uint32_t> line_index;
 };
-
-
-enum class TxTokenId : u_int32_t {
-    END = 0,
-    ERROR,
-    NEWLINE,
-    WHITESPACE,
-    INDENT,
-    DEDENT,
-    COMMENT,
-    NAME,
-    LBRACE,
-    RBRACE,
-    LPAREN,
-    RPAREN,
-    SEMICOLON,
-    PACKAGE,
-};
-
-template<typename charT, typename traits>
-std::basic_ostream<charT, traits> &
-operator<<( std::basic_ostream<charT, traits> &lhs, TxTokenId const &rhs ) {
-    return lhs << rhs;
-}
 
 
 /** A specific character position within a buffer. (The buffer is not referenced by this object.)
@@ -88,7 +67,7 @@ public:
 
 
 class TxScanState {
-    const TxSourceBuffer& buffer;
+    const TxSourceBuffer buffer;
     TxLineIndex lineIndex;
 
     TxSourcePosition cursor;

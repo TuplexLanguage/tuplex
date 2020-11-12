@@ -1,4 +1,4 @@
-%require "3.0"  // initially authored with Bison 3.0.2
+%require "3.2"  // initially authored with Bison 3.0.2
 %language "C++"
 %skeleton "lalr1.cc"
 
@@ -52,13 +52,19 @@ struct TxModuleMembers {
 // Tell Flex the lexer's prototype:
 %code provides
 {
-# define YY_DECL                    \
+  yy::TxParser::token_type                         \
+  yylex (yy::TxParser::semantic_type* yylval,      \
+         yy::TxParser::location_type* yylloc,      \
+         TxParserContext* parserCtx);
+/*
+//# define YY_DECL                    \
   yy::TxParser::token_type                         \
   yylex (yy::TxParser::semantic_type* yylval,      \
          yy::TxParser::location_type* yylloc,      \
          TxParserContext* parserCtx)
-// declare yylex for the parser's sake
+ declare yylex for the parser's sake
 YY_DECL;
+*/
 }
 
 %{
@@ -68,7 +74,7 @@ YY_DECL;
 
 #define BEGIN_TXEXPERR(loc, expError) parserCtx->begin_exp_err(loc, expError)
 #define END_TXEXPERR(loc)             parserCtx->end_exp_err(loc)
-#define TX_SYNTAX_ERROR     { yyerrok; }
+#define TX_SYNTAX_ERROR     { /* yyerrok (sets error flag yyerrstatus_ to 0) */ ; }
 
 // modified YYLLOC_DEFAULT to ensure full location state copying:
 #define YYLLOC_DEFAULT(Current, Rhs, N)                               \
@@ -118,6 +124,9 @@ YY_DECL;
 
 /* operators: */
 %token END 0  // end of scan
+%token ERROR  // indicates lexcial error
+%token WHITESPACE NEWLINE COMMENT  // needed for ids, will not be produced
+%token INDENT DEDENT
 %token NL SEMICOLON // statement separator
 %token DOT COLON COMMA DOTDOT ELLIPSIS ASTERISK PLUS MINUS FSLASH BSLASH AAND
 %token PIPE CARET TILDE AT PERCENT DOLLAR EURO LPAREN RPAREN LBRACE
@@ -153,7 +162,7 @@ YY_DECL;
 /* Define the type of node our nonterminal symbols represent.
    The types refer to the %union declaration above.
  */
-%type <TxIdentifier*> module_identifier import_identifier 
+%type <TxIdentifier*> module_identifier import_identifier
 %type <TxIdentifier*> opt_module_decl
 %type <TxIdentifierNode*> identifier dataspace
 
@@ -220,7 +229,7 @@ YY_DECL;
 %right EQUAL
 %left PERCENTPERCENT PERCENT // string concatenation and formatting
 %precedence STRFORMAT // unary string formatting
-%right TILDE      
+%right TILDE
 %left PIPE        // boolean and bitwise operator
 %left KW_XOR      // boolean and bitwise operator
 %left AAND        // boolean and bitwise operator
@@ -406,7 +415,7 @@ type_param      : identifier  { $$ = new TxTypeDeclNode( @$, TXD_PUBLIC | TXD_GE
                         { $$ = new TxFieldDeclNode( @$, TXD_PUBLIC | TXD_GENPARAM, new TxNonLocalFieldDefNode( @$, $1, $3, nullptr ) ); }
                 ;
 
-type_declaration : declaration_flags type_or_if opt_mutable identifier type_derivation  
+type_declaration : declaration_flags type_or_if opt_mutable identifier type_derivation
                         { $$ = new TxTypeDeclNode(@$, $1, $4, NULL, $5, $2, $3); }
                  | declaration_flags type_or_if opt_mutable identifier LBRACE type_param_list RBRACE type_derivation
                         { $$ = new TxTypeDeclNode(@$, $1, $4, $6,   $8, $2, $3); }
@@ -519,7 +528,7 @@ type_arg_list   : type_arg  { $$ = new std::vector<TxTypeArgumentNode*>();  $$->
 
 type_arg        : type_production              { $$ = new TxTypeArgumentNode($1); }
                 | mut_token type_production    { $$ = new TxTypeArgumentNode(new TxModifiableTypeNode(@$, $2)); }
-                | mut_token val_expr           
+                | mut_token val_expr
                     {
                         // special handling to strip TxNamedFieldNode (this way avoids reduce-reduce grammar conflict)
                         if ( auto namedField = dynamic_cast<TxNamedFieldNode*>( $2 ) )
@@ -590,7 +599,7 @@ val_expr
 
     |   call_expr                    { $$ = $1; }
     |   make_expr                    { $$ = $1; }
-    
+
     |   val_expr DOTDOT val_expr     { $$ = TxERangeLitNode::make_range_node(@$, $1, $3); }
 
     |   MINUS val_expr  %prec NEG    { $$ = new TxUnaryMinusNode(@$, $2); }  // unary minus
@@ -672,7 +681,7 @@ string_format_expr : string_format val_expr           %prec STRFORMAT
                         { $$ = new TxStackConstructionNode( @$, new TxConstTypeNode( @$, new TxNamedTypeNode( @$, "tx.FormattedStringer" ) ),
                                                             new std::vector<TxExpressionNode*>( { $1, $2 } ) ); }
                    | val_expr string_format val_expr  %prec PERCENT
-                        { $$ = TxConcatenateStringsNode::make_strcat_node( @$, $1, 
+                        { $$ = TxConcatenateStringsNode::make_strcat_node( @$, $1,
                                     new TxStackConstructionNode( @2, new TxConstTypeNode( @2, new TxNamedTypeNode( @2, "tx.FormattedStringer" ) ),
                                                                         new std::vector<TxExpressionNode*>( { $2, $3 } ) ) ); }
                    | val_expr PERCENTPERCENT val_expr
