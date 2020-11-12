@@ -1,3 +1,20 @@
 #/bin/bash
 
-python autotest/test.py
+ROOT_DIR=..
+if [ -d "$ROOT_DIR/autotest" ]; then
+    echo "Found the Tuplex root directory: " $ROOT_DIR
+else
+    echo "Could not find the Tuplex root directory: " $ROOT_DIR
+    echo "Is the current directory not a build directory?"
+    exit 1
+fi
+
+export TXCBIN=`pwd`/bin/txc
+if [ -f "$TXCBIN" ]; then
+    echo "Found the txc binary: " $TXCBIN
+else
+    echo "Could not find the txc binary: " $TXCBIN
+    exit 1
+fi
+
+python3 $ROOT_DIR/autotest/test.py

@@ -1,14 +1,6 @@
-# Tuplex source directory cmakelist
+# Tuplex benchmarks source directory cmakelist
 
 set(CMAKE_BUILD_TYPE "Release")  # Debug Release RelWithDebInfo MinSizeRel
-
-
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
-
-
-set(GENERATED_OUTPUT_PATH ${CMAKE_BINARY_DIR}/generated)
 
 
 # add to the search path for include files so that we will find our own includes
@@ -27,10 +19,11 @@ add_executable(txbench
     timing.c
 )
 
+set( TX_BENCH_SOURCE_FILE "${CMAKE_CURRENT_SOURCE_DIR}/primes_txbench.tx" )
 add_custom_command(OUTPUT primes_txbench.o
-    COMMAND ${CMAKE_BINARY_DIR}/bin/txc -tx ../.. -nojit -bc -o - primes_txbench.tx | opt -O3 | llc -filetype obj -o primes_txbench.o
-    DEPENDS primes_txbench.tx ${CMAKE_BINARY_DIR}/bin/txc
-    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+    COMMAND ${CMAKE_BINARY_DIR}/bin/txc -tx ${CMAKE_SOURCE_DIR} -nojit -bc -o - ${TX_BENCH_SOURCE_FILE} | opt -O3 | llc --relocation-model=pic --filetype obj -o primes_txbench.o
+    DEPENDS ${TX_BENCH_SOURCE_FILE} ${CMAKE_BINARY_DIR}/bin/txc
+#    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
     COMMENT "Compiling Tuplex source"
     VERBATIM
 )
@@ -38,16 +31,4 @@ add_custom_command(OUTPUT primes_txbench.o
 #target_link_libraries(cbench timing)
 #target_link_libraries(txbench timing)
 
-
-# if setting custom flags for this directory
-#SET (CMAKE_C_FLAGS                "-Wall -std=c99")
-#SET (CMAKE_C_FLAGS_DEBUG          "-g -DDEVMODE")
-#SET (CMAKE_C_FLAGS_MINSIZEREL     "-Os")
-#SET (CMAKE_C_FLAGS_RELEASE        "-O3")
-#SET (CMAKE_C_FLAGS_RELWITHDEBINFO "-O2 -g")
-
-#SET (CMAKE_CXX_FLAGS                "-Wall -std=c++11 -pthread")
-#SET (CMAKE_CXX_FLAGS_DEBUG          "-g -DDEVMODE")
-#SET (CMAKE_CXX_FLAGS_MINSIZEREL     "-Os")
-#SET (CMAKE_CXX_FLAGS_RELEASE        "-O3")
-#SET (CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O2 -g")
+SET (CMAKE_C_FLAGS "-Wall -std=c99")

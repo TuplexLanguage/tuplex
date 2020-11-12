@@ -61,8 +61,7 @@ public:
 //
     /// Construct a 0-width location in \a p.
     explicit TxLocation( const position& p = position() )
-            : begin( p )
-                     ,
+            : begin( p ),
               end( p )
     {
     }
@@ -72,23 +71,14 @@ public:
                          unsigned int l,
                          unsigned int c,
                          TxParserContext* parserCtx )
-            : begin( f, l, c )
-                     ,
-              end( f, l, c )
-                   ,
+            : begin( f, l, c ),
+              end( f, l, c ),
               parserCtx( parserCtx )
     {
         ASSERT( parserCtx, "NULL parserCtx" );
     }
 
-    TxLocation( const TxLocation& loc )
-            : begin( loc.begin )
-                     ,
-              end( loc.end )
-                   ,
-              parserCtx( loc.parserCtx )
-    {
-    }
+    TxLocation( const TxLocation& loc ) = default;
 
 //    /// Initialization.
 //    void initialize (std::string* f = YY_NULLPTR,
@@ -99,12 +89,13 @@ public:
 //      end = begin;
 //    }
 
-    void operator =( const TxLocation& loc )
-                     {
-        begin = loc.begin;
-        end = loc.end;
-        parserCtx = loc.parserCtx;
-    }
+    TxLocation& operator= ( const TxLocation& ) = default;
+//    void operator =( const TxLocation& loc )
+//                     {
+//        begin = loc.begin;
+//        end = loc.end;
+//        parserCtx = loc.parserCtx;
+//    }
 
     /** \name Line and Column related manipulators
      ** \{ */
@@ -112,7 +103,7 @@ public:
     /// Reset initial location to final location.
     void step()
     {
-        begin = end;
+        this->begin = this->end;
     }
 
     /// Extend the current location to the COUNT next columns.

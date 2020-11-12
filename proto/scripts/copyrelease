@@ -3,23 +3,45 @@
 # Cause subsequent commands which fail to exit the shell script immediately:
 set -e
 
-mkdir -p releases
+BIN_DIR=bin
+TXC=$BIN_DIR/txc
+if [ -f "$TXC" ]; then
+    echo "Found txc bin directory: " $TXC
+else
+    echo "Could not find txc bin: " $TXC
+    echo "Is the current directory not a build directory?"
+    exit 1
+fi
 
-# if [ -d releases/latest ]; then
-#   mv releases/latest ;
-# fi
+ROOT_DIR=..
+if [ -d "$ROOT_DIR/tx" ]; then
+    echo "Found the Tuplex root directory: " $ROOT_DIR
+else
+    echo "Could not find the Tuplex root directory: " $ROOT_DIR
+    exit 1
+fi
+
+mkdir -p releases
 
 DATE=$(date +"%y%m%d")
 DEST=releases/tx_rel_$DATE
-# mkdir releases/tx_rel_$DATE
 
-echo "Copying to "$DEST
+echo "Copying files to "$DEST
 
+if [ -d $DEST ]; then
+    echo "Target directory " $DEST " already exists, deleting it"
+    rm -r $DEST
+fi
 mkdir $DEST
-cp -r -t $DEST bin tx scripts autotest
+cp -r -t $DEST $ROOT_DIR/tx $ROOT_DIR/scripts $ROOT_DIR/autotest
+cp -r -t $DEST $BIN_DIR
 
+# reassign 'latest' dir symlink
 rm -f releases/latest
 ln -r -s $DEST releases/latest
+
+
+echo "Creating archive " $DEST.tar
 
 tar cf $DEST.tar $DEST
 zip $DEST.tar.zip $DEST.tar

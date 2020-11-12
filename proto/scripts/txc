@@ -1,0 +1,19 @@
+#/bin/bash
+# Wrapper script to attempt to find the current build version of txc.
+# It currently looks for bin/txc under the current directory which works if standing in a build dir.
+# Scripts such as txts sets TXCBIN so that the same executable is consistently found in their execution.
+# If in a release environment, instead add the Tuplex release bin dir to the path.
+
+if [ -n "$TXCBIN" ]; then
+    TXC=$TXCBIN
+else
+    TXC=bin/txc
+fi
+
+if [ -f "$TXC" ]; then
+    #echo "txc wrapper script running command: " $TXC $@
+    $TXC $@
+    exit $?
+else
+    echo "txc wrapper script can't find $TXC"
+fi

@@ -14,7 +14,7 @@ struct ExpectedErrorClause {
     ExpectedErrorClause() : ExpectedErrorClause( -1 ) {
     }
 
-    ExpectedErrorClause( int expected_error_count )
+    explicit ExpectedErrorClause( int expected_error_count )
             : ExpectedErrorClause( expected_error_count, 0, 0 ) {
     }
 

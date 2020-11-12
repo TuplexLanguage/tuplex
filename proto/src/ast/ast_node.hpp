@@ -22,7 +22,7 @@ struct AstCursor {
     const AstCursor* parent;
     const TxNode* node;
     unsigned depth;  // 0 if parent is null
-    AstCursor( const TxNode* node )
+    explicit AstCursor( const TxNode* node )
             : parent(), node( node ), depth() {
     }
     AstCursor( const AstCursor* parent, const TxNode* node )
@@ -68,11 +68,11 @@ protected:
     /** the semantic context this node represents/produces for its sub-AST, this is set in the declaration pass */
     LexicalContext lexContext;
 
-    TxNode( const TxLocation& ploc )
+    explicit TxNode( const TxLocation& ploc )
             : nodeId( nextNodeId++ ), lexContext(), ploc( ploc ) {
     }
 
-    virtual ~TxNode() = default;
+    ~TxNode() override = default;
 
     inline void set_context( LexicalContext&& context ) {
         ASSERT( !this->is_context_set(), "lexicalContext already initialized in " << this->str() );

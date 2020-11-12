@@ -2,6 +2,9 @@
 # Ensures the necessary build tools are installed and then builds tuplex.
 # This script is in the repo and can be run directly:  tuplex/proto/scripts/txinstall
 
+echo "THIS SCRIPT IS OUTDATED, NEEDS TO BE UPDATED FOR LLVM 11"
+exit 1
+
 set -x  # command echo on
 
 ###################

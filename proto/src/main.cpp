@@ -27,6 +27,11 @@ int main( int argc, const char **argv )
     options.run_jit = true;
     options.no_bc_output = true;
 #endif
+    // FIXME: Stripping debug info is currently default since it crashes LLVM (probably malformed)
+    options.strip_debug = true;
+
+    bool explicit_jit = false;
+    bool explicit_bc = false;
 
     options.txPath = ".";
 
@@ -48,6 +53,8 @@ int main( int argc, const char **argv )
                 printf( "  %-22s %s\n", "-di", "Dump intermediate representation (LLVM IR)" );
                 printf( "  %-22s %s\n", "-dl", "Print debugging output from lexer (token scanner)" );
                 printf( "  %-22s %s\n", "-dy", "Print debugging output from grammar parser" );
+                printf( "  %-22s %s\n", "-nodbg", "Strip debugging information from generated code" );
+                printf( "  %-22s %s\n", "-dbg", "Include debugging information in generated code" );
                 printf( "  %-22s %s\n", "-nover", "Disable verifying generated code after successful compilation (default if release build)" );
                 printf( "  %-22s %s\n", "-ver", "Run generated code verifier after successful compilation" );
                 printf( "  %-22s %s\n", "-nojit", "Disable running program in JIT mode after successful compilation (default if release build)" );
@@ -94,16 +101,22 @@ int main( int argc, const char **argv )
                 options.debug_lexer = true;
             else if ( !strcmp( argv[a], "-dy" ) )
                 options.debug_parser = true;
+            else if ( !strcmp( argv[a], "-dbg" ) )
+                options.strip_debug = false;
+            else if ( !strcmp( argv[a], "-nodbg" ) )
+                options.strip_debug = true;
+            else if ( !strcmp( argv[a], "-ver" ) )
+                options.run_verifier = true;
             else if ( !strcmp( argv[a], "-nover" ) )
                 options.run_verifier = false;
             else if ( !strcmp( argv[a], "-nojit" ) )
                 options.run_jit = false;
             else if ( !strcmp( argv[a], "-jit" ) )
-                options.run_jit = true;
+                explicit_jit = true;
             else if ( !strcmp( argv[a], "-nobc" ) )
                 options.no_bc_output = true;
             else if ( !strcmp( argv[a], "-bc" ) )
-                options.no_bc_output = false;
+                explicit_bc = true;
             else if ( !strcmp( argv[a], "-onlyparse" ) )
                 options.only_parse = true;
             else if ( !strcmp( argv[a], "-sepjobs" ) )
@@ -151,6 +164,21 @@ int main( int argc, const char **argv )
         }
     }
 
+    if ( explicit_jit )
+        options.run_jit = true;
+    if ( explicit_bc )
+        options.no_bc_output = false;
+    if ( options.run_jit && !options.no_bc_output ) {
+        if ( explicit_jit && explicit_bc ) {
+            LOG.warning("Specified both JIT and BC generation, this is unstable: supressing BC generation.");
+            options.no_bc_output = true;
+        }
+        else if ( explicit_jit )
+            options.no_bc_output = true;
+        else
+            options.run_jit = false;
+    }
+
     if ( startSourceFiles.empty() ) {
         startSourceFiles.push_back( "-" );  // this will read source from stdin
         // (will also write output to stdout unless an output filename has been specified)
@@ -162,6 +190,7 @@ int main( int argc, const char **argv )
         options.sourceSearchPaths.push_back( "." );  // if no search paths provided, the current directory is searched
 
     if ( separateJobs ) {
+        // TODO: by default strip directory of outputFileName (write it to current directory unless output dir specified)
         if ( !outputFileName.empty() && outputFileName != "-" )
             LOG.info( "Since compiling as separate jobs, specified output file name '%s' will be used as path prefix", outputFileName.c_str() );
         int ret = 0;
@@ -189,12 +218,25 @@ int main( int argc, const char **argv )
     else {
         if ( outputFileName.empty() ) {
             outputFileName = startSourceFiles.front();
-            if ( outputFileName != "-" ) {
+            if ( outputFileName != "-" ) {   // = if not piping from stdin to stdout
+                // Use first source file's base name as output file's base name.
+                // Strip the directory of the file name to write to current directory.
+                outputFileName = get_file_name( outputFileName );
                 if ( outputFileName.length() >= 3 && outputFileName.substr( outputFileName.length() - 3 ) == ".tx" )
                     outputFileName.replace( outputFileName.length() - 2, 2, "bc" );
                 else
                     outputFileName.append( ".bc" );
             }
+        }
+        else if ( outputFileName != "-" && file_status( outputFileName ) == 2 ) {
+            // outputFileName is specified, exists, and is a directory
+            if ( outputFileName.back() != get_path_separator() )
+                outputFileName.push_back( get_path_separator() );
+            outputFileName.append( get_file_name( startSourceFiles.front() ) );
+            if ( outputFileName.length() >= 3 && outputFileName.substr( outputFileName.length() - 3 ) == ".tx" )
+                outputFileName.replace( outputFileName.length() - 2, 2, "bc" );
+            else
+                outputFileName.append( ".bc" );
         }
 
         TxDriver driver( options );

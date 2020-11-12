@@ -84,7 +84,7 @@ Constant* TxTypeClassHandler::gen_static_size( const TxActualType* type, LlvmGen
     return this->gen_static_element_size( type, context );
 }
 
-Value* TxTypeClassHandler::gen_alloca( const TxActualType* type, LlvmGenerationContext& context, GenScope* scope, unsigned aligment, const std::string &varName ) const {
+Value* TxTypeClassHandler::gen_alloca( const TxActualType* type, LlvmGenerationContext& context, GenScope* scope, unsigned alignment, const std::string &varName ) const {
     if ( !type->is_static() ) {
         if ( type->is_concrete() )
             CERR_CODECHECK( type, "Currently not supported: Non-array types with VALUE bindings that are not statically constant: " << type );
@@ -94,7 +94,8 @@ Value* TxTypeClassHandler::gen_alloca( const TxActualType* type, LlvmGenerationC
     Type* llvmType = context.get_llvm_type( type );
 
     scope->use_alloca_insertion_point();
-    Value* objPtrV = scope->builder->Insert( new AllocaInst( llvmType, 0, nullptr, aligment ), varName );
+    Align a( alignment != 0 ? alignment : 1 );
+    Value* objPtrV = scope->builder->Insert( new AllocaInst( llvmType, 0, nullptr, a ), varName );
     scope->use_current_insertion_point();
 
     this->initialize_specialized_obj( type, context, scope, objPtrV );
@@ -359,7 +360,7 @@ Value* TxArrayTypeClassHandler::gen_alloca( const TxActualType* type, LlvmGenera
     // allocate array object, alignment of 8:
     // NOTE: Can't perform alloca in entry block since dependent on dynamic capacity expression evaluation.
     //allocationPtr = scope->builder->CreateAlloca( Type::getInt8Ty( context.llvmContext ), objectSizeV, "arrayalloca" );
-    Value* allocationPtr = scope->builder->Insert( new AllocaInst( Type::getInt8Ty( context.llvmContext ), 0, objectSizeV, 8 ), "arrayalloca" );
+    Value* allocationPtr = scope->builder->Insert( new AllocaInst( Type::getInt8Ty( context.llvmContext ), 0, objectSizeV, Align(8) ), "arrayalloca" );
 
     // cast the pointer:
     Type* llvmType = context.get_llvm_type( type );

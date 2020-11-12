@@ -6,6 +6,7 @@
 #include "ast_constexpr.hpp"
 #include "tx_error.hpp"
 #include "tx_logging.hpp"
+#include <cmath>
 #include <float.h>
 
 /** Evaluates if the operand is a statically constant scalar value that fits in the required type without loss of precision. */

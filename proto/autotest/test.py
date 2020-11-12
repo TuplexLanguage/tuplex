@@ -5,10 +5,10 @@ import sys
 
 
 def run_python( file ):
-    run_cmd( "python " + file )
+    run_cmd( "python3 " + file )
 
 def run_cmd( cmdline, expected_ret_code=0 ):
-    print "\033[4;90mRunning: '%s'\033[0m" % cmdline
+    print ( "\033[4;90mRunning: '%s'\033[0m" % cmdline )
     try:
         retcode = call( cmdline, shell=True )
         if retcode < 0:

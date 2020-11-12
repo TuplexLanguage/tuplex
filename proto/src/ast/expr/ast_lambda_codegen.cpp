@@ -53,7 +53,7 @@ Function* TxLambdaExprNode::code_gen_function_decl( LlvmGenerationContext& conte
     ASSERT( funcT, "Couldn't get LLVM type for function type " << this->funcHeaderNode->qtype() );
 
     AttributeList attribs = AttributeList::get( context.llvmContext, AttributeList::FunctionIndex, _funcAttrBuilder );
-    Function* function = cast<Function>( context.llvmModule().getOrInsertFunction( funcName, funcT, attribs ) );
+    Function* function = cast<Function>( context.llvmModule().getOrInsertFunction( funcName, funcT, attribs ).getCallee() );
     function->setLinkage( GlobalValue::InternalLinkage );
     // Note: function is of LLVM function pointer type (since it is an LLVM global value)
     return function;
@@ -76,15 +76,20 @@ void TxLambdaExprNode::code_gen_function_body( LlvmGenerationContext& context ) 
         DIScope* outerDebugScope = this->get_parser_context()->debug_unit();
         auto linkageName = StringRef();
         DISubroutineType* subRoutineType = cast<DISubroutineType>( context.get_debug_type( this->qtype() ) );
-        bool isLocalToUnit = true;  // internal linkage
         unsigned scopeLine = this->body->ploc.begin.line;
-        DITemplateParameterArray funcTemplParams = nullptr;  // can we use this for generic functions in future?
+//        bool isLocalToUnit = true;  // internal linkage
+//        DITemplateParameterArray funcTemplParams = nullptr;  // can we use this for generic functions in future?
         DISubprogram *subProg = context.debug_builder()->createFunction(
             outerDebugScope, this->functionPtr->getName(), linkageName,
-            fileScope, this->ploc.begin.line,
-            subRoutineType, isLocalToUnit, true /* isDefinition */, scopeLine,
-            DINode::FlagPrototyped,  // FlagVirtual might be relevant for virtual methods?
-            false /* isOptimized */, funcTemplParams );
+            fileScope, this->ploc.begin.line, subRoutineType, scopeLine,
+            DINode::FlagPrototyped,
+            DISubprogram::SPFlagLocalToUnit | DISubprogram::SPFlagDefinition
+//            DINode::FlagPrototyped  // FlagVirtual might be relevant for virtual methods?
+//            isLocalToUnit,
+//            true /* isDefinition */,
+//            false /* isOptimized */,
+//            funcTemplParams
+            );
         this->functionPtr->setSubprogram( subProg );
 
 //        // Push the current scope.
