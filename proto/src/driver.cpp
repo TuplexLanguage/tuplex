@@ -74,8 +74,7 @@ TxDriver::TxDriver( const TxOptions& options )
 {
 }
 
-TxDriver::~TxDriver() {
-}
+TxDriver::~TxDriver() = default;
 
 
 
@@ -110,14 +109,8 @@ int TxDriver::compile( const std::vector<std::string>& startSourceFiles, const s
     }
 
     {  // parse the built-in source:
-        TxParserContext* parserContext = new TxParserContext( *this, TxIdentifier( "" ), __FILE__, TxParserContext::BUILTINS );
-//        // TO DO: make the line numbers match
-//        auto memBuffer = yy_scan_string( CORE_TX_SOURCE_STR );
-//        yy_flex_debug = this->options.debug_lexer;
-//        yy::TxParser parser( parserContext );
-//        int ret = parser.parse();
-//        yy_delete_buffer( memBuffer );
-        int ret = parse_mem_buffer( parserContext, CORE_TX_SOURCE_STR, this->options );
+        auto* parserContext = new TxParserContext( *this, TxIdentifier( "" ), __FILE__, TxParserContext::BUILTINS );
+        int ret = parse( parserContext, CORE_TX_SOURCE_STR, this->options );
         if ( ret ) {
             _LOG.fatal( "Exiting due to unrecovered syntax error" );
             return ret;
@@ -136,8 +129,8 @@ int TxDriver::compile( const std::vector<std::string>& startSourceFiles, const s
         this->add_all_in_dir( BUILTIN_NS, txPath, true );
     }
 
-    for ( auto startFile : startSourceFiles )
-        this->sourceFileQueue.push_back( std::pair<TxIdentifier, std::string>( TxIdentifier(), startFile ) );
+    for ( const auto& startFile : startSourceFiles )
+        this->sourceFileQueue.emplace_back( TxIdentifier(), startFile );
 
     /*--- parse all source filed (during parsing, files are added to the queue as the are imported) ---*/
 
@@ -155,8 +148,22 @@ int TxDriver::compile( const std::vector<std::string>& startSourceFiles, const s
 
         std::string nextFilePath = this->sourceFileQueue.front().second;
         if ( !this->parsedSourceFiles.count( nextFilePath ) ) {  // if not already parsed
-            TxParserContext* parserContext = new TxParserContext( *this, moduleName, nextFilePath, pfs );
-            int ret = parse( parserContext, this->options );
+            FILE* file;
+            if ( nextFilePath.empty() || nextFilePath == "-" ) {
+                file = stdin;
+            }
+            else {
+                file = fopen( nextFilePath.c_str(), "r" );
+                if ( ! file ) {
+                    _LOG.error( "Could not open source file '%s': %s", nextFilePath.c_str(), strerror( errno ) );
+                    return -1;
+                }
+            }
+            _LOG.info( "+ Opened file for parsing: '%s'", nextFilePath.c_str() );
+
+            auto* parserContext = new TxParserContext( *this, moduleName, nextFilePath, pfs );
+            int ret = parse( parserContext, file, this->options );
+            fclose( file );
             if ( ret ) {
                 if ( ret < 0 )  // input file / stream error
                     _LOG.fatal( "Exiting due to input file / stream error" );

@@ -76,6 +76,9 @@ add_executable(txc
         util/files_env.cpp
         util/logging.cpp
 
+		txparser/scanner.cpp
+		txparser/txparser.cpp
+
         identifier.cpp
         tx_operations.cpp
         tx_error.cpp
@@ -153,6 +156,7 @@ add_executable(txc
 target_compile_features(txc PUBLIC cxx_std_17)
 
 target_compile_options(txc PUBLIC "SHELL:${LLVM_CXX_FLAGS} -fexceptions")  # (exceptions disabled by LLVM flags)
+target_compile_options(txc PUBLIC "-Wno-unknown-pragmas")
 
 target_link_options(txc PUBLIC "SHELL:${LLVM_LD_FLAGS}")
 

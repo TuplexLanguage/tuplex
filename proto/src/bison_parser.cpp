@@ -20,41 +20,21 @@ void yy_delete_buffer (YY_BUFFER_STATE b );
 static Logger& _LOG = Logger::get( "BARSER" );
 
 
-int scan_begin( const std::string &filePath, const TxOptions& options ) {
-    if ( filePath.empty() || filePath == "-" )
-        yyin = stdin;
-    else if ( !( yyin = fopen( filePath.c_str(), "r" ) ) ) {
-        _LOG.error( "Could not open source file '%s': %s", filePath.c_str(), strerror( errno ) );
-        return -1;
-    }
+int parse( TxParserContext* parserContext, FILE* file, const TxOptions& options ) {
+    yyin = file;
     yyrestart( yyin );
     yy_flex_debug = options.debug_lexer;
-    _LOG.info( "+ Opened file for parsing: '%s'", filePath.c_str() );
-    return 0;
-}
 
-void scan_end() {
-    fclose( yyin );
-}
-
-int parse( TxParserContext* parserContext, const TxOptions& options ) {
-    int ret = scan_begin( *parserContext->current_input_filepath(), options );
-    if ( ret ) {
-        return ret;
-    }
-
-    //if (this->options.only_scan)  // currently unsupported
+    //if ( options.only_scan )  // currently unsupported
     //    return test_scanner();
 
     yy::TxParser parser( parserContext );
     parser.set_debug_level( options.debug_parser );
-    ret = parser.parse();
-
-    scan_end();
+    int ret = parser.parse();
     return ret;
 }
 
-int parse_mem_buffer( TxParserContext* parserContext, const char* source_buffer, const TxOptions& options ) {
+int parse( TxParserContext* parserContext, const char* source_buffer, const TxOptions& options ) {
     // TODO: make the line numbers match
     auto memBuffer = yy_scan_string( source_buffer );
     yy_flex_debug = options.debug_lexer;

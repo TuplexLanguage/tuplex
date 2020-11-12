@@ -60,23 +60,21 @@ public:
     explicit position( std::string* f = YY_NULLPTR,
                        unsigned int l = 1u,
                        unsigned int c = 1u )
-            : filename( f )
-                        ,
-              line( l )
-                    ,
+            : filename( f ),
+              line( l ),
               column( c )
     {
     }
 
-    /// Initialization.
-    void initialize( std::string* fn = YY_NULLPTR,
-                     unsigned int l = 1u,
-                     unsigned int c = 1u )
-                     {
-        filename = fn;
-        line = l;
-        column = c;
-    }
+//    /// Initialization.
+//    void initialize( std::string* fn = YY_NULLPTR,
+//                     unsigned int l = 1u,
+//                     unsigned int c = 1u )
+//                     {
+//        filename = fn;
+//        line = l;
+//        column = c;
+//    }
 
     /** \name Line and Column related manipulators
      ** \{ */
@@ -145,9 +143,7 @@ operator-( position res, int width )
 }
 
 /// Compare two position objects.
-inline bool
-operator==( const position& pos1, const position& pos2 )
-            {
+inline bool operator==( const position& pos1, const position& pos2 ) {
     return ( pos1.line == pos2.line
              && pos1.column == pos2.column
              && ( pos1.filename == pos2.filename
@@ -156,9 +152,7 @@ operator==( const position& pos1, const position& pos2 )
 }
 
 /// Compare two position objects.
-inline bool
-operator!=( const position& pos1, const position& pos2 )
-            {
+inline bool operator!=( const position& pos1, const position& pos2 ) {
     return !( pos1 == pos2 );
 }
 
