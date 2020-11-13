@@ -48,7 +48,7 @@ public:
         return std::string_view( &( buffer.source[begin.index] ), ( end.index - begin.index ));
     }
 
-    virtual void print( int indent ) = 0;
+    virtual void print( int indent ) const = 0;
 };
 
 
@@ -62,7 +62,7 @@ public:
     TxToken( const TxSourceBuffer& buffer, const TxSourcePosition& begin, const TxSourcePosition& end, TxTokenId id )
             : TxBasicNode( buffer, begin, end ), id( id ) {}
 
-    void print( int indent ) override;
+    void print( int indent ) const override;
 };
 
 
@@ -84,4 +84,6 @@ public:
             : buffer( buffer ), cursor(), nextToken( 0 ) {}
 
     const TxToken& next_token();
+
+    TxSourcePosition current_cursor() const;
 };

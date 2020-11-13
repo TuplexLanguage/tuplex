@@ -1,4 +1,3 @@
-#include <cstdlib>
 #include <string>
 
 #include "tinydir/tinydir.h"
@@ -153,6 +152,10 @@ int TxDriver::compile( const std::vector<std::string>& startSourceFiles, const s
                 file = stdin;
             }
             else {
+                if ( file_status( nextFilePath ) != 1 ) {
+                    _LOG.error( "Source file name '%s' is not found or not a file.", nextFilePath.c_str() );
+                    return -1;
+                }
                 file = fopen( nextFilePath.c_str(), "r" );
                 if ( ! file ) {
                     _LOG.error( "Could not open source file '%s': %s", nextFilePath.c_str(), strerror( errno ) );

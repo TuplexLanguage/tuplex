@@ -125,9 +125,9 @@ YY_DECL;
 /* operators: */
 %token END 0  // end of scan
 %token ERROR  // indicates lexcial error
-%token WHITESPACE NEWLINE COMMENT  // needed for ids, will not be produced
+%token WHITESPACE COMMENT  // needed for ids, will not be produced
 %token INDENT DEDENT
-%token NL SEMICOLON // statement separator
+%token NEWLINE SEMICOLON // statement separator
 %token DOT COLON COMMA DOTDOT ELLIPSIS ASTERISK PLUS MINUS FSLASH BSLASH AAND
 %token PIPE CARET TILDE AT PERCENT DOLLAR EURO LPAREN RPAREN LBRACE
 %token RBRACE LBRACKET RBRACKET QMARK EMARK DASHGT LTCOLON COLONGT
@@ -156,7 +156,7 @@ YY_DECL;
 
  /* literals: */
 %token <std::string> NAME LIT_DEC_INT LIT_RADIX_INT LIT_FLOATING LIT_CHARACTER LIT_CSTRING LIT_STRING
-%token <std::string> STR_FORMAT SF_PARAM SF_FLAGS SF_WIDTH SF_PREC SF_TYPE
+%token <std::string> SF_PARAM SF_FLAGS SF_WIDTH SF_PREC SF_TYPE
 %token <std::string> HASHINIT HASHSELF
 
 /* Define the type of node our nonterminal symbols represent.
