@@ -35,9 +35,9 @@ struct TxSourcePosition {
 };
 
 
-class TxBasicNode {
+class TxBasicNode {  // TODO: do we want a common superclass for tokens and ast nodes?
 public:
-    const TxSourceBuffer& buffer;
+    const TxSourceBuffer& buffer;  // TODO: should it refer buffer, or parser context, or nothing?
     const TxSourcePosition begin;
     const TxSourcePosition end;
 
@@ -66,24 +66,41 @@ public:
 };
 
 
-class TxScanState {
-    const TxSourceBuffer buffer;
-    TxLineIndex lineIndex;
+class TxScanner;
 
-    TxSourcePosition cursor;
 
-    std::stack<size_t> indentStack;
-
-    std::vector<TxToken> tokens;
-    size_t nextToken;
-
+class TxSourceScan {
     void advance_head( size_t length );
 
+    // input
+    const TxSourceBuffer buffer;
+
+    // current state
+    TxSourcePosition cursor;
+    size_t nextToken;
+
+    // outputs
+    TxLineIndex lineIndex;
+    std::vector<TxToken> tokens;
+
 public:
-    explicit TxScanState( const TxSourceBuffer& buffer )
-            : buffer( buffer ), cursor(), nextToken( 0 ) {}
+    // external interface
+    explicit TxSourceScan( const TxSourceBuffer& buffer );
 
     const TxToken& next_token();
 
-    TxSourcePosition current_cursor() const;
+    inline const TxSourcePosition& current_cursor() const {
+        return this->cursor;
+    }
+
+
+    // internal interface; encapsulate?
+    std::stack<const TxScanner*> scannerStack;
+    std::stack<uint32_t> indentStack;
+
+    inline const char* input_buffer() const {
+        return &buffer.source[cursor.index];
+    }
+
+    void add_token( TxTokenId id, uint32_t len );
 };

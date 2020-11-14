@@ -1,0 +1,41 @@
+Possible future scanning algorithm with a custom state machine.
+Would be very efficient for source code scanning, but uncertain if it would work well for UTF-8.
+
+
+Limitations:
+- Only handles single-character conditionals, not multicharacter substrings (e.g. foo|bar or (foo)+)
+- Unsure how to handle UTF-8 variable-width characters
+  (what is really needed: isalpha() (and maybe isvalidcodepoint()), the rest of source code is all ASCII code points)
+
+
+Notes:
+- if foo and foobar are keywords, fooba will first find match in foo, then attempt foobar but fail and return foo
+
+
+vector<ScanState> scanStates;
+
+leftString - currently (potentially) matched characters
+
+longestCompleteMatch - the longest acceptable and unambiguous match so far (may be shorter than leftString)
+
+
+struct MatchInterval {
+    uint16_t[2] interval;
+    uint32_t scanStateIx;
+}
+
+struct ScanState {
+    TxTokenId matchingTokenId;  // if set, leftString is an acceptable and unambiguous match for this token
+    uint32_t intervalCount;
+    MatchInterval* intervals;   // if any interval matches the next character, go to its ScanState
+}
+
+
+
+Initialization:
+
+A) Generate state machine for each token
+
+B) Merge the state machines one at a time
+
+C) (Maybe) Recreate the vectors in contiguous memory for more efficient processing

@@ -14,7 +14,7 @@ class location;
 }
 
 class TxDriver;
-class TxScanState;
+class TxSourceScan;
 class TxNode;
 class TxParsingUnitNode;
 class LlvmGenerationContext;
@@ -48,7 +48,7 @@ class TxParserContext : public Printable {
 
 public:
     /** set directly by parser */
-    TxScanState* scanState = nullptr;
+    TxSourceScan* scanState = nullptr;
 
     /** set directly by parser */
     TxParsingUnitNode* parsingUnit = nullptr;

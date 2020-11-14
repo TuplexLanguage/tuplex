@@ -2,7 +2,6 @@
 
 #include "bison_parser.hpp"
 
-//typedef yy::TxParser::token_type TxTokenId;
 typedef yy::TxParser::token::yytokentype TxTokenId;
 
 /*

@@ -16,7 +16,7 @@ static Logger& _LOG = Logger::get( "BARSER" );
 
 int parse(TxParserContext* parserContext, const char* buffer, const TxOptions& options ) {
     TxSourceBuffer srcBuffer( { buffer } );
-    auto scanState = new TxScanState( srcBuffer );
+    auto scanState = new TxSourceScan( srcBuffer );
     parserContext->scanState = scanState;
 
     yy::TxParser parser( parserContext );
