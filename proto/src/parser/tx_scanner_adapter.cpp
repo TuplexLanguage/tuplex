@@ -4,6 +4,7 @@
 #include "tx_options.hpp"
 
 #include "bison_parser.hpp"
+#include "driver.hpp"
 
 class TxParserContext;
 
@@ -47,11 +48,13 @@ yy::TxParser::token_type yylex( yy::TxParser::semantic_type* yylval, yy::TxParse
 //                return TxTokenId::RBRACE;
 
             default:
-                std::cout << "Returned token: ";
-                token.print(0);
-                std::cout << std::endl;
-                yylloc->columns( token.getSourceText().length() );
-                yylval->emplace<std::string>( token.getSourceText() );
+                if ( parserCtx->driver().get_options().debug_scanner ) {
+                    std::cerr << "Returned token: ";
+                    token.print( 0 );
+                    std::cerr << std::endl;
+                }
+                yylloc->columns( token.getSourceText().length());
+                yylval->emplace<std::string>( token.getSourceText());
                 return token.id;
         }
     } while ( true );

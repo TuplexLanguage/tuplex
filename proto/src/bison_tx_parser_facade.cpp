@@ -15,6 +15,7 @@ static Logger& _LOG = Logger::get( "BARSER" );
 
 
 int parse(TxParserContext* parserContext, const char* buffer, const TxOptions& options ) {
+    // TODO: remove options from parameters, it is accessible via parserCtx->driver().get_options()
     TxSourceBuffer srcBuffer( { buffer } );
     auto scanState = new TxSourceScan( srcBuffer );
     parserContext->scanState = scanState;

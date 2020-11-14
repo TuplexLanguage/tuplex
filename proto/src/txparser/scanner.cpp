@@ -50,8 +50,8 @@ public:
 /** Matches a string containing one or more of the specified characters, in any order. */
 class TxCharSetMatcher : public TxTokenMatcher {
 public:
-    explicit TxCharSetMatcher( const char* pattern )
-            : TxTokenMatcher( pattern, true ) {}
+    explicit TxCharSetMatcher( const char* pattern, bool definitive = false )
+            : TxTokenMatcher( pattern, definitive ) {}
 
     std::vector<int8_t> first_bytes() const override {
         return std::vector<int8_t>( pattern.cbegin(), pattern.cend());
@@ -61,7 +61,8 @@ public:
         for ( size_t s = 0; true; s++ ) {
             if ( !source[s] ) {  // end of buffer
                 return s;
-            } else if ( pattern.find( source[s] ) == std::string::npos ) {
+            }
+            else if ( pattern.find( source[s] ) == std::string::npos ) {
                 return s;
             }
         }
@@ -73,29 +74,32 @@ public:
     const std::string endPattern;
 
     TxCommentMatcher( const char* startPattern, const char* endPattern )
-            : TxTokenMatcher( startPattern ), endPattern( endPattern ) {}
+            : TxTokenMatcher( startPattern, true ), endPattern( endPattern ) {
+        ASSERT( this->pattern.length() == 2, "implementation requires a prefix length of 2" );
+        ASSERT( this->endPattern.length() == 2, "implementation requires a suffix length of 2" );
+    }
 
     std::vector<int8_t> first_bytes() const override {
         return std::vector<int8_t>( { pattern[0] } );
     }
 
     uint32_t match( const char* source ) const override {
-        if ( strncmp( &source[0], pattern.c_str(), pattern.length() ) != 0 ) {
+        if ( !( source[0] == pattern[0] && source[1] == pattern[1] ))
             return 0;
-        }
         unsigned nestLevel = 1;
-        for ( size_t s = pattern.length(); true; s++ ) {
+        for ( size_t s = 2; true; s++ ) {
             if ( !source[s] ) {
                 // end of buffer = end of comment
                 return s;
             }
-            if ( ! strncmp( &source[s], endPattern.c_str(), endPattern.length() ) ) {
+            if ( source[s] == endPattern[0] && source[s + 1] == endPattern[1] ) {
                 // end of a comment level
                 if ( --nestLevel == 0 ) {
                     return s + endPattern.length();
                 }
             }
-            if ( ! strncmp( &source[s], pattern.c_str(), pattern.length() ) ) {
+            if ( source[s] == pattern[0] && source[s + 1] == pattern[1] ) {
+                // begin of a comment level
                 ++nestLevel;
             }
         }
@@ -104,23 +108,24 @@ public:
 
 class TxLineCommentMatcher : public TxTokenMatcher {
 public:  // ( this hardcodes the matched characters - makes macro handling easier)
-    TxLineCommentMatcher() : TxTokenMatcher( "##" ) {}
+    TxLineCommentMatcher() : TxTokenMatcher( "##" ) {
+        ASSERT( this->pattern.length() == 2, "implementation requires a prefix length of 2" );
+    }
 
     std::vector<int8_t> first_bytes() const override {
         return std::vector<int8_t>( { pattern[0] } );
     }
 
     uint32_t match( const char* source ) const override {
-        for ( size_t s = 0; s < pattern.length(); s++ ) {
-            if ( pattern[s] != source[s] )
-                return 0;
-        }
+        if ( !( source[0] == pattern[0] && source[1] == pattern[1] ))
+            return 0;
         // matched comment start
-        for ( size_t s = pattern.length(); true; s++ ) {
+        for ( size_t s = 2; true; s++ ) {
             if ( !source[s] ) {
                 // end of buffer = end of comment
                 return s;
-            } else if ( source[s] == '\n' || source[s] == '\r' ) {
+            }
+            else if ( source[s] == '\n' || source[s] == '\r' ) {
                 // end of comment (the newline character is not included in the matched string)
                 return s;
             }
@@ -143,7 +148,8 @@ public:
         for ( size_t s = 0; true; s++ ) {
             if ( !source[s] ) {  // end of buffer
                 return 0;
-            } else if ( pattern.find( source[s] ) == std::string::npos ) {
+            }
+            else if ( pattern.find( source[s] ) == std::string::npos ) {
                 if ( source[s] == '\n' || source[s] == '\r' )
                     return 0;  // empty line - treat as insignificant whitespace
                 else if ( source[s] == '#' && source[s + 1] == '#' )
@@ -170,9 +176,10 @@ public:
         for ( size_t s = 0; true; s++ ) {
             if ( !source[s] ) {  // end of buffer
                 return s;
-            } else if ( !( std::isalpha( source[s] )
-                           || source[s] == '_'
-                           || ( s > 0 && std::isdigit( source[s] )))) {
+            }
+            else if ( !( std::isalpha( source[s] )
+                         || source[s] == '_'
+                         || ( s > 0 && std::isdigit( source[s] )))) {
                 return s;
             }
         }
@@ -190,10 +197,10 @@ public:
 
     uint32_t match( const char* source ) const override {
         size_t s = 0;
-        for ( ; std::isdigit( source[s] ); s++ ) {
-        }
-        if ( s == 0 )
+        if ( ! std::isdigit( source[s] ) )
             return 0;
+        for ( s++; std::isdigit( source[s] ) || source[s] == '_'; s++ ) {
+        }
         if ( source[s] == 'U' )
             s++;
         if ( pattern.find( source[s] ) != std::string::npos )
@@ -224,7 +231,8 @@ public:
                 return 0;
             for ( s++; std::isxdigit( source[s] ) || source[s] == '_'; s++ ) {
             }
-        } else {
+        }
+        else {
             for ( s = 0; std::isdigit( source[s] ); s++ ) {
             }
             if ( s == 0 )
@@ -232,8 +240,15 @@ public:
             if ( source[s] != '#' )
                 return 0;
             s++;
-            //if ( source[s] == '-' )
-            //    s++;
+
+            // optional whitespaces and an optional minus sign:
+            for ( s++; source[s] == ' ' || source[s] == '\t'; s++ ) {
+            }
+            if ( source[s] == '-' ) {
+                for ( s++; source[s] == ' ' || source[s] == '\t'; s++ ) {
+                }
+            }
+
             if ( !std::isalnum( source[s] ))
                 return 0;
             for ( s++; std::isalnum( source[s] ) || source[s] == '_'; s++ ) {
@@ -263,14 +278,65 @@ public:
 
     uint32_t match( const char* source ) const override {
         size_t s = 0;
-        for ( ; std::isdigit( source[s] ); s++ ) {
+        if ( std::isdigit( source[s] ) ) {
+            for ( s++; std::isdigit( source[s] ) || source[s] == '_'; s++ ) {
+            }
         }
         if ( source[s] != '.' )
             return 0;
-        for ( s++; std::isdigit( source[s] ); s++ ) {
+        s++;
+        if ( std::isdigit( source[s] ) ) {
+            for ( s++; std::isdigit( source[s] ) || source[s] == '_'; s++ ) {
+            }
         }
-        if ( s < 2 )
+        if ( s == 1 )
+            return 0;  // only '.' without any digits
+        if ( pattern.find( source[s] ) != std::string::npos )
+            s++;
+        return s;
+    }
+};
+
+class TxExpFloatMatcher : public TxTokenMatcher {
+public:
+    TxExpFloatMatcher() : TxTokenMatcher( "HFD" ) {}
+
+    std::vector<int8_t> first_bytes() const override {
+        const std::string chars( "0123456789." );
+        return std::vector<int8_t>( chars.cbegin(), chars.cend());
+    }
+
+    uint32_t match( const char* source ) const override {
+        size_t s = 0;
+        if ( std::isdigit( source[s] ) ) {
+            for ( s++; std::isdigit( source[s] ) || source[s] == '_'; s++ ) {
+            }
+        }
+        if ( source[s] == '.' ) {
+            s++;
+            if ( std::isdigit( source[s] ) ) {
+                for ( s++; std::isdigit( source[s] ) || source[s] == '_'; s++ ) {
+                }
+            }
+            if ( s == 1 )
+                return 0;  // only '.' without any digits
+        }
+        else if ( s == 0 )
             return 0;
+
+        if ( source[s] == 'e' || source[s] == 'E' )
+            s++;
+        else
+            return 0;
+        if ( source[s] == '+' || source[s] == '-' )
+            s++;
+        if ( std::isdigit( source[s] ) ) {
+            for ( s++; std::isdigit( source[s] ) || source[s] == '_'; s++ ) {
+            }
+        }
+        else
+            return 0;
+
         if ( pattern.find( source[s] ) != std::string::npos )
             s++;
         return s;
@@ -337,7 +403,8 @@ public:
                     break;
             }
             return 4;
-        } else {
+        }
+        else {
             if ( source[1] == 0 || source[2] != '\'' )
                 return 0;
             return 3;
@@ -405,14 +472,15 @@ public:
 
 TxTokenMatch TxScanner::match_token( const TxSourceScan& scanState ) const {
     TxTokenMatch match = { TxTokenId::END, 0 };
-    for ( const TxTokenDef* tokDef : *lookup( *scanState.input_buffer() )) {
-        auto newMatchLen = tokDef->matcher->match( scanState.input_buffer() );
+    for ( const TxTokenDef* tokDef : *lookup( *scanState.input_buffer())) {
+        auto newMatchLen = tokDef->matcher->match( scanState.input_buffer());
         if ( newMatchLen > 0 ) {
             if ( tokDef->matcher->definitive ) {
                 match.length = newMatchLen;
                 match.id = tokDef->id;
                 break;
-            } else if ( newMatchLen > match.length ) {
+            }
+            else if ( newMatchLen > match.length ) {
                 match.length = newMatchLen;
                 match.id = tokDef->id;
             }
@@ -462,7 +530,7 @@ void TxTopScanner::scan_token( TxSourceScan& scanState ) const {
     // Special logic for indentation. Only match for indentation when at start of line.
     if ( scanState.current_cursor().column == 1 ) {
         // TODO: warn if mixing tabs and spaces
-        const auto indentLen = indentation_matcher.match( scanState.input_buffer() );
+        const auto indentLen = indentation_matcher.match( scanState.input_buffer());
         if ( indentLen > 0 ) {
             TxTokenId tokenId;
             size_t prevIndent = ( scanState.indentStack.empty() ? 0 : scanState.indentStack.top());
@@ -476,18 +544,20 @@ void TxTopScanner::scan_token( TxSourceScan& scanState ) const {
                         // check consistency with previous indentation levels (it should match one of the previous lengths exactly):
                         if ( indentLen > prevIndent ) {
                             auto& cursor = scanState.current_cursor();
-                            std::cout << "Inconsistent indentation at line=" << cursor.line << ",col="
+                            std::cerr << "Inconsistent indentation at line=" << cursor.line << ",col="
                                       << cursor.column << ", " << indentLen << " > " << prevIndent << std::endl;
                         }
                         break;
                     }
                     scanState.add_token( TxTokenId::DEDENT, 0 );
                 } while ( true );
-            } else {
+            }
+            else {
                 if ( indentLen > prevIndent ) {
                     scanState.indentStack.push( indentLen );
                     tokenId = TxTokenId::INDENT;
-                } else {  // matchLen == prevIndent
+                }
+                else {  // matchLen == prevIndent
                     // same indentation as previous, treat as simple whitespace
                     tokenId = TxTokenId::WHITESPACE;
                 }
@@ -515,19 +585,18 @@ void TxTopScanner::scan_token( TxSourceScan& scanState ) const {
 }
 
 
-
 const TxIndentationMatcher TxTopScanner::indentation_matcher( " \t" );
 
 #define TOKDEF( token, matcher )  { token, matcher }
 
 const std::vector<TxTokenDef> TxTopScanner::topTokenDefinitions =
         {
-                TOKDEF( TxTokenId::WHITESPACE, new TxCharSetMatcher( " \t" )),
+                TOKDEF( TxTokenId::WHITESPACE, new TxCharSetMatcher( " \t", true )),
                 TOKDEF( TxTokenId::COMMENT, new TxCommentMatcher( "/*", "*/" )),
                 TOKDEF( TxTokenId::COMMENT, new TxLineCommentMatcher()),
 
                 /* statement separators */
-                TOKDEF( TxTokenId::NEWLINE, new TxCharSetMatcher( "\n\r" )),
+                TOKDEF( TxTokenId::NEWLINE, new TxCharSetMatcher( "\n\r", true )),
                 TOKDEF( TxTokenId::SEMICOLON, new TxFixedMatcher( ";", true )),
                 TOKDEF( TxTokenId::LBRACE, new TxFixedMatcher( "{", true )),
                 TOKDEF( TxTokenId::RBRACE, new TxFixedMatcher( "}", true )),
@@ -639,6 +708,7 @@ const std::vector<TxTokenDef> TxTopScanner::topTokenDefinitions =
                 TOKDEF( TxTokenId::LIT_DEC_INT, new TxIntegerMatcher()),
                 TOKDEF( TxTokenId::LIT_RADIX_INT, new TxRadixIntegerMatcher()),
                 TOKDEF( TxTokenId::LIT_FLOATING, new TxFloatMatcher()),
+                TOKDEF( TxTokenId::LIT_FLOATING, new TxExpFloatMatcher()),
                 TOKDEF( TxTokenId::LIT_CHARACTER, new TxCharacterMatcher()),
                 TOKDEF( TxTokenId::LIT_CSTRING, new TxStringMatcher( 'c' )),
                 TOKDEF( TxTokenId::LIT_STRING, new TxStringMatcher()),
@@ -647,20 +717,6 @@ const std::vector<TxTokenDef> TxTopScanner::topTokenDefinitions =
                 /* TRUE and FALSE are parsed as keywords until they can be implemented using proper Enum facility */
                 TOKDEF( TxTokenId::KW_TRUE, new TxFixedMatcher( "TRUE" )),
                 TOKDEF( TxTokenId::KW_FALSE, new TxFixedMatcher( "FALSE" )),
-
-                /* string format operators */
-                /*
-                TOKDEF( TxTokenId::SF_PARAM, new TxNeverMatcher() ),  // FUTURE
-                TOKDEF( TxTokenId::SF_FLAGS, new TxNeverMatcher() ),  // FUTURE
-                TOKDEF( TxTokenId::SF_WIDTH, new TxNeverMatcher() ),  // TODO
-                TOKDEF( TxTokenId::SF_PREC, new TxNeverMatcher() ),  // TODO
-                TOKDEF( TxTokenId::SF_TYPE, new TxNeverMatcher() ),  // TODO
-                TOKDEF( TxTokenId::SF_MINUS, new TxFixedMatcher( "-" ) ),
-                TOKDEF( TxTokenId::SF_PLUS, new TxFixedMatcher( "+" ) ),
-                TOKDEF( TxTokenId::SF_SPACE, new TxFixedMatcher( " " ) ),
-                TOKDEF( TxTokenId::SF_ZERO, new TxFixedMatcher( "0" ) ),
-                TOKDEF( TxTokenId::SF_HASH, new TxFixedMatcher( "#" ) ),
-                 */
 
                 /* identifiers */
                 TOKDEF( TxTokenId::NAME, new TxNameMatcher()),
@@ -717,7 +773,8 @@ void TxSourceScan::advance_head( size_t length ) {
             lineIndex.line_index.push_back( cursor.index );
             cursor.line++;
             cursor.column = 1;
-        } else {
+        }
+        else {
             cursor.column++;
         }
     }
@@ -752,10 +809,9 @@ const TxToken& TxSourceScan::next_token() {
 
 void TxToken::print( int indent ) const {
     for ( int i = 0; i < indent; i++ ) {
-        std::cout << ' ';
+        std::cerr << ' ';
     }
-    // FIXME: find token label
-    std::cout << "line=" << begin.line << ",col=" << begin.column << " " << id
+    std::cerr << "line=" << begin.line << ",col=" << begin.column << " " << id
               << " \"" << getSourceText() << '"';
 }
 

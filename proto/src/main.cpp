@@ -51,7 +51,7 @@ int main( int argc, const char **argv )
                 printf( "  %-22s %s\n", "-dsx", "Dump full symbol table including built-in symbols" );
                 printf( "  %-22s %s\n", "-dt", "Dump types" );
                 printf( "  %-22s %s\n", "-di", "Dump intermediate representation (LLVM IR)" );
-                printf( "  %-22s %s\n", "-dl", "Print debugging output from lexer (token scanner)" );
+                printf( "  %-22s %s\n", "-dl", "Print debugging output from token scanner" );
                 printf( "  %-22s %s\n", "-dy", "Print debugging output from grammar parser" );
                 printf( "  %-22s %s\n", "-nodbg", "Strip debugging information from generated code" );
                 printf( "  %-22s %s\n", "-dbg", "Include debugging information in generated code" );
@@ -98,7 +98,7 @@ int main( int argc, const char **argv )
             else if ( !strcmp( argv[a], "-di" ) )
                 options.dump_ir = true;
             else if ( !strcmp( argv[a], "-dl" ) )
-                options.debug_lexer = true;
+                options.debug_scanner = true;
             else if ( !strcmp( argv[a], "-dy" ) )
                 options.debug_parser = true;
             else if ( !strcmp( argv[a], "-dbg" ) )
