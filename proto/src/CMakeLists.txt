@@ -78,6 +78,7 @@ add_executable(txc
         util/logging.cpp
 
 		txparser/scanner.cpp
+		txparser/tx_tokens.cpp
 #		txparser/tmp_parser.cpp
 #		bison_parser_facade.cpp
 		bison_tx_parser_facade.cpp
@@ -153,7 +154,7 @@ add_executable(txc
         ast/expr/ast_op_exprs_codegen.cpp
         ast/expr/ast_intrinsics_codegen.cpp
         ast/expr/ast_constexpr_codegen.cpp
-        parser/tx_scanner_adapter.cpp txparser/tx_tokens.hpp)
+        parser/tx_scanner_adapter.cpp txparser/tx_tokens.hpp txparser/tx_tokens.cpp)
 
 target_compile_features(txc PUBLIC cxx_std_17)
 

@@ -2,7 +2,9 @@
 
 #include "bison_parser.hpp"
 
-typedef yy::TxParser::token_type TxTokenId;
+//typedef yy::TxParser::token_type TxTokenId;
+typedef yy::TxParser::token::yytokentype TxTokenId;
+
 /*
 enum class TxTokenId : u_int32_t {
     END = 0,
@@ -157,8 +159,10 @@ TxTokenId::ARRAY_LIT,
 */
 
 
+const std::string& get_tx_token_label( TxTokenId id );
+
 template<typename charT, typename traits>
-std::basic_ostream<charT, traits> &
-operator<<( std::basic_ostream<charT, traits> &lhs, TxTokenId const &rhs ) {
-    return lhs << static_cast<int>( rhs );
+std::basic_ostream<charT, traits>& operator<<( std::basic_ostream<charT, traits>& lhs, const TxTokenId& rhs ) {
+    return lhs << get_tx_token_label( rhs );
+    //return lhs << static_cast<int>( rhs );
 }

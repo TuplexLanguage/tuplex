@@ -1,5 +1,6 @@
 ﻿#pragma clang diagnostic push
 #pragma ide diagnostic ignored "bugprone-branch-clone"
+#pragma ide diagnostic ignored "cert-err58-cpp"
 
 #include "scanner.hpp"
 
@@ -362,7 +363,6 @@ public:
 
 struct TxTokenDef {
     TxTokenId id;
-    char const* const label;
     TxTokenMatcher const* const matcher;
 };
 
@@ -389,188 +389,187 @@ public:
 };
 
 
-#define TOKDEF( token, matcher )  { token, #token, matcher }
+#define TOKDEF( token, matcher )  { token, matcher }
 
-//const std::vector<TxTokenDef> topLevelTokens = {
-const TxScanner topLevelTokens( {
-                                        TOKDEF( TxTokenId::WHITESPACE, new TxWhiteSpaceMatcher( " \t" )),
-                                        TOKDEF( TxTokenId::COMMENT, new TxCommentMatcher( "/*", "*/" )),
-                                        TOKDEF( TxTokenId::COMMENT, new TxLineCommentMatcher()),
+const TxScanner topLevelTokens(
+        {
+                TOKDEF( TxTokenId::WHITESPACE, new TxWhiteSpaceMatcher( " \t" )),
+                TOKDEF( TxTokenId::COMMENT, new TxCommentMatcher( "/*", "*/" )),
+                TOKDEF( TxTokenId::COMMENT, new TxLineCommentMatcher()),
 
-                                        /* statement separators */
-                                        TOKDEF( TxTokenId::NEWLINE, new TxWhiteSpaceMatcher( "\n\r" )),
-                                        TOKDEF( TxTokenId::SEMICOLON, new TxFixedMatcher( ";", true )),
-                                        TOKDEF( TxTokenId::LBRACE, new TxFixedMatcher( "{", true )),
-                                        TOKDEF( TxTokenId::RBRACE, new TxFixedMatcher( "}", true )),
+                /* statement separators */
+                TOKDEF( TxTokenId::NEWLINE, new TxWhiteSpaceMatcher( "\n\r" )),
+                TOKDEF( TxTokenId::SEMICOLON, new TxFixedMatcher( ";", true )),
+                TOKDEF( TxTokenId::LBRACE, new TxFixedMatcher( "{", true )),
+                TOKDEF( TxTokenId::RBRACE, new TxFixedMatcher( "}", true )),
 
-                                        /* operators */
-                                        TOKDEF( TxTokenId::LPAREN, new TxFixedMatcher( "(", true )),
-                                        TOKDEF( TxTokenId::RPAREN, new TxFixedMatcher( ")", true )),
-                                        TOKDEF( TxTokenId::LBRACKET, new TxFixedMatcher( "[", true )),
-                                        TOKDEF( TxTokenId::RBRACKET, new TxFixedMatcher( "]", true )),
-                                        TOKDEF( TxTokenId::COMMA, new TxFixedMatcher( ",", true )),
-                                        TOKDEF( TxTokenId::COLON, new TxFixedMatcher( ":" )),
-                                        TOKDEF( TxTokenId::DOT, new TxFixedMatcher( "." )),
-                                        TOKDEF( TxTokenId::DOTDOT, new TxFixedMatcher( ".." )),
-                                        TOKDEF( TxTokenId::ELLIPSIS, new TxFixedMatcher( "..." )),
-                                        TOKDEF( TxTokenId::ASTERISK, new TxFixedMatcher( "*" )),
-                                        TOKDEF( TxTokenId::PLUS, new TxFixedMatcher( "+" )),
-                                        TOKDEF( TxTokenId::MINUS, new TxFixedMatcher( "-" )),
-                                        TOKDEF( TxTokenId::FSLASH, new TxFixedMatcher( "/" )),
-                                        TOKDEF( TxTokenId::BSLASH, new TxFixedMatcher( "\\" )),
-                                        TOKDEF( TxTokenId::AAND, new TxFixedMatcher( "&" )),
-                                        TOKDEF( TxTokenId::PIPE, new TxFixedMatcher( "|" )),
-                                        TOKDEF( TxTokenId::CARET, new TxFixedMatcher( "^" )),
-                                        TOKDEF( TxTokenId::TILDE, new TxFixedMatcher( "~" )),
-                                        TOKDEF( TxTokenId::PERCENT, new TxFixedMatcher( "%" )),
-                                        TOKDEF( TxTokenId::PERCENTPERCENT, new TxFixedMatcher( "%%" )),
-                                        TOKDEF( TxTokenId::DOLLAR, new TxFixedMatcher( "$" )),
-                                        TOKDEF( TxTokenId::QMARK, new TxFixedMatcher( "?" )),
-                                        TOKDEF( TxTokenId::EMARK, new TxFixedMatcher( "!" )),
-                                        TOKDEF( TxTokenId::DASHGT, new TxFixedMatcher( "->" )),
-                                        TOKDEF( TxTokenId::LTCOLON, new TxFixedMatcher( "<:" )),
-                                        TOKDEF( TxTokenId::EQUAL, new TxFixedMatcher( "=" )),
-                                        TOKDEF( TxTokenId::EEQUAL, new TxFixedMatcher( "==" )),
-                                        TOKDEF( TxTokenId::NEQUAL, new TxFixedMatcher( "!=" )),
-                                        TOKDEF( TxTokenId::EEEQUAL, new TxFixedMatcher( "===" )),
-                                        TOKDEF( TxTokenId::NEEQUAL, new TxFixedMatcher( "!==" )),
-                                        TOKDEF( TxTokenId::LT, new TxFixedMatcher( "<" )),
-                                        TOKDEF( TxTokenId::LTLT, new TxFixedMatcher( "<<" )),
-                                        TOKDEF( TxTokenId::GT, new TxFixedMatcher( ">" )),
-                                        // unsure why bison grammar doesn't handle these properly
-                                        //TOKDEF( TxTokenId::GTGT, new TxFixedMatcher( ">>" ) ),
-                                        //TOKDEF( TxTokenId::GTGTGT, new TxFixedMatcher( ">>>" ) ),
-                                        TOKDEF( TxTokenId::LEQUAL, new TxFixedMatcher( "<=" )),
-                                        TOKDEF( TxTokenId::GEQUAL, new TxFixedMatcher( ">=" )),
-                                        TOKDEF( TxTokenId::COLEQUAL, new TxFixedMatcher( ":=" )),
-                                        TOKDEF( TxTokenId::PLUSEQUAL, new TxFixedMatcher( "+=" )),
-                                        TOKDEF( TxTokenId::MINUSEQUAL, new TxFixedMatcher( "-=" )),
-                                        TOKDEF( TxTokenId::ASTERISKEQUAL, new TxFixedMatcher( "*=" )),
-                                        TOKDEF( TxTokenId::FSLASHEQUAL, new TxFixedMatcher( "/=" )),
+                /* operators */
+                TOKDEF( TxTokenId::LPAREN, new TxFixedMatcher( "(", true )),
+                TOKDEF( TxTokenId::RPAREN, new TxFixedMatcher( ")", true )),
+                TOKDEF( TxTokenId::LBRACKET, new TxFixedMatcher( "[", true )),
+                TOKDEF( TxTokenId::RBRACKET, new TxFixedMatcher( "]", true )),
+                TOKDEF( TxTokenId::COMMA, new TxFixedMatcher( ",", true )),
+                TOKDEF( TxTokenId::COLON, new TxFixedMatcher( ":" )),
+                TOKDEF( TxTokenId::DOT, new TxFixedMatcher( "." )),
+                TOKDEF( TxTokenId::DOTDOT, new TxFixedMatcher( ".." )),
+                TOKDEF( TxTokenId::ELLIPSIS, new TxFixedMatcher( "..." )),
+                TOKDEF( TxTokenId::ASTERISK, new TxFixedMatcher( "*" )),
+                TOKDEF( TxTokenId::PLUS, new TxFixedMatcher( "+" )),
+                TOKDEF( TxTokenId::MINUS, new TxFixedMatcher( "-" )),
+                TOKDEF( TxTokenId::FSLASH, new TxFixedMatcher( "/" )),
+                TOKDEF( TxTokenId::BSLASH, new TxFixedMatcher( "\\" )),
+                TOKDEF( TxTokenId::AAND, new TxFixedMatcher( "&" )),
+                TOKDEF( TxTokenId::PIPE, new TxFixedMatcher( "|" )),
+                TOKDEF( TxTokenId::CARET, new TxFixedMatcher( "^" )),
+                TOKDEF( TxTokenId::TILDE, new TxFixedMatcher( "~" )),
+                TOKDEF( TxTokenId::PERCENT, new TxFixedMatcher( "%" )),
+                TOKDEF( TxTokenId::PERCENTPERCENT, new TxFixedMatcher( "%%" )),
+                TOKDEF( TxTokenId::DOLLAR, new TxFixedMatcher( "$" )),
+                TOKDEF( TxTokenId::QMARK, new TxFixedMatcher( "?" )),
+                TOKDEF( TxTokenId::EMARK, new TxFixedMatcher( "!" )),
+                TOKDEF( TxTokenId::DASHGT, new TxFixedMatcher( "->" )),
+                TOKDEF( TxTokenId::LTCOLON, new TxFixedMatcher( "<:" )),
+                TOKDEF( TxTokenId::EQUAL, new TxFixedMatcher( "=" )),
+                TOKDEF( TxTokenId::EEQUAL, new TxFixedMatcher( "==" )),
+                TOKDEF( TxTokenId::NEQUAL, new TxFixedMatcher( "!=" )),
+                TOKDEF( TxTokenId::EEEQUAL, new TxFixedMatcher( "===" )),
+                TOKDEF( TxTokenId::NEEQUAL, new TxFixedMatcher( "!==" )),
+                TOKDEF( TxTokenId::LT, new TxFixedMatcher( "<" )),
+                TOKDEF( TxTokenId::LTLT, new TxFixedMatcher( "<<" )),
+                TOKDEF( TxTokenId::GT, new TxFixedMatcher( ">" )),
+                // unsure why bison grammar doesn't handle these properly
+                //TOKDEF( TxTokenId::GTGT, new TxFixedMatcher( ">>" ) ),
+                //TOKDEF( TxTokenId::GTGTGT, new TxFixedMatcher( ">>>" ) ),
+                TOKDEF( TxTokenId::LEQUAL, new TxFixedMatcher( "<=" )),
+                TOKDEF( TxTokenId::GEQUAL, new TxFixedMatcher( ">=" )),
+                TOKDEF( TxTokenId::COLEQUAL, new TxFixedMatcher( ":=" )),
+                TOKDEF( TxTokenId::PLUSEQUAL, new TxFixedMatcher( "+=" )),
+                TOKDEF( TxTokenId::MINUSEQUAL, new TxFixedMatcher( "-=" )),
+                TOKDEF( TxTokenId::ASTERISKEQUAL, new TxFixedMatcher( "*=" )),
+                TOKDEF( TxTokenId::FSLASHEQUAL, new TxFixedMatcher( "/=" )),
 
-                                        /* keywords */
-                                        TOKDEF( TxTokenId::KW_MODULE, new TxFixedMatcher( "module" )),
-                                        TOKDEF( TxTokenId::KW_IMPORT, new TxFixedMatcher( "import" )),
-                                        TOKDEF( TxTokenId::KW_TYPE, new TxFixedMatcher( "type" )),
-                                        TOKDEF( TxTokenId::KW_INTERFACE, new TxFixedMatcher( "interface" )),
-                                        TOKDEF( TxTokenId::KW_BUILTIN, new TxFixedMatcher( "builtin" )),
-                                        TOKDEF( TxTokenId::KW_VIRTUAL, new TxFixedMatcher( "virtual" )),
-                                        TOKDEF( TxTokenId::KW_ABSTRACT, new TxFixedMatcher( "abstract" )),
-                                        TOKDEF( TxTokenId::KW_FINAL, new TxFixedMatcher( "final" )),
-                                        TOKDEF( TxTokenId::KW_OVERRIDE, new TxFixedMatcher( "override" )),
-                                        TOKDEF( TxTokenId::KW_EXTERNC, new TxFixedMatcher( "externc" )),
-                                        TOKDEF( TxTokenId::KW_MUTABLE, new TxFixedMatcher( "mutable" )),
-                                        TOKDEF( TxTokenId::KW_REFERENCE, new TxFixedMatcher( "reference" )),
-                                        TOKDEF( TxTokenId::KW_DERIVES, new TxFixedMatcher( "derives" )),
-                                        TOKDEF( TxTokenId::KW_WHILE, new TxFixedMatcher( "while" )),
-                                        TOKDEF( TxTokenId::KW_FOR, new TxFixedMatcher( "for" )),
-                                        TOKDEF( TxTokenId::KW_IF, new TxFixedMatcher( "if" )),
-                                        TOKDEF( TxTokenId::KW_ELSE, new TxFixedMatcher( "else" )),
-                                        TOKDEF( TxTokenId::KW_IN, new TxFixedMatcher( "in" )),
-                                        TOKDEF( TxTokenId::KW_IS, new TxFixedMatcher( "is" )),
-                                        TOKDEF( TxTokenId::KW_RETURN, new TxFixedMatcher( "return" )),
-                                        TOKDEF( TxTokenId::KW_BREAK, new TxFixedMatcher( "break" )),
-                                        TOKDEF( TxTokenId::KW_CONTINUE, new TxFixedMatcher( "continue" )),
-                                        TOKDEF( TxTokenId::KW_NEW, new TxFixedMatcher( "new" )),
-                                        TOKDEF( TxTokenId::KW_DELETE, new TxFixedMatcher( "delete" )),
-                                        TOKDEF( TxTokenId::KW_XOR, new TxFixedMatcher( "xor" )),
-                                        TOKDEF( TxTokenId::KW_PANIC, new TxFixedMatcher( "panic" )),
-                                        TOKDEF( TxTokenId::KW_ASSERT, new TxFixedMatcher( "assert" )),
-                                        TOKDEF( TxTokenId::KW_EXPERR, new TxFixedMatcher( "#experr" )),
+                /* keywords */
+                TOKDEF( TxTokenId::KW_MODULE, new TxFixedMatcher( "module" )),
+                TOKDEF( TxTokenId::KW_IMPORT, new TxFixedMatcher( "import" )),
+                TOKDEF( TxTokenId::KW_TYPE, new TxFixedMatcher( "type" )),
+                TOKDEF( TxTokenId::KW_INTERFACE, new TxFixedMatcher( "interface" )),
+                TOKDEF( TxTokenId::KW_BUILTIN, new TxFixedMatcher( "builtin" )),
+                TOKDEF( TxTokenId::KW_VIRTUAL, new TxFixedMatcher( "virtual" )),
+                TOKDEF( TxTokenId::KW_ABSTRACT, new TxFixedMatcher( "abstract" )),
+                TOKDEF( TxTokenId::KW_FINAL, new TxFixedMatcher( "final" )),
+                TOKDEF( TxTokenId::KW_OVERRIDE, new TxFixedMatcher( "override" )),
+                TOKDEF( TxTokenId::KW_EXTERNC, new TxFixedMatcher( "externc" )),
+                TOKDEF( TxTokenId::KW_MUTABLE, new TxFixedMatcher( "mutable" )),
+                TOKDEF( TxTokenId::KW_REFERENCE, new TxFixedMatcher( "reference" )),
+                TOKDEF( TxTokenId::KW_DERIVES, new TxFixedMatcher( "derives" )),
+                TOKDEF( TxTokenId::KW_WHILE, new TxFixedMatcher( "while" )),
+                TOKDEF( TxTokenId::KW_FOR, new TxFixedMatcher( "for" )),
+                TOKDEF( TxTokenId::KW_IF, new TxFixedMatcher( "if" )),
+                TOKDEF( TxTokenId::KW_ELSE, new TxFixedMatcher( "else" )),
+                TOKDEF( TxTokenId::KW_IN, new TxFixedMatcher( "in" )),
+                TOKDEF( TxTokenId::KW_IS, new TxFixedMatcher( "is" )),
+                TOKDEF( TxTokenId::KW_RETURN, new TxFixedMatcher( "return" )),
+                TOKDEF( TxTokenId::KW_BREAK, new TxFixedMatcher( "break" )),
+                TOKDEF( TxTokenId::KW_CONTINUE, new TxFixedMatcher( "continue" )),
+                TOKDEF( TxTokenId::KW_NEW, new TxFixedMatcher( "new" )),
+                TOKDEF( TxTokenId::KW_DELETE, new TxFixedMatcher( "delete" )),
+                TOKDEF( TxTokenId::KW_XOR, new TxFixedMatcher( "xor" )),
+                TOKDEF( TxTokenId::KW_PANIC, new TxFixedMatcher( "panic" )),
+                TOKDEF( TxTokenId::KW_ASSERT, new TxFixedMatcher( "assert" )),
+                TOKDEF( TxTokenId::KW_EXPERR, new TxFixedMatcher( "#experr" )),
 
-                                        TOKDEF( TxTokenId::KW__ADDRESS, new TxFixedMatcher( "_address" )),
-                                        TOKDEF( TxTokenId::KW__TYPEID, new TxFixedMatcher( "_typeid" )),
-                                        TOKDEF( TxTokenId::KW__SIZEOF, new TxFixedMatcher( "_sizeof" )),
-                                        TOKDEF( TxTokenId::KW__SUPERTYPES, new TxFixedMatcher( "_supertypes" )),
+                TOKDEF( TxTokenId::KW__ADDRESS, new TxFixedMatcher( "_address" )),
+                TOKDEF( TxTokenId::KW__TYPEID, new TxFixedMatcher( "_typeid" )),
+                TOKDEF( TxTokenId::KW__SIZEOF, new TxFixedMatcher( "_sizeof" )),
+                TOKDEF( TxTokenId::KW__SUPERTYPES, new TxFixedMatcher( "_supertypes" )),
 
-                                        /* reserved but not currently used: */
-                                        TOKDEF( TxTokenId::AT, new TxFixedMatcher( "@" )),
-                                        TOKDEF( TxTokenId::EURO, new TxFixedMatcher( "€" )),
-                                        TOKDEF( TxTokenId::COLONGT, new TxFixedMatcher( ":>" )),
-                                        TOKDEF( TxTokenId::KW_PUBLIC, new TxFixedMatcher( "public" )),
-                                        TOKDEF( TxTokenId::KW_PROTECTED, new TxFixedMatcher( "protected" )),
-                                        TOKDEF( TxTokenId::KW_STATIC, new TxFixedMatcher( "static" )),
-                                        TOKDEF( TxTokenId::KW_CONST, new TxFixedMatcher( "const" )),
-                                        TOKDEF( TxTokenId::KW_EXTENDS, new TxFixedMatcher( "extends" )),
-                                        TOKDEF( TxTokenId::KW_IMPLEMENTS, new TxFixedMatcher( "implements" )),
-                                        TOKDEF( TxTokenId::KW_SWITCH, new TxFixedMatcher( "switch" )),
-                                        TOKDEF( TxTokenId::KW_CASE, new TxFixedMatcher( "case" )),
-                                        TOKDEF( TxTokenId::KW_WITH, new TxFixedMatcher( "with" )),
-                                        TOKDEF( TxTokenId::KW_AS, new TxFixedMatcher( "as" )),
-                                        TOKDEF( TxTokenId::KW_AND, new TxFixedMatcher( "and" )),
-                                        TOKDEF( TxTokenId::KW_OR, new TxFixedMatcher( "or" )),
-                                        TOKDEF( TxTokenId::KW_NOT, new TxFixedMatcher( "not" )),
-                                        TOKDEF( TxTokenId::KW_TRY, new TxFixedMatcher( "try" )),
-                                        TOKDEF( TxTokenId::KW_EXCEPT, new TxFixedMatcher( "except" )),
-                                        TOKDEF( TxTokenId::KW_FINALLY, new TxFixedMatcher( "finally" )),
-                                        TOKDEF( TxTokenId::KW_RAISE, new TxFixedMatcher( "raise" )),
-                                        TOKDEF( TxTokenId::KW_RAISES, new TxFixedMatcher( "rasises" )),
+                /* reserved but not currently used: */
+                TOKDEF( TxTokenId::AT, new TxFixedMatcher( "@" )),
+                TOKDEF( TxTokenId::EURO, new TxFixedMatcher( "€" )),
+                TOKDEF( TxTokenId::COLONGT, new TxFixedMatcher( ":>" )),
+                TOKDEF( TxTokenId::KW_PUBLIC, new TxFixedMatcher( "public" )),
+                TOKDEF( TxTokenId::KW_PROTECTED, new TxFixedMatcher( "protected" )),
+                TOKDEF( TxTokenId::KW_STATIC, new TxFixedMatcher( "static" )),
+                TOKDEF( TxTokenId::KW_CONST, new TxFixedMatcher( "const" )),
+                TOKDEF( TxTokenId::KW_EXTENDS, new TxFixedMatcher( "extends" )),
+                TOKDEF( TxTokenId::KW_IMPLEMENTS, new TxFixedMatcher( "implements" )),
+                TOKDEF( TxTokenId::KW_SWITCH, new TxFixedMatcher( "switch" )),
+                TOKDEF( TxTokenId::KW_CASE, new TxFixedMatcher( "case" )),
+                TOKDEF( TxTokenId::KW_WITH, new TxFixedMatcher( "with" )),
+                TOKDEF( TxTokenId::KW_AS, new TxFixedMatcher( "as" )),
+                TOKDEF( TxTokenId::KW_AND, new TxFixedMatcher( "and" )),
+                TOKDEF( TxTokenId::KW_OR, new TxFixedMatcher( "or" )),
+                TOKDEF( TxTokenId::KW_NOT, new TxFixedMatcher( "not" )),
+                TOKDEF( TxTokenId::KW_TRY, new TxFixedMatcher( "try" )),
+                TOKDEF( TxTokenId::KW_EXCEPT, new TxFixedMatcher( "except" )),
+                TOKDEF( TxTokenId::KW_FINALLY, new TxFixedMatcher( "finally" )),
+                TOKDEF( TxTokenId::KW_RAISE, new TxFixedMatcher( "raise" )),
+                TOKDEF( TxTokenId::KW_RAISES, new TxFixedMatcher( "rasises" )),
 
-                                        /* literals */
-                                        TOKDEF( TxTokenId::LIT_DEC_INT, new TxIntegerMatcher()),
-                                        TOKDEF( TxTokenId::LIT_RADIX_INT, new TxRadixIntegerMatcher()),
-                                        TOKDEF( TxTokenId::LIT_FLOATING, new TxFloatMatcher()),
-                                        TOKDEF( TxTokenId::LIT_CHARACTER, new TxCharacterMatcher()),
-                                        TOKDEF( TxTokenId::LIT_CSTRING, new TxStringMatcher( 'c' )),
-                                        TOKDEF( TxTokenId::LIT_STRING, new TxStringMatcher()),
-                                        TOKDEF( TxTokenId::ARRAY_LIT, new TxNeverMatcher()),  // TODO
+                /* literals */
+                TOKDEF( TxTokenId::LIT_DEC_INT, new TxIntegerMatcher()),
+                TOKDEF( TxTokenId::LIT_RADIX_INT, new TxRadixIntegerMatcher()),
+                TOKDEF( TxTokenId::LIT_FLOATING, new TxFloatMatcher()),
+                TOKDEF( TxTokenId::LIT_CHARACTER, new TxCharacterMatcher()),
+                TOKDEF( TxTokenId::LIT_CSTRING, new TxStringMatcher( 'c' )),
+                TOKDEF( TxTokenId::LIT_STRING, new TxStringMatcher()),
+                TOKDEF( TxTokenId::ARRAY_LIT, new TxNeverMatcher()),  // TODO
 
-                                        /* TRUE and FALSE are parsed as keywords until they can be implemented using proper Enum facility */
-                                        TOKDEF( TxTokenId::KW_TRUE, new TxFixedMatcher( "TRUE" )),
-                                        TOKDEF( TxTokenId::KW_FALSE, new TxFixedMatcher( "FALSE" )),
+                /* TRUE and FALSE are parsed as keywords until they can be implemented using proper Enum facility */
+                TOKDEF( TxTokenId::KW_TRUE, new TxFixedMatcher( "TRUE" )),
+                TOKDEF( TxTokenId::KW_FALSE, new TxFixedMatcher( "FALSE" )),
 
-                                        /* string format operators */
-                                        /*
-                                        TOKDEF( TxTokenId::SF_PARAM, new TxNeverMatcher() ),  // FUTURE
-                                        TOKDEF( TxTokenId::SF_FLAGS, new TxNeverMatcher() ),  // FUTURE
-                                        TOKDEF( TxTokenId::SF_WIDTH, new TxNeverMatcher() ),  // TODO
-                                        TOKDEF( TxTokenId::SF_PREC, new TxNeverMatcher() ),  // TODO
-                                        TOKDEF( TxTokenId::SF_TYPE, new TxNeverMatcher() ),  // TODO
-                                        TOKDEF( TxTokenId::SF_MINUS, new TxFixedMatcher( "-" ) ),
-                                        TOKDEF( TxTokenId::SF_PLUS, new TxFixedMatcher( "+" ) ),
-                                        TOKDEF( TxTokenId::SF_SPACE, new TxFixedMatcher( " " ) ),
-                                        TOKDEF( TxTokenId::SF_ZERO, new TxFixedMatcher( "0" ) ),
-                                        TOKDEF( TxTokenId::SF_HASH, new TxFixedMatcher( "#" ) ),
-                                         */
+                /* string format operators */
+                /*
+                TOKDEF( TxTokenId::SF_PARAM, new TxNeverMatcher() ),  // FUTURE
+                TOKDEF( TxTokenId::SF_FLAGS, new TxNeverMatcher() ),  // FUTURE
+                TOKDEF( TxTokenId::SF_WIDTH, new TxNeverMatcher() ),  // TODO
+                TOKDEF( TxTokenId::SF_PREC, new TxNeverMatcher() ),  // TODO
+                TOKDEF( TxTokenId::SF_TYPE, new TxNeverMatcher() ),  // TODO
+                TOKDEF( TxTokenId::SF_MINUS, new TxFixedMatcher( "-" ) ),
+                TOKDEF( TxTokenId::SF_PLUS, new TxFixedMatcher( "+" ) ),
+                TOKDEF( TxTokenId::SF_SPACE, new TxFixedMatcher( " " ) ),
+                TOKDEF( TxTokenId::SF_ZERO, new TxFixedMatcher( "0" ) ),
+                TOKDEF( TxTokenId::SF_HASH, new TxFixedMatcher( "#" ) ),
+                 */
 
-                                        /* identifiers */
-                                        TOKDEF( TxTokenId::NAME, new TxNameMatcher()),
-                                        TOKDEF( TxTokenId::NAME, new TxFixedMatcher( "#" )),
-                                        TOKDEF( TxTokenId::HASHINIT, new TxFixedMatcher( "#init" )),
-                                        TOKDEF( TxTokenId::HASHSELF, new TxFixedMatcher( "#self" )),
+                /* identifiers */
+                TOKDEF( TxTokenId::NAME, new TxNameMatcher()),
+                TOKDEF( TxTokenId::NAME, new TxFixedMatcher( "#" )),
+                TOKDEF( TxTokenId::HASHINIT, new TxFixedMatcher( "#init" )),
+                TOKDEF( TxTokenId::HASHSELF, new TxFixedMatcher( "#self" )),
 
-                                        /* precedence operators, not actually lexically produced */
-                                        TOKDEF( TxTokenId::STMT, new TxNeverMatcher()),
-                                        TOKDEF( TxTokenId::TYPE, new TxNeverMatcher()),
-                                        TOKDEF( TxTokenId::EXPR, new TxNeverMatcher()),
-                                        TOKDEF( TxTokenId::NOT, new TxNeverMatcher()),
-                                        TOKDEF( TxTokenId::NEG, new TxNeverMatcher()),
-                                        TOKDEF( TxTokenId::ADDR, new TxNeverMatcher()),
+//                /* precedence operators, not actually lexically produced */
+//                TOKDEF( TxTokenId::STMT, new TxNeverMatcher()),
+//                TOKDEF( TxTokenId::TYPE, new TxNeverMatcher()),
+//                TOKDEF( TxTokenId::EXPR, new TxNeverMatcher()),
+//                TOKDEF( TxTokenId::NOT, new TxNeverMatcher()),
+//                TOKDEF( TxTokenId::NEG, new TxNeverMatcher()),
+//                TOKDEF( TxTokenId::ADDR, new TxNeverMatcher()),
+//
+//                /* for symbol lookup completeness, matched separately */
+//                TOKDEF( TxTokenId::INDENT, new TxNeverMatcher()),
+//                TOKDEF( TxTokenId::DEDENT, new TxNeverMatcher()),
+//
+//                /* for symbol lookup completeness, not actually lexically produced */
+//                TOKDEF( TxTokenId::ERROR, new TxNeverMatcher()),
+//                TOKDEF( TxTokenId::END, new TxNeverMatcher()),
+        } );
 
-                                        /* for symbol lookup completeness, matched separately */
-                                        TOKDEF( TxTokenId::INDENT, new TxNeverMatcher()),
-                                        TOKDEF( TxTokenId::DEDENT, new TxNeverMatcher()),
 
-                                        /* for symbol lookup completeness, not actually lexically produced */
-                                        TOKDEF( TxTokenId::ERROR, new TxNeverMatcher()),
-                                        TOKDEF( TxTokenId::END, new TxNeverMatcher()),
-
-                                } );
-
-
-//const std::vector<const TxTokenDef> stringFormatTokens = {
-const TxScanner stringFormatTokens( {
-                                            TOKDEF( TxTokenId::SF_PARAM, new TxNeverMatcher()),  // FUTURE
-                                            TOKDEF( TxTokenId::SF_FLAGS, new TxNeverMatcher()),  // FUTURE
-                                            TOKDEF( TxTokenId::SF_WIDTH, new TxNeverMatcher()),  // TODO
-                                            TOKDEF( TxTokenId::SF_PREC, new TxNeverMatcher()),  // TODO
-                                            TOKDEF( TxTokenId::SF_TYPE, new TxNeverMatcher()),  // TODO
-                                            TOKDEF( TxTokenId::SF_MINUS, new TxFixedMatcher( "-" )),
-                                            TOKDEF( TxTokenId::SF_PLUS, new TxFixedMatcher( "+" )),
-                                            TOKDEF( TxTokenId::SF_SPACE, new TxFixedMatcher( " " )),
-                                            TOKDEF( TxTokenId::SF_ZERO, new TxFixedMatcher( "0" )),
-                                            TOKDEF( TxTokenId::SF_HASH, new TxFixedMatcher( "#" )),
-                                    } );
+const TxScanner stringFormatTokens(
+        {
+                TOKDEF( TxTokenId::SF_PARAM, new TxNeverMatcher()),  // FUTURE
+                TOKDEF( TxTokenId::SF_FLAGS, new TxNeverMatcher()),  // FUTURE
+                TOKDEF( TxTokenId::SF_WIDTH, new TxNeverMatcher()),  // TODO
+                TOKDEF( TxTokenId::SF_PREC, new TxNeverMatcher()),  // TODO
+                TOKDEF( TxTokenId::SF_TYPE, new TxNeverMatcher()),  // TODO
+                TOKDEF( TxTokenId::SF_MINUS, new TxFixedMatcher( "-" )),
+                TOKDEF( TxTokenId::SF_PLUS, new TxFixedMatcher( "+" )),
+                TOKDEF( TxTokenId::SF_SPACE, new TxFixedMatcher( " " )),
+                TOKDEF( TxTokenId::SF_ZERO, new TxFixedMatcher( "0" )),
+                TOKDEF( TxTokenId::SF_HASH, new TxFixedMatcher( "#" )),
+        } );
 
 
 static const TxIndentationMatcher indentation_matcher( " \t" );
@@ -652,8 +651,8 @@ const TxToken& TxScanState::next_token() {
     // match token:
     const TxTokenDef* matchedTokenDef = nullptr;
     size_t candidateMatchLen = 0;
-    for ( const TxTokenDef* tokDef : *topLevelTokens.lookup( buffer.source[cursor.index] ))  {
-        size_t matchLen = tokDef->matcher->match( &( buffer.source[cursor.index] ) );
+    for ( const TxTokenDef* tokDef : *topLevelTokens.lookup( buffer.source[cursor.index] )) {
+        size_t matchLen = tokDef->matcher->match( &( buffer.source[cursor.index] ));
         if ( matchLen > 0 ) {
             //std::cout << "candidate match: " << tokDef.label << " matchLen=" << matchLen << std::endl;
             if ( tokDef->matcher->definitive ) {
