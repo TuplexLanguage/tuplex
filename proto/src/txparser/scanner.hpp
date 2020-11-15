@@ -9,6 +9,7 @@
 
 /** Contains a handle or reference to the source buffer / stream / file */
 struct TxSourceBuffer {
+    // FUTURE: process input stream of UTF-8 characters instead (they have variable length)
     const char* source;
 };
 
@@ -35,7 +36,7 @@ struct TxSourcePosition {
 };
 
 
-class TxBasicNode {  // TODO: do we want a common superclass for tokens and ast nodes?
+class TxBasicNode : public Printable {  // TODO: do we want a common superclass for tokens and ast nodes?
 public:
     const TxSourceBuffer& buffer;  // TODO: should it refer buffer, or parser context, or nothing?
     const TxSourcePosition begin;
@@ -47,8 +48,6 @@ public:
     std::string_view getSourceText() const {
         return std::string_view( &( buffer.source[begin.index] ), ( end.index - begin.index ));
     }
-
-    virtual void print( int indent ) const = 0;
 };
 
 
@@ -62,7 +61,7 @@ public:
     TxToken( const TxSourceBuffer& buffer, const TxSourcePosition& begin, const TxSourcePosition& end, TxTokenId id )
             : TxBasicNode( buffer, begin, end ), id( id ) {}
 
-    void print( int indent ) const override;
+    std::string str() const override;
 };
 
 

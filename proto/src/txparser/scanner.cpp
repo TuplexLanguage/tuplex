@@ -71,20 +71,14 @@ public:
 
 class TxCommentMatcher : public TxTokenMatcher {
 public:
-    const std::string endPattern;
-
-    TxCommentMatcher( const char* startPattern, const char* endPattern )
-            : TxTokenMatcher( startPattern, true ), endPattern( endPattern ) {
-        ASSERT( this->pattern.length() == 2, "implementation requires a prefix length of 2" );
-        ASSERT( this->endPattern.length() == 2, "implementation requires a suffix length of 2" );
-    }
+    TxCommentMatcher() : TxTokenMatcher( "/*", true ) {}
 
     std::vector<int8_t> first_bytes() const override {
         return std::vector<int8_t>( { pattern[0] } );
     }
 
     uint32_t match( const char* source ) const override {
-        if ( !( source[0] == pattern[0] && source[1] == pattern[1] ))
+        if ( !( source[0] == '/' && source[1] == '*' ))
             return 0;
         unsigned nestLevel = 1;
         for ( size_t s = 2; true; s++ ) {
@@ -92,13 +86,13 @@ public:
                 // end of buffer = end of comment
                 return s;
             }
-            if ( source[s] == endPattern[0] && source[s + 1] == endPattern[1] ) {
+            if ( source[s] == '*' && source[s + 1] == '/' ) {
                 // end of a comment level
                 if ( --nestLevel == 0 ) {
-                    return s + endPattern.length();
+                    return s + 2;
                 }
             }
-            if ( source[s] == pattern[0] && source[s + 1] == pattern[1] ) {
+            if ( source[s] == '/' && source[s + 1] == '*' ) {
                 // begin of a comment level
                 ++nestLevel;
             }
@@ -107,17 +101,15 @@ public:
 };
 
 class TxLineCommentMatcher : public TxTokenMatcher {
-public:  // ( this hardcodes the matched characters - makes macro handling easier)
-    TxLineCommentMatcher() : TxTokenMatcher( "##" ) {
-        ASSERT( this->pattern.length() == 2, "implementation requires a prefix length of 2" );
-    }
+public:
+    TxLineCommentMatcher() : TxTokenMatcher( "##", true ) {}
 
     std::vector<int8_t> first_bytes() const override {
         return std::vector<int8_t>( { pattern[0] } );
     }
 
     uint32_t match( const char* source ) const override {
-        if ( !( source[0] == pattern[0] && source[1] == pattern[1] ))
+        if ( !( source[0] == '#' && source[1] == '#' ))
             return 0;
         // matched comment start
         for ( size_t s = 2; true; s++ ) {
@@ -197,7 +189,7 @@ public:
 
     uint32_t match( const char* source ) const override {
         size_t s = 0;
-        if ( ! std::isdigit( source[s] ) )
+        if ( !std::isdigit( source[s] ))
             return 0;
         for ( s++; std::isdigit( source[s] ) || source[s] == '_'; s++ ) {
         }
@@ -278,14 +270,14 @@ public:
 
     uint32_t match( const char* source ) const override {
         size_t s = 0;
-        if ( std::isdigit( source[s] ) ) {
+        if ( std::isdigit( source[s] )) {
             for ( s++; std::isdigit( source[s] ) || source[s] == '_'; s++ ) {
             }
         }
         if ( source[s] != '.' )
             return 0;
         s++;
-        if ( std::isdigit( source[s] ) ) {
+        if ( std::isdigit( source[s] )) {
             for ( s++; std::isdigit( source[s] ) || source[s] == '_'; s++ ) {
             }
         }
@@ -308,13 +300,13 @@ public:
 
     uint32_t match( const char* source ) const override {
         size_t s = 0;
-        if ( std::isdigit( source[s] ) ) {
+        if ( std::isdigit( source[s] )) {
             for ( s++; std::isdigit( source[s] ) || source[s] == '_'; s++ ) {
             }
         }
         if ( source[s] == '.' ) {
             s++;
-            if ( std::isdigit( source[s] ) ) {
+            if ( std::isdigit( source[s] )) {
                 for ( s++; std::isdigit( source[s] ) || source[s] == '_'; s++ ) {
                 }
             }
@@ -330,7 +322,7 @@ public:
             return 0;
         if ( source[s] == '+' || source[s] == '-' )
             s++;
-        if ( std::isdigit( source[s] ) ) {
+        if ( std::isdigit( source[s] )) {
             for ( s++; std::isdigit( source[s] ) || source[s] == '_'; s++ ) {
             }
         }
@@ -592,7 +584,7 @@ const TxIndentationMatcher TxTopScanner::indentation_matcher( " \t" );
 const std::vector<TxTokenDef> TxTopScanner::topTokenDefinitions =
         {
                 TOKDEF( TxTokenId::WHITESPACE, new TxCharSetMatcher( " \t", true )),
-                TOKDEF( TxTokenId::COMMENT, new TxCommentMatcher( "/*", "*/" )),
+                TOKDEF( TxTokenId::COMMENT, new TxCommentMatcher()),
                 TOKDEF( TxTokenId::COMMENT, new TxLineCommentMatcher()),
 
                 /* statement separators */
@@ -807,12 +799,12 @@ const TxToken& TxSourceScan::next_token() {
 }
 
 
-void TxToken::print( int indent ) const {
-    for ( int i = 0; i < indent; i++ ) {
-        std::cerr << ' ';
-    }
-    std::cerr << "line=" << begin.line << ",col=" << begin.column << " " << id
-              << " \"" << getSourceText() << '"';
+
+std::string TxToken::str() const {
+    std::ostringstream ostr;
+    ostr << "line=" << begin.line << ",col=" << begin.column << " " << id
+         << " \"" << getSourceText() << '"';
+    return ostr.str();
 }
 
 

@@ -4,62 +4,127 @@
 
 #include "parser_if.hpp"
 
-#include "tx_options.hpp"
-#include <txparser/scanner.hpp>
+#include "driver.hpp"
+#include "txparser/scanner.hpp"
+#include "util/files_env.hpp"
 
 // bison's generated header file:
 #include "bison_parser.hpp"
 
 
-static Logger& _LOG = Logger::get( "BARSER" );
+static Logger& _LOG = Logger::get( "B-PARSER" );
 
 
-int parse(TxParserContext* parserContext, const char* buffer, const TxOptions& options ) {
-    // TODO: remove options from parameters, it is accessible via parserCtx->driver().get_options()
-    TxSourceBuffer srcBuffer( { buffer } );
+const size_t chunk_size = 4000;  // FiXME: test this with small chunk size
+
+
+/// consolidates chunks into a contiguous buffer
+static char* consolidate( std::vector<char*>& bufChunks, char* lastChunk,
+                          size_t fileSize, size_t lastReadLen) {
+    auto buffer = (char*) malloc( sizeof( char ) * ( fileSize + 1 ));
+    if ( !buffer ) {
+        _LOG.fatal( "memory allocation failed" );
+        for ( auto ch : bufChunks )
+            free( ch );
+        free( lastChunk );
+        return nullptr;
+    }
+    auto dest = buffer;
+    for ( auto ch : bufChunks ) {
+        memcpy( dest, ch, chunk_size );
+        free( ch );
+        dest += chunk_size;
+    }
+    memcpy( dest, lastChunk, lastReadLen );
+    free( lastChunk );
+    return buffer;
+}
+
+static TxSourceBuffer load_file( FILE* file ) {
+    char* buffer = nullptr;
+    std::vector<char*> bufChunks;
+    size_t fileSize = 0;
+    do {
+        auto chunk = (char*) malloc( chunk_size + 1 );
+        if ( !chunk ) {
+            _LOG.fatal( "memory allocation failed" );
+            for ( auto ch : bufChunks )
+                free( ch );
+            return TxSourceBuffer( { nullptr } );
+        }
+        // read the next chunk of the file:
+        size_t readLen = fread( chunk, 1, chunk_size, file );
+        fileSize += readLen;
+        if ( feof( file )) {
+            if ( bufChunks.empty()) {
+                //_LOG.debug( "Loaded source file in single chunk");
+                buffer = chunk;
+            }
+            else {
+                _LOG.note( "Loaded source file in %d chunks", bufChunks.size() + 1);
+                buffer = consolidate( bufChunks, chunk, fileSize, readLen );
+                if ( !buffer )
+                    return TxSourceBuffer( { nullptr } );
+            }
+            buffer[fileSize] = '\0';  // append null terminator
+            break;
+        }
+        else if ( readLen != chunk_size ) {
+            _LOG.fatal( "File reading error, read %ld bytes, errno=%d", readLen, errno);
+            for ( auto ch : bufChunks )
+                free( ch );
+            free( chunk );
+            return TxSourceBuffer( { nullptr } );
+        }
+        bufChunks.push_back( chunk );
+    } while ( true );
+
+    return TxSourceBuffer( { buffer } );
+}
+
+static TxSourceBuffer load_file( const std::string& filePath ) {
+    TxSourceBuffer srcBuffer{};
+    if ( filePath.empty() || filePath == "-" ) {
+        srcBuffer = load_file( stdin );
+    }
+    else {
+        if ( file_status( filePath ) != 1 ) {
+            _LOG.fatal( "Source file name '%s' is not found or not a file.", filePath.c_str());
+            return TxSourceBuffer( { nullptr } );
+        }
+        FILE* file = fopen( filePath.c_str(), "rb" );  // open in 'binary' i.e. without translations
+        if ( !file ) {
+            _LOG.fatal( "Could not open source file '%s': %s", filePath.c_str(), strerror(errno));
+            return TxSourceBuffer( { nullptr } );
+        }
+        srcBuffer = load_file( file );
+        fclose( file );
+    }
+    return srcBuffer;
+}
+
+
+int parse( TxParserContext* parserContext, TxSourceBuffer srcBuffer ) {
     auto scanState = new TxSourceScan( srcBuffer );
     parserContext->scanState = scanState;
 
     yy::TxParser parser( parserContext );
-    parser.set_debug_level( options.debug_parser );
+    parser.set_debug_level( parserContext->driver().get_options().debug_parser );
     int ret = parser.parse();
     return ret;
 }
 
-int parse( TxParserContext* parserContext, FILE* file, const TxOptions& options ) {
-    // FUTURE: use input stream of unicode characters instead?
+int parse( TxParserContext* parserContext, const char* buffer ) {
+    TxSourceBuffer srcBuffer( { buffer } );
+    return parse( parserContext, srcBuffer );
+}
 
-    // obtain file size:
-    int ret = fseek( file, 0, SEEK_END );
-    if ( ret ) {
-        _LOG.error( "File seek error - is it a proper, readable file? ret=%d", ret );
-        return 1;
+int parse( TxParserContext* parserContext, const std::string& filePath ) {
+    TxSourceBuffer srcBuffer = load_file( filePath );
+    if ( srcBuffer.source != nullptr ) {
+        _LOG.info( "+ Loaded source file '%s'", filePath.c_str());
+        return parse( parserContext, srcBuffer );
     }
-    const long fSize = ftell( file );
-    if ( fSize < 0 ) {
-        _LOG.error( "File seek error, fSize=%ld", fSize );
-        return 1;
-    }
-    rewind( file );
-
-    // allocate memory to contain the whole file:
-    auto buffer = (char*) malloc( sizeof( char ) * ( fSize + 1 ) );  // add space for null-terminator
-    if ( ! buffer ) {
-        _LOG.error( "memory error, file size %ld", fSize );
-        return 2;
-    }
-
-    // copy the file into the buffer:
-    long result = fread( buffer, 1, fSize, file );
-    if ( result != fSize ) {
-        _LOG.error( "File reading error" );
-        free( buffer );
-        return 3;
-    }
-    buffer[fSize] = '\0';  // append null terminator
-
-    ret = parse( parserContext, buffer, options );
-    // we retain the buffer and scan state in memory for now
-    // free( buffer );
-    return ret;
+    else
+        return -1;
 }

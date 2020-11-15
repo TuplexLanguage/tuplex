@@ -36,13 +36,13 @@ int file_status( const std::string& pathname ) {
         return 1;  // file
 }
 
-std::string get_environment_variable( const std::string varname ) {
+std::string get_environment_variable( const std::string& varname ) {
     //printf("Getting env var '%s'\n", varname.c_str());
     const char* var = getenv( varname.c_str() );
     return var ? std::string( var ) : std::string();
 }
 
-std::vector<std::string> get_path_list( const std::string paths ) {
+std::vector<std::string> get_path_list( const std::string& paths ) {
     std::vector<std::string> result;
     if ( !result.empty() )
         return result;
