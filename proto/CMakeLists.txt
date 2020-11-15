@@ -14,7 +14,7 @@ set (Tuplex_VERSION_MAJOR 0)
 set (Tuplex_VERSION_MINOR 4)
 
 
-set(CMAKE_VERBOSE_MAKEFILE on)
+#set(CMAKE_VERBOSE_MAKEFILE on)
 
 
 # add general compile flags
