@@ -1,4 +1,3 @@
-#include <cstdlib>
 #include <string>
 
 #include "tinydir/tinydir.h"
@@ -97,7 +96,7 @@ int TxDriver::compile( const std::vector<std::string>& startSourceFiles, const s
     if ( options.sourceSearchPaths.empty() )
         this->_LOG.config( "Source search path is empty" );
     else
-        for ( auto pathItem : options.sourceSearchPaths )
+        for ( const auto& pathItem : options.sourceSearchPaths )
             this->_LOG.config( "Source search path item: '%s'", pathItem.c_str() );
 
     /*--- prepare the parse units ---*/
@@ -110,7 +109,7 @@ int TxDriver::compile( const std::vector<std::string>& startSourceFiles, const s
 
     {  // parse the built-in source:
         auto* parserContext = new TxParserContext( *this, TxIdentifier( "" ), __FILE__, TxParserContext::BUILTINS );
-        int ret = parse( parserContext, CORE_TX_SOURCE_STR, this->options );
+        int ret = parse( parserContext, CORE_TX_SOURCE_STR );
         if ( ret ) {
             _LOG.fatal( "Exiting due to unrecovered syntax error" );
             return ret;
@@ -132,38 +131,24 @@ int TxDriver::compile( const std::vector<std::string>& startSourceFiles, const s
     for ( const auto& startFile : startSourceFiles )
         this->sourceFileQueue.emplace_back( TxIdentifier(), startFile );
 
-    /*--- parse all source filed (during parsing, files are added to the queue as the are imported) ---*/
+    /*--- parse all source files (during parsing, files are added to the queue as they are imported) ---*/
 
-    TxParserContext::ParseInputSourceSet pfs = TxParserContext::TX_SOURCES;
+    TxParserContext::ParseInputSourceSet iss = TxParserContext::TX_SOURCES;
     while ( !this->sourceFileQueue.empty() ) {
         TxIdentifier moduleName = this->sourceFileQueue.front().first;  // note, may be empty
 
-        if ( pfs == TxParserContext::TX_SOURCES ) {
-            if ( !moduleName.begins_with( BUILTIN_NS ) )  // if first user source processed
-                pfs = TxParserContext::FIRST_USER_SOURCE;
+        if ( iss == TxParserContext::TX_SOURCES ) {
+            if ( !moduleName.begins_with( BUILTIN_NS ) )  // if first user source file
+                iss = TxParserContext::FIRST_USER_SOURCE;
         }
-        else if ( pfs == TxParserContext::FIRST_USER_SOURCE ) {
-            pfs = TxParserContext::REST_USER_SOURCES;
+        else if ( iss == TxParserContext::FIRST_USER_SOURCE ) {
+            iss = TxParserContext::REST_USER_SOURCES;
         }
 
         std::string nextFilePath = this->sourceFileQueue.front().second;
         if ( !this->parsedSourceFiles.count( nextFilePath ) ) {  // if not already parsed
-            FILE* file;
-            if ( nextFilePath.empty() || nextFilePath == "-" ) {
-                file = stdin;
-            }
-            else {
-                file = fopen( nextFilePath.c_str(), "r" );
-                if ( ! file ) {
-                    _LOG.error( "Could not open source file '%s': %s", nextFilePath.c_str(), strerror( errno ) );
-                    return -1;
-                }
-            }
-            _LOG.info( "+ Opened file for parsing: '%s'", nextFilePath.c_str() );
-
-            auto* parserContext = new TxParserContext( *this, moduleName, nextFilePath, pfs );
-            int ret = parse( parserContext, file, this->options );
-            fclose( file );
+            auto* parserContext = new TxParserContext( *this, moduleName, nextFilePath, iss );
+            int ret = parse( parserContext, nextFilePath );
             if ( ret ) {
                 if ( ret < 0 )  // input file / stream error
                     _LOG.fatal( "Exiting due to input file / stream error" );
@@ -309,12 +294,12 @@ int TxDriver::compile( const std::vector<std::string>& startSourceFiles, const s
             parserContext->finalize_expected_error_clauses();
         }
 
-        if ( error_count == prev_error_count ) {
-            _LOG.info( "+ Type preparation pass OK" );
-            prev_error_count = error_count;
+        if ( error_count != prev_error_count ) {
+            _LOG.error( "- Type preparation pass encountered %d errors", error_count - prev_error_count );
+            //prev_error_count = error_count;
         }
         else
-            _LOG.error( "- Type preparation pass encountered %d errors", error_count - prev_error_count );
+            _LOG.info( "+ Type preparation pass OK" );
     }
 
     _LOG.info( "Number of AST nodes created: %u", TxNode::nextNodeId );
@@ -374,13 +359,13 @@ bool TxDriver::add_import( const TxIdentifier& moduleName ) {
     }
     // TODO: guard against or handle circular imports
     const std::string moduleFileName = moduleName.str() + ".tx";
-    for ( auto pathItem : this->options.sourceSearchPaths ) {
+    for ( auto& pathItem : this->options.sourceSearchPaths ) {
         if ( file_status( pathItem ) == 2 ) {
             // path item exists and is a directory
 
             // if a file name exists that exactly matches the module name, pick it
             // (the file is assumed to contain the whole module it if it's named 'module.name.tx')
-            std::string moduleFilePath = pathItem + get_path_separator() + moduleFileName;
+            const std::string moduleFilePath( pathItem + get_path_separator() + moduleFileName );
             if ( file_status( moduleFilePath ) == 1 ) {
                 this->add_source_file( moduleName, moduleFilePath );
                 return true;
@@ -431,7 +416,7 @@ int TxDriver::add_all_in_dir( const TxIdentifier& moduleName, const std::string 
 void TxDriver::add_source_file( const TxIdentifier& moduleName, const std::string &filePath ) {
     this->_LOG.debug( "Adding source file to compilation: '%s'", filePath.c_str() );
     // TODO: verify that the source file actually contains the specified module
-    this->sourceFileQueue.push_back( std::pair<TxIdentifier, std::string>( moduleName, filePath ) );
+    this->sourceFileQueue.emplace_back( std::pair<TxIdentifier, std::string>( moduleName, filePath ) );
 }
 
 int TxDriver::llvm_compile( const std::string& outputFileName ) {

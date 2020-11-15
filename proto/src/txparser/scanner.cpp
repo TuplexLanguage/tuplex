@@ -1,5 +1,6 @@
 ﻿#pragma clang diagnostic push
 #pragma ide diagnostic ignored "bugprone-branch-clone"
+#pragma ide diagnostic ignored "cert-err58-cpp"
 
 #include "scanner.hpp"
 
@@ -8,23 +9,44 @@
 #include <cstring>
 
 
+static inline bool char_in_string( char c, const char* str ) {
+    for ( unsigned i = 0; str[i]; i++ ) {
+        if ( c == str[i] )
+            return true;
+    }
+    return false;
+}
+
 class TxTokenMatcher {
 public:
     const std::string pattern;
-    const bool exact;
+    const bool definitive;
 
-    explicit TxTokenMatcher( const char* pattern, bool exact = true ) : pattern( pattern ), exact( exact ) {}
+    explicit TxTokenMatcher( char character, bool definitive = false )
+            : pattern( 1, character ), definitive( definitive ) {}
+
+    explicit TxTokenMatcher( const char* pattern, bool definitive = false )
+            : pattern( pattern ), definitive( definitive ) {}
 
     virtual ~TxTokenMatcher() = default;
 
-    virtual size_t match( const char* source ) const = 0;
+    /** Returns the possible first byte values for this matcher. */
+    virtual std::vector<int8_t> first_bytes() const = 0;
+
+    virtual uint32_t match( const char* source ) const = 0;
 };
 
-class TxExactMatcher : public TxTokenMatcher {
+/** Matches a fixed string. */
+class TxFixedMatcher : public TxTokenMatcher {
 public:
-    explicit TxExactMatcher( const char* pattern ) : TxTokenMatcher( pattern ) {}
+    explicit TxFixedMatcher( const char* pattern, bool definitive = false )
+            : TxTokenMatcher( pattern, definitive ) {}
 
-    size_t match( const char* source ) const override {
+    std::vector<int8_t> first_bytes() const override {
+        return std::vector<int8_t>( { pattern[0] } );
+    }
+
+    uint32_t match( const char* source ) const override {
         for ( size_t s = 0; s < pattern.length(); s++ ) {
             if ( pattern[s] != source[s] )
                 return 0;
@@ -33,53 +55,93 @@ public:
     }
 };
 
+/** Matches a string containing one or more of the specified characters, in any order. */
+class TxCharSetMatcher : public TxTokenMatcher {
+public:
+    explicit TxCharSetMatcher( const char* pattern, bool definitive = false )
+            : TxTokenMatcher( pattern, definitive ) {}
+
+    std::vector<int8_t> first_bytes() const override {
+        return std::vector<int8_t>( pattern.cbegin(), pattern.cend());
+    }
+
+    uint32_t match( const char* source ) const override {
+        size_t s = 0;
+        for ( ; char_in_string( source[s], pattern.c_str()); s++ ) {
+        }
+        return s;
+    }
+};
+
+/** Matches a string containing a specific count of of the specified characters, in any order. */
+class TxCharSetCountMatcher : public TxTokenMatcher {
+    const unsigned minLength, maxLength;
+public:
+    explicit TxCharSetCountMatcher( const char* pattern, unsigned minLength, unsigned maxLength,
+                                    bool definitive = false )
+            : TxTokenMatcher( pattern, definitive ), minLength( minLength ), maxLength( maxLength ) {}
+
+    std::vector<int8_t> first_bytes() const override {
+        return std::vector<int8_t>( pattern.cbegin(), pattern.cend());
+    }
+
+    uint32_t match( const char* source ) const override {
+        size_t s = 0;
+        for ( ; char_in_string( source[s], pattern.c_str()); s++ ) {
+        }
+        return ( s >= minLength && s <= maxLength ) ? s : 0;
+    }
+};
+
 class TxCommentMatcher : public TxTokenMatcher {
 public:
-    const std::string endPattern;
+    TxCommentMatcher() : TxTokenMatcher( "/*", true ) {}
 
-    TxCommentMatcher( const char* startPattern, const char* endPattern ) : TxTokenMatcher( startPattern ),
-                                                                           endPattern( endPattern ) {}
+    std::vector<int8_t> first_bytes() const override {
+        return std::vector<int8_t>( { pattern[0] } );
+    }
 
-    size_t match( const char* source ) const override {
-        for ( size_t s = 0; s < pattern.length(); s++ ) {
-            if ( pattern[s] != source[s] )
-                return 0;
-        }
-        // matched comment start
-        for ( size_t s = pattern.length(); true; s++ ) {
+    uint32_t match( const char* source ) const override {
+        if ( !( source[0] == '/' && source[1] == '*' ))
+            return 0;
+        unsigned nestLevel = 1;
+        for ( size_t s = 2; true; s++ ) {
             if ( !source[s] ) {
                 // end of buffer = end of comment
                 return s;
-            } else if ( source[s] == endPattern[0] ) {
-                for ( size_t e = 1; e < endPattern.length(); e++ ) {
-                    if ( endPattern[e] != source[s + e] ) {
-                        goto CONTINUE_COMMENT;
-                    }
-                }
-                // end of comment
-                return s + endPattern.length();
             }
-            CONTINUE_COMMENT:;
+            if ( source[s] == '*' && source[s + 1] == '/' ) {
+                // end of a comment level
+                if ( --nestLevel == 0 ) {
+                    return s + 2;
+                }
+            }
+            if ( source[s] == '/' && source[s + 1] == '*' ) {
+                // begin of a comment level
+                ++nestLevel;
+            }
         }
-        // TODO: support nested comments
     }
 };
 
 class TxLineCommentMatcher : public TxTokenMatcher {
-public:  // ( this hardcodes the matched characters - makes macro handling easier)
-    TxLineCommentMatcher() : TxTokenMatcher( "##" ) {}
+public:
+    TxLineCommentMatcher() : TxTokenMatcher( "##", true ) {}
 
-    size_t match( const char* source ) const override {
-        for ( size_t s = 0; s < pattern.length(); s++ ) {
-            if ( pattern[s] != source[s] )
-                return 0;
-        }
+    std::vector<int8_t> first_bytes() const override {
+        return std::vector<int8_t>( { pattern[0] } );
+    }
+
+    uint32_t match( const char* source ) const override {
+        if ( !( source[0] == '#' && source[1] == '#' ))
+            return 0;
         // matched comment start
-        for ( size_t s = pattern.length(); true; s++ ) {
+        for ( size_t s = 2; true; s++ ) {
             if ( !source[s] ) {
                 // end of buffer = end of comment
                 return s;
-            } else if ( source[s] == '\n' || source[s] == '\r' ) {
+            }
+            else if ( source[s] == '\n' || source[s] == '\r' ) {
                 // end of comment (the newline character is not included in the matched string)
                 return s;
             }
@@ -90,14 +152,20 @@ public:  // ( this hardcodes the matched characters - makes macro handling easie
 
 class TxIndentationMatcher : public TxTokenMatcher {
 public:
-    explicit TxIndentationMatcher( const char* pattern ) : TxTokenMatcher( pattern ) {}
+    explicit TxIndentationMatcher( const char* pattern ) noexcept
+            : TxTokenMatcher( pattern, true ) {}
 
-    size_t match( const char* source ) const override {
+    std::vector<int8_t> first_bytes() const override {
+        return std::vector<int8_t>( pattern.cbegin(), pattern.cend());
+    }
+
+    uint32_t match( const char* source ) const override {
         // only matches if there are non-whitespace characters on the same line
         for ( size_t s = 0; true; s++ ) {
             if ( !source[s] ) {  // end of buffer
                 return 0;
-            } else if ( pattern.find( source[s] ) == std::string::npos ) {
+            }
+            else if ( !char_in_string( source[s], pattern.c_str())) {
                 if ( source[s] == '\n' || source[s] == '\r' )
                     return 0;  // empty line - treat as insignificant whitespace
                 else if ( source[s] == '#' && source[s + 1] == '#' )
@@ -111,101 +179,718 @@ public:
     }
 };
 
-class TxWhiteSpaceMatcher : public TxTokenMatcher {
-public:
-    explicit TxWhiteSpaceMatcher( const char* pattern ) : TxTokenMatcher( pattern ) {}
-
-    size_t match( const char* source ) const override {
-        for ( size_t s = 0; true; s++ ) {
-            if ( !source[s] ) {  // end of buffer
-                return s;
-            } else if ( pattern.find( source[s] ) == std::string::npos ) {
-                return s;
-            }
-        }
-    }
-};
-
 class TxNameMatcher : public TxTokenMatcher {
 public:
-    TxNameMatcher() : TxTokenMatcher( "", false ) {}
+    TxNameMatcher() : TxTokenMatcher( "" ) {}
 
-    size_t match( const char* source ) const override {
-        for ( size_t s = 0; true; s++ ) {
-            if ( !source[s] ) {  // end of buffer
+    std::vector<int8_t> first_bytes() const override {
+        const std::string chars( "_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ" );
+        return std::vector<int8_t>( chars.cbegin(), chars.cend());
+    }
+
+    uint32_t match( const char* source ) const override {
+        if ( !( std::isalpha( source[0] ) || source[0] == '_' ))
+            return 0;
+        for ( size_t s = 1; true; s++ ) {
+            if ( !source[s] )  // end of buffer
                 return s;
-            } else if ( !( std::isalpha( source[s] ) || ( s > 0 && std::isdigit( source[s] )))) {
+            if ( !( std::isalnum( source[s] )
+                    || source[s] == '_'
+                    || source[s] == '#' )) {
                 return s;
             }
         }
     }
 };
 
-//class TxIndentMatcher : public TxTokenMatcher {
-//public:
-//    TxIndentMatcher() : TxTokenMatcher( "", false ) { }
-//    size_t match( const char* source ) const override {
-//        for ( size_t s = 0; true; s++ ) {
-//            if ( !source[s] ) {  // end of buffer
-//                return s;
-//            }
-//            else if ( !( source[s] == ' ' || source[s] == '\t' ) ) {
-//                return s;
-//            }
-//        }
-//    }
-//};
+class TxIntegerMatcher : public TxTokenMatcher {
+public:
+    TxIntegerMatcher() : TxTokenMatcher( "BSIL" ) {}
+
+    std::vector<int8_t> first_bytes() const override {
+        const std::string chars( "0123456789" );
+        return std::vector<int8_t>( chars.cbegin(), chars.cend());
+    }
+
+    uint32_t match( const char* source ) const override {
+        size_t s = 0;
+        if ( !std::isdigit( source[s] ))
+            return 0;
+        for ( s++; std::isdigit( source[s] ) || source[s] == '_'; s++ ) {
+        }
+        if ( source[s] == 'U' )
+            s++;
+        if ( char_in_string( source[s], pattern.c_str()))
+            s++;
+        return s;
+    }
+};
+
+class TxRadixIntegerMatcher : public TxTokenMatcher {
+public:
+    TxRadixIntegerMatcher() : TxTokenMatcher( "BSIL" ) {}
+
+    std::vector<int8_t> first_bytes() const override {
+        const std::string chars( "0123456789" );
+        return std::vector<int8_t>( chars.cbegin(), chars.cend());
+    }
+
+    uint32_t match( const char* source ) const override {
+        size_t s;
+
+        if ( source[0] == '0' ) {
+            // radix integer literal only starts with 0 if also followed by x
+            if ( !( source[1] == 'x' || source[1] == 'X' ))
+                return 0;
+            // 0x hexadecimal integer
+            s = 2;
+            if ( !std::isxdigit( source[s] ))
+                return 0;
+            for ( s++; std::isxdigit( source[s] ) || source[s] == '_'; s++ ) {
+            }
+        }
+        else {
+            for ( s = 0; std::isdigit( source[s] ); s++ ) {
+            }
+            if ( s == 0 )
+                return 0;
+            if ( source[s] != '#' )
+                return 0;
+            s++;
+
+            // optional whitespaces and an optional minus sign:
+            for ( s++; source[s] == ' ' || source[s] == '\t'; s++ ) {
+            }
+            if ( source[s] == '-' ) {
+                for ( s++; source[s] == ' ' || source[s] == '\t'; s++ ) {
+                }
+            }
+
+            if ( !std::isalnum( source[s] ))
+                return 0;
+            for ( s++; std::isalnum( source[s] ) || source[s] == '_'; s++ ) {
+            }
+        }
+
+        if ( source[s] != '#' )
+            return s;
+        // type suffix
+        s++;
+        if ( source[s] == 'U' )
+            s++;
+        if ( char_in_string( source[s], pattern.c_str()))
+            s++;
+        return s;
+    }
+};
+
+class TxFloatMatcher : public TxTokenMatcher {
+public:
+    TxFloatMatcher() : TxTokenMatcher( "HFD" ) {}
+
+    std::vector<int8_t> first_bytes() const override {
+        const std::string chars( "0123456789." );
+        return std::vector<int8_t>( chars.cbegin(), chars.cend());
+    }
+
+    uint32_t match( const char* source ) const override {
+        size_t s = 0;
+        if ( std::isdigit( source[s] )) {
+            for ( s++; std::isdigit( source[s] ) || source[s] == '_'; s++ ) {
+            }
+        }
+        if ( source[s] != '.' )
+            return 0;
+        s++;
+        if ( std::isdigit( source[s] )) {
+            for ( s++; std::isdigit( source[s] ) || source[s] == '_'; s++ ) {
+            }
+        }
+        else if ( s == 1 )
+            return 0;  // only '.' without any digits
+        else if ( source[s] == '.' )
+            return 0;  // prevent conflation with '..' token
+
+        if ( char_in_string( source[s], pattern.c_str()))
+            s++;
+        return s;
+    }
+};
+
+class TxExpFloatMatcher : public TxTokenMatcher {
+public:
+    TxExpFloatMatcher() : TxTokenMatcher( "HFD" ) {}
+
+    std::vector<int8_t> first_bytes() const override {
+        const std::string chars( "0123456789." );
+        return std::vector<int8_t>( chars.cbegin(), chars.cend());
+    }
+
+    uint32_t match( const char* source ) const override {
+        size_t s = 0;
+        if ( std::isdigit( source[s] )) {
+            for ( s++; std::isdigit( source[s] ) || source[s] == '_'; s++ ) {
+            }
+        }
+        if ( source[s] == '.' ) {
+            s++;
+            if ( std::isdigit( source[s] )) {
+                for ( s++; std::isdigit( source[s] ) || source[s] == '_'; s++ ) {
+                }
+            }
+            else if ( s == 1 )
+                return 0;  // only '.' without any digits
+        }
+        else if ( s == 0 )
+            return 0;
+
+        if ( source[s] == 'e' || source[s] == 'E' )
+            s++;
+        else
+            return 0;
+        if ( source[s] == '+' || source[s] == '-' )
+            s++;
+        if ( std::isdigit( source[s] )) {
+            for ( s++; std::isdigit( source[s] ) || source[s] == '_'; s++ ) {
+            }
+        }
+        else
+            return 0;
+
+        if ( char_in_string( source[s], pattern.c_str()))
+            s++;
+        return s;
+    }
+};
+
+class TxHexExpFloatMatcher : public TxTokenMatcher {
+public:
+    TxHexExpFloatMatcher() : TxTokenMatcher( "HFD" ) {}
+
+    std::vector<int8_t> first_bytes() const override {
+        const std::string chars( "0123456789." );
+        return std::vector<int8_t>( chars.cbegin(), chars.cend());
+    }
+
+    uint32_t match( const char* source ) const override {
+        if ( !( source[0] == '0' && ( source[1] == 'x' || source[1] == 'X' )))
+            return 0;
+        size_t s = 2;
+        if ( std::isxdigit( source[s] )) {
+            for ( s++; std::isxdigit( source[s] ) || source[s] == '_'; s++ ) {
+            }
+        }
+        bool hasDot = false;
+        if ( source[s] == '.' ) {
+            hasDot = true;
+            s++;
+            if ( std::isxdigit( source[s] )) {
+                for ( s++; std::isxdigit( source[s] ) || source[s] == '_'; s++ ) {
+                }
+            }
+            else if ( s == 1 )
+                return 0;  // only '.' without any digits
+            else if ( source[s] == '.' )
+                return 0;  // prevent conflation with '..' token
+        }
+        else if ( s == 2 )
+            return 0;
+
+        if ( source[s] == 'p' || source[s] == 'P' ) {
+            s++;
+            if ( source[s] == '+' || source[s] == '-' )
+                s++;
+            if ( std::isxdigit( source[s] )) {
+                for ( s++; std::isxdigit( source[s] ) || source[s] == '_'; s++ ) {
+                }
+            }
+            else
+                return 0;
+        }
+        else if ( !hasDot )  // must have at least one of . and p-expression
+            return 0;
+
+        if ( source[s] == '#' ) {
+            s++;
+            if ( char_in_string( source[s], pattern.c_str()))
+                s++;
+            else
+                return 0;
+        }
+        return s;
+    }
+};
+
+class TxStringMatcher : public TxTokenMatcher {
+public:
+    TxStringMatcher() : TxTokenMatcher( "" ) {}
+
+    explicit TxStringMatcher( char prefix ) : TxTokenMatcher( prefix ) {}
+
+    std::vector<int8_t> first_bytes() const override {
+        return std::vector<int8_t>( { '"', 'c' } );
+    }
+
+    uint32_t match( const char* source ) const override {
+        size_t s = 0;
+        if ( !pattern.empty()) {
+            if ( source[s] != pattern[0] )  // c-string literal prefix
+                return 0;
+            s++;
+        }
+        if ( source[s] != '"' )
+            return 0;
+        for ( s++;; s++ ) {
+            switch ( source[s] ) {
+                case 0:
+                    return 0;
+                case '"':
+                    return s + 1;
+                case '\\':
+                    s++;
+                    if ( source[s] == 0 )
+                        return 0;
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
+};
+
+class TxCharacterMatcher : public TxTokenMatcher {
+public:
+    TxCharacterMatcher() : TxTokenMatcher( "" ) {}
+
+    std::vector<int8_t> first_bytes() const override {
+        return std::vector<int8_t>( { '\'' } );
+    }
+
+    uint32_t match( const char* source ) const override {
+        if ( source[0] != '\'' )
+            return 0;
+        else if ( source[1] == '\\' ) {
+            if ( source[2] == 0 || source[3] != '\'' )
+                return 0;
+            switch ( source[2] ) {
+                case 'n':
+                case 'r':
+                case 't':
+                    break;
+                default:
+                    break;
+            }
+            return 4;
+        }
+        else {
+            if ( source[1] == 0 || source[2] != '\'' )
+                return 0;
+            return 3;
+        }
+    }
+};
+
+class TxSfWidthMatcher : public TxTokenMatcher {
+public:
+    TxSfWidthMatcher() : TxTokenMatcher( "" ) {}
+
+    std::vector<int8_t> first_bytes() const override {
+        const std::string chars( "123456789" );
+        return std::vector<int8_t>( chars.cbegin(), chars.cend());
+    }
+
+    uint32_t match( const char* source ) const override {
+        if ( source[0] == '*' )
+            return 1;
+        if ( source[0] == '0' || !std::isdigit( source[0] ))
+            return 0;
+        size_t s = 1;
+        for ( ; std::isdigit( source[s] ); s++ ) {
+        }
+        return s;
+    }
+};
+
+class TxSfPrecMatcher : public TxTokenMatcher {
+public:
+    TxSfPrecMatcher() : TxTokenMatcher( "" ) {}
+
+    std::vector<int8_t> first_bytes() const override {
+        return std::vector<int8_t>( { '.' } );
+    }
+
+    uint32_t match( const char* source ) const override {
+        if ( source[0] != '.' )
+            return 0;
+        if ( source[1] == '*' )
+            return 2;
+        if ( !std::isdigit( source[1] ))
+            return 0;
+        size_t s = 2;
+        for ( ; std::isdigit( source[s] ); s++ ) {
+        }
+        return s;
+    }
+};
+
 
 /** Dummy matcher that never matches input. */
 class TxNeverMatcher : public TxTokenMatcher {
 public:
     TxNeverMatcher() : TxTokenMatcher( "" ) {}
 
-    size_t match( const char* source ) const override {
+    std::vector<int8_t> first_bytes() const override {
+        return std::vector<int8_t>();
+    }
+
+    uint32_t match( const char* source ) const override {
         return 0;
     }
 };
 
 
+/** Represents a token definition. */
 struct TxTokenDef {
     TxTokenId id;
-    char const* const label;
     TxTokenMatcher const* const matcher;
 };
 
-#define TOKDEF( token, matcher )  { TxTokenId:: token, #token, matcher }
-
-static TxTokenMatcher const* const indentation_matcher = new TxIndentationMatcher( " \t" );
-
-const std::vector<TxTokenDef> tokenDefinitions = {
-        TOKDEF( WHITESPACE, new TxWhiteSpaceMatcher( " \t" )),
-        TOKDEF( NEWLINE, new TxWhiteSpaceMatcher( "\n\r" )),
-
-        TOKDEF( LBRACE, new TxExactMatcher( "{" )),
-        TOKDEF( RBRACE, new TxExactMatcher( "}" )),
-        TOKDEF( LPAREN, new TxExactMatcher( "(" )),
-        TOKDEF( RPAREN, new TxExactMatcher( ")" )),
-        TOKDEF( SEMICOLON, new TxExactMatcher( ";" )),
-        TOKDEF( PACKAGE, new TxExactMatcher( "package" )),
-
-        TOKDEF( COMMENT, new TxCommentMatcher( "/*", "*/" )),
-        TOKDEF( COMMENT, new TxLineCommentMatcher()),
-
-        TOKDEF( NAME, new TxNameMatcher()),
-
-//		TOKDEF( INTEGER,	new TxIntegerMatcher( "/*" ) ),
-//		TOKDEF( FLOAT, 		new TxFloattMatcher( "*/" ) ),
-
-        // for symbol lookup completeness:
-        TOKDEF( INDENT, new TxNeverMatcher()),
-        TOKDEF( DEDENT, new TxNeverMatcher()),
-        TOKDEF( ERROR, new TxNeverMatcher()),
-        TOKDEF( END, new TxNeverMatcher()),
+/** Represents a token match. */
+struct TxTokenMatch {
+    TxTokenId id;
+    uint32_t length;
 };
 
 
+/** One scanner container for each context-dependent "scan state".
+ * Note that the scanner container object is constant, and can in theory occur multiple times in the scanner  stack.
+ */
+class TxScanner {
+    const std::vector<TxTokenDef>& tokenDefinitions;
+
+    std::vector<const TxTokenDef*> definitionsTable[256];
+
+    inline const std::vector<const TxTokenDef*>* lookup( uint8_t first ) const {
+        return &definitionsTable[first];
+    }
+
+protected:
+    TxTokenMatch match_token( const TxSourceScan& scanState ) const;
+
+public:
+    explicit TxScanner( const std::vector<TxTokenDef>& tokenDefinitions ) noexcept
+            : tokenDefinitions( tokenDefinitions ) {
+        for ( auto& tokDef : this->tokenDefinitions ) {
+            for ( uint8_t first : tokDef.matcher->first_bytes()) {
+                definitionsTable[first].push_back( &tokDef );
+            }
+        }
+    }
+
+    /** Scans another token. Will add one or more tokens to the tokens vector. (TxTokenID::ERROR if no match) */
+    virtual void scan_token( TxSourceScan& scanState ) const = 0;
+};
+
+TxTokenMatch TxScanner::match_token( const TxSourceScan& scanState ) const {
+    TxTokenMatch match = { TxTokenId::END, 0 };
+    for ( const TxTokenDef* tokDef : *lookup( *scanState.input_buffer())) {
+        auto newMatchLen = tokDef->matcher->match( scanState.input_buffer());
+        if ( newMatchLen > 0 ) {
+            if ( tokDef->matcher->definitive ) {
+                match.length = newMatchLen;
+                match.id = tokDef->id;
+                break;
+            }
+            else if ( newMatchLen > match.length ) {
+                match.length = newMatchLen;
+                match.id = tokDef->id;
+            }
+        }
+    }
+    return match;
+}
+
+
+class TxStringFormatScanner : public TxScanner {
+    static const std::vector<TxTokenDef> tokenDefinitions;
+
+public:
+    TxStringFormatScanner() : TxScanner( tokenDefinitions ) {}
+
+    void scan_token( TxSourceScan& scanState ) const override;
+};
+
+void TxStringFormatScanner::scan_token( TxSourceScan& scanState ) const {
+    // match token:
+    TxTokenMatch match = match_token( scanState );
+
+    if ( match.length ) {
+        // a token matched
+        scanState.add_token( match.id, match.length );
+        if ( match.id != TxTokenId::SF_TYPE ) {
+            return;
+        }
+    }
+//    if ( sparserCtx->driver().get_options().debug_scanner && parserCtx->is_user_source()) {
+//        std::cerr << "Exiting scanner stringFormatScanner" << std::endl;
+//    }
+    scanState.scannerStack.pop();
+}
+
+
+class TxTopScanner : public TxScanner {
+    static const TxIndentationMatcher indentation_matcher;
+    static const std::vector<TxTokenDef> topTokenDefinitions;
+    TxStringFormatScanner stringFormatScanner;
+
+public:
+    TxTopScanner() : TxScanner( topTokenDefinitions ) {}
+
+    void scan_token( TxSourceScan& scanState ) const override;
+};
+
+void TxTopScanner::scan_token( TxSourceScan& scanState ) const {
+    // Special logic for indentation. Only match for indentation when at start of line.
+    if ( scanState.current_cursor().column == 1 ) {
+        // TODO: warn if mixing tabs and spaces
+        const auto indentLen = indentation_matcher.match( scanState.input_buffer());
+        if ( indentLen > 0 ) {
+            TxTokenId tokenId;
+            size_t prevIndent = ( scanState.indentStack.empty() ? 0 : scanState.indentStack.top());
+            if ( indentLen < prevIndent ) {
+                scanState.add_token( TxTokenId::DEDENT, indentLen );
+                do {
+                    scanState.indentStack.pop();
+
+                    prevIndent = ( scanState.indentStack.empty() ? 0 : scanState.indentStack.top());
+                    if ( indentLen >= prevIndent ) {
+                        // check consistency with previous indentation levels (it should match one of the previous lengths exactly):
+                        if ( indentLen > prevIndent ) {
+                            auto& cursor = scanState.current_cursor();
+                            std::cerr << "Inconsistent indentation at line=" << cursor.line << ",col="
+                                      << cursor.column << ", " << indentLen << " > " << prevIndent << std::endl;
+                        }
+                        break;
+                    }
+                    scanState.add_token( TxTokenId::DEDENT, 0 );
+                } while ( true );
+            }
+            else {
+                if ( indentLen > prevIndent ) {
+                    scanState.indentStack.push( indentLen );
+                    tokenId = TxTokenId::INDENT;
+                }
+                else {  // matchLen == prevIndent
+                    // same indentation as previous, treat as simple whitespace
+                    tokenId = TxTokenId::WHITESPACE;
+                }
+                scanState.add_token( tokenId, indentLen );
+            }
+            return;
+        }
+    }
+
+    // match token:
+    TxTokenMatch match = match_token( scanState );
+
+    if ( match.length ) {
+        // a token matched
+        scanState.add_token( match.id, match.length );
+        if ( match.id == TxTokenId::PERCENT ) {
+//            if ( sparserCtx->driver().get_options().debug_scanner && parserCtx->is_user_source() ) {
+//                std::cerr << "Entering scanner stringFormatScanner" << std::endl;
+//            }
+            scanState.scannerStack.push( &stringFormatScanner );
+        }
+        return;
+    }
+
+    // no token matched
+    scanState.add_token( TxTokenId::ERROR, 1 );
+}
+
+
+const TxIndentationMatcher TxTopScanner::indentation_matcher( " \t" );
+
+#define TOKDEF( token, matcher )  { token, matcher }
+
+const std::vector<TxTokenDef> TxTopScanner::topTokenDefinitions =
+        {
+                TOKDEF( TxTokenId::WHITESPACE, new TxCharSetMatcher( " \t", true )),
+                TOKDEF( TxTokenId::COMMENT, new TxCommentMatcher()),
+                TOKDEF( TxTokenId::COMMENT, new TxLineCommentMatcher()),
+
+                /* statement separators */
+                TOKDEF( TxTokenId::NEWLINE, new TxCharSetMatcher( "\n\r", true )),
+                TOKDEF( TxTokenId::SEMICOLON, new TxFixedMatcher( ";", true )),
+                TOKDEF( TxTokenId::LBRACE, new TxFixedMatcher( "{", true )),
+                TOKDEF( TxTokenId::RBRACE, new TxFixedMatcher( "}", true )),
+
+                /* operators */
+                TOKDEF( TxTokenId::LPAREN, new TxFixedMatcher( "(", true )),
+                TOKDEF( TxTokenId::RPAREN, new TxFixedMatcher( ")", true )),
+                TOKDEF( TxTokenId::LBRACKET, new TxFixedMatcher( "[", true )),
+                TOKDEF( TxTokenId::RBRACKET, new TxFixedMatcher( "]", true )),
+                TOKDEF( TxTokenId::COMMA, new TxFixedMatcher( ",", true )),
+                TOKDEF( TxTokenId::COLON, new TxFixedMatcher( ":" )),
+                TOKDEF( TxTokenId::DOT, new TxFixedMatcher( "." )),
+                TOKDEF( TxTokenId::DOTDOT, new TxFixedMatcher( ".." )),
+                TOKDEF( TxTokenId::ELLIPSIS, new TxFixedMatcher( "..." )),
+                TOKDEF( TxTokenId::ASTERISK, new TxFixedMatcher( "*" )),
+                TOKDEF( TxTokenId::PLUS, new TxFixedMatcher( "+" )),
+                TOKDEF( TxTokenId::MINUS, new TxFixedMatcher( "-" )),
+                TOKDEF( TxTokenId::FSLASH, new TxFixedMatcher( "/" )),
+                TOKDEF( TxTokenId::BSLASH, new TxFixedMatcher( "\\" )),
+                TOKDEF( TxTokenId::AAND, new TxFixedMatcher( "&" )),
+                TOKDEF( TxTokenId::PIPE, new TxFixedMatcher( "|" )),
+                TOKDEF( TxTokenId::CARET, new TxFixedMatcher( "^" )),
+                TOKDEF( TxTokenId::TILDE, new TxFixedMatcher( "~" )),
+                TOKDEF( TxTokenId::PERCENT, new TxFixedMatcher( "%" )),
+                TOKDEF( TxTokenId::PERCENTPERCENT, new TxFixedMatcher( "%%" )),
+                TOKDEF( TxTokenId::DOLLAR, new TxFixedMatcher( "$" )),
+                TOKDEF( TxTokenId::QMARK, new TxFixedMatcher( "?" )),
+                TOKDEF( TxTokenId::EMARK, new TxFixedMatcher( "!" )),
+                TOKDEF( TxTokenId::DASHGT, new TxFixedMatcher( "->" )),
+                TOKDEF( TxTokenId::LTCOLON, new TxFixedMatcher( "<:" )),
+                TOKDEF( TxTokenId::EQUAL, new TxFixedMatcher( "=" )),
+                TOKDEF( TxTokenId::EEQUAL, new TxFixedMatcher( "==" )),
+                TOKDEF( TxTokenId::NEQUAL, new TxFixedMatcher( "!=" )),
+                TOKDEF( TxTokenId::EEEQUAL, new TxFixedMatcher( "===" )),
+                TOKDEF( TxTokenId::NEEQUAL, new TxFixedMatcher( "!==" )),
+                TOKDEF( TxTokenId::LT, new TxFixedMatcher( "<" )),
+                TOKDEF( TxTokenId::LTLT, new TxFixedMatcher( "<<" )),
+                TOKDEF( TxTokenId::GT, new TxFixedMatcher( ">" )),
+                // unsure why bison grammar doesn't handle these properly
+                //TOKDEF( TxTokenId::GTGT, new TxFixedMatcher( ">>" ) ),
+                //TOKDEF( TxTokenId::GTGTGT, new TxFixedMatcher( ">>>" ) ),
+                TOKDEF( TxTokenId::LEQUAL, new TxFixedMatcher( "<=" )),
+                TOKDEF( TxTokenId::GEQUAL, new TxFixedMatcher( ">=" )),
+                TOKDEF( TxTokenId::COLEQUAL, new TxFixedMatcher( ":=" )),
+                TOKDEF( TxTokenId::PLUSEQUAL, new TxFixedMatcher( "+=" )),
+                TOKDEF( TxTokenId::MINUSEQUAL, new TxFixedMatcher( "-=" )),
+                TOKDEF( TxTokenId::ASTERISKEQUAL, new TxFixedMatcher( "*=" )),
+                TOKDEF( TxTokenId::FSLASHEQUAL, new TxFixedMatcher( "/=" )),
+
+                /* keywords */
+                TOKDEF( TxTokenId::KW_MODULE, new TxFixedMatcher( "module" )),
+                TOKDEF( TxTokenId::KW_IMPORT, new TxFixedMatcher( "import" )),
+                TOKDEF( TxTokenId::KW_TYPE, new TxFixedMatcher( "type" )),
+                TOKDEF( TxTokenId::KW_INTERFACE, new TxFixedMatcher( "interface" )),
+                TOKDEF( TxTokenId::KW_BUILTIN, new TxFixedMatcher( "builtin" )),
+                TOKDEF( TxTokenId::KW_VIRTUAL, new TxFixedMatcher( "virtual" )),
+                TOKDEF( TxTokenId::KW_ABSTRACT, new TxFixedMatcher( "abstract" )),
+                TOKDEF( TxTokenId::KW_FINAL, new TxFixedMatcher( "final" )),
+                TOKDEF( TxTokenId::KW_OVERRIDE, new TxFixedMatcher( "override" )),
+                TOKDEF( TxTokenId::KW_EXTERNC, new TxFixedMatcher( "externc" )),
+                TOKDEF( TxTokenId::KW_MUTABLE, new TxFixedMatcher( "mutable" )),
+                TOKDEF( TxTokenId::KW_REFERENCE, new TxFixedMatcher( "reference" )),
+                TOKDEF( TxTokenId::KW_DERIVES, new TxFixedMatcher( "derives" )),
+                TOKDEF( TxTokenId::KW_WHILE, new TxFixedMatcher( "while" )),
+                TOKDEF( TxTokenId::KW_FOR, new TxFixedMatcher( "for" )),
+                TOKDEF( TxTokenId::KW_IF, new TxFixedMatcher( "if" )),
+                TOKDEF( TxTokenId::KW_ELSE, new TxFixedMatcher( "else" )),
+                TOKDEF( TxTokenId::KW_IN, new TxFixedMatcher( "in" )),
+                TOKDEF( TxTokenId::KW_IS, new TxFixedMatcher( "is" )),
+                TOKDEF( TxTokenId::KW_RETURN, new TxFixedMatcher( "return" )),
+                TOKDEF( TxTokenId::KW_BREAK, new TxFixedMatcher( "break" )),
+                TOKDEF( TxTokenId::KW_CONTINUE, new TxFixedMatcher( "continue" )),
+                TOKDEF( TxTokenId::KW_NEW, new TxFixedMatcher( "new" )),
+                TOKDEF( TxTokenId::KW_DELETE, new TxFixedMatcher( "delete" )),
+                TOKDEF( TxTokenId::KW_XOR, new TxFixedMatcher( "xor" )),
+                TOKDEF( TxTokenId::KW_PANIC, new TxFixedMatcher( "panic" )),
+                TOKDEF( TxTokenId::KW_ASSERT, new TxFixedMatcher( "assert" )),
+                TOKDEF( TxTokenId::KW_EXPERR, new TxFixedMatcher( "#experr" )),
+
+                TOKDEF( TxTokenId::KW__ADDRESS, new TxFixedMatcher( "_address" )),
+                TOKDEF( TxTokenId::KW__TYPEID, new TxFixedMatcher( "_typeid" )),
+                TOKDEF( TxTokenId::KW__SIZEOF, new TxFixedMatcher( "_sizeof" )),
+                TOKDEF( TxTokenId::KW__SUPERTYPES, new TxFixedMatcher( "_supertypes" )),
+
+                /* reserved but not currently used: */
+                TOKDEF( TxTokenId::AT, new TxFixedMatcher( "@" )),
+                TOKDEF( TxTokenId::EURO, new TxFixedMatcher( "€" )),
+                TOKDEF( TxTokenId::COLONGT, new TxFixedMatcher( ":>" )),
+                TOKDEF( TxTokenId::KW_PUBLIC, new TxFixedMatcher( "public" )),
+                TOKDEF( TxTokenId::KW_PROTECTED, new TxFixedMatcher( "protected" )),
+                TOKDEF( TxTokenId::KW_STATIC, new TxFixedMatcher( "static" )),
+                TOKDEF( TxTokenId::KW_CONST, new TxFixedMatcher( "const" )),
+                TOKDEF( TxTokenId::KW_EXTENDS, new TxFixedMatcher( "extends" )),
+                TOKDEF( TxTokenId::KW_IMPLEMENTS, new TxFixedMatcher( "implements" )),
+                TOKDEF( TxTokenId::KW_SWITCH, new TxFixedMatcher( "switch" )),
+                TOKDEF( TxTokenId::KW_CASE, new TxFixedMatcher( "case" )),
+                TOKDEF( TxTokenId::KW_WITH, new TxFixedMatcher( "with" )),
+                TOKDEF( TxTokenId::KW_AS, new TxFixedMatcher( "as" )),
+                TOKDEF( TxTokenId::KW_AND, new TxFixedMatcher( "and" )),
+                TOKDEF( TxTokenId::KW_OR, new TxFixedMatcher( "or" )),
+                TOKDEF( TxTokenId::KW_NOT, new TxFixedMatcher( "not" )),
+                TOKDEF( TxTokenId::KW_TRY, new TxFixedMatcher( "try" )),
+                TOKDEF( TxTokenId::KW_EXCEPT, new TxFixedMatcher( "except" )),
+                TOKDEF( TxTokenId::KW_FINALLY, new TxFixedMatcher( "finally" )),
+                TOKDEF( TxTokenId::KW_RAISE, new TxFixedMatcher( "raise" )),
+                TOKDEF( TxTokenId::KW_RAISES, new TxFixedMatcher( "rasises" )),
+
+                /* literals */
+                TOKDEF( TxTokenId::LIT_DEC_INT, new TxIntegerMatcher()),
+                TOKDEF( TxTokenId::LIT_RADIX_INT, new TxRadixIntegerMatcher()),
+                TOKDEF( TxTokenId::LIT_FLOATING, new TxFloatMatcher()),
+                TOKDEF( TxTokenId::LIT_FLOATING, new TxExpFloatMatcher()),
+                TOKDEF( TxTokenId::LIT_FLOATING, new TxHexExpFloatMatcher()),
+                TOKDEF( TxTokenId::LIT_CHARACTER, new TxCharacterMatcher()),
+                TOKDEF( TxTokenId::LIT_CSTRING, new TxStringMatcher( 'c' )),
+                TOKDEF( TxTokenId::LIT_STRING, new TxStringMatcher()),
+                TOKDEF( TxTokenId::ARRAY_LIT, new TxNeverMatcher()),  // TODO
+
+                /* TRUE and FALSE are parsed as keywords until they can be implemented using proper Enum facility */
+                TOKDEF( TxTokenId::KW_TRUE, new TxFixedMatcher( "TRUE" )),
+                TOKDEF( TxTokenId::KW_FALSE, new TxFixedMatcher( "FALSE" )),
+
+                /* identifiers */
+                TOKDEF( TxTokenId::NAME, new TxNameMatcher()),
+                TOKDEF( TxTokenId::NAME, new TxFixedMatcher( "#" )),
+                TOKDEF( TxTokenId::HASHINIT, new TxFixedMatcher( "#init" )),
+                TOKDEF( TxTokenId::HASHSELF, new TxFixedMatcher( "#self" )),
+
+//                /* precedence operators, not actually lexically produced */
+//                TOKDEF( TxTokenId::STMT, new TxNeverMatcher()),
+//                TOKDEF( TxTokenId::TYPE, new TxNeverMatcher()),
+//                TOKDEF( TxTokenId::EXPR, new TxNeverMatcher()),
+//                TOKDEF( TxTokenId::NOT, new TxNeverMatcher()),
+//                TOKDEF( TxTokenId::NEG, new TxNeverMatcher()),
+//                TOKDEF( TxTokenId::ADDR, new TxNeverMatcher()),
+//
+//                /* for symbol lookup completeness, matched separately */
+//                TOKDEF( TxTokenId::INDENT, new TxNeverMatcher()),
+//                TOKDEF( TxTokenId::DEDENT, new TxNeverMatcher()),
+//
+//                /* for symbol lookup completeness, not actually lexically produced */
+//                TOKDEF( TxTokenId::ERROR, new TxNeverMatcher()),
+//                TOKDEF( TxTokenId::END, new TxNeverMatcher()),
+        };
+
+const std::vector<TxTokenDef> TxStringFormatScanner::tokenDefinitions =
+        {
+                TOKDEF( TxTokenId::SF_PARAM, new TxNeverMatcher()),  // FUTURE
+                TOKDEF( TxTokenId::SF_FLAGS, new TxNeverMatcher()),  // FUTURE
+                TOKDEF( TxTokenId::SF_MINUS, new TxFixedMatcher( "-" )),
+                TOKDEF( TxTokenId::SF_PLUS, new TxFixedMatcher( "+" )),
+                TOKDEF( TxTokenId::SF_SPACE, new TxFixedMatcher( " " )),
+                TOKDEF( TxTokenId::SF_ZERO, new TxFixedMatcher( "0" )),
+                TOKDEF( TxTokenId::SF_HASH, new TxFixedMatcher( "#" )),
+                TOKDEF( TxTokenId::SF_WIDTH, new TxSfWidthMatcher()),
+                TOKDEF( TxTokenId::SF_PREC, new TxSfPrecMatcher()),
+                TOKDEF( TxTokenId::SF_TYPE, new TxCharSetCountMatcher( "xXoObBdiufFeEgGscaA", 1, 1 )),
+        };
+
+
+static TxTopScanner topLevelScanner;
+
+
+TxSourceScan::TxSourceScan( const TxSourceBuffer& buffer )
+        : buffer( buffer ), nextToken( 0 ), scannerStack( { &topLevelScanner } ) {
+}
+
 /** moves the head cursor forwards, updating the line index as proper */
-void TxScanState::advance_head( size_t length ) {
+void TxSourceScan::advance_head( size_t length ) {
     for ( size_t i = 0; i < length; i++ ) {
         auto nextChar = buffer.source[cursor.index];
         cursor.index++;
@@ -213,137 +898,46 @@ void TxScanState::advance_head( size_t length ) {
             lineIndex.line_index.push_back( cursor.index );
             cursor.line++;
             cursor.column = 1;
-        } else {
+        }
+        else {
             cursor.column++;
         }
     }
 }
 
-const TxToken& TxScanState::next_token() {
+void TxSourceScan::add_token( TxTokenId id, uint32_t len ) {
+    // (len can be 0 when multiple tokens are generated at the same position)
+    TxSourcePosition begin = cursor;
+    advance_head( len );
+    tokens.emplace_back( buffer, begin, cursor, id );
+}
+
+
+const TxToken& TxSourceScan::next_token() {
     // first return any queued tokens
     if ( tokens.size() > nextToken ) {
         return tokens.at( nextToken++ );
     }
 
     // check end of buffer
-    if ( ! buffer.source[cursor.index] ) {
+    if ( !buffer.source[cursor.index] ) {
         // end of buffer
         tokens.emplace_back( buffer, cursor, cursor, TxTokenId::END );
         return tokens.at( nextToken++ );
     }
 
-    // only match for indentation when at start of line
-    if ( cursor.column == 1 ) {
-        // TODO: warn if mixing tabs and spaces
-        const size_t matchLen = indentation_matcher->match( &( buffer.source[cursor.index] ));
-        if ( matchLen > 0 ) {
-            TxTokenId tokenId;
-            size_t prevIndent = ( indentStack.empty() ? 0 : indentStack.top());
-            if ( matchLen < prevIndent ) {
-                TxSourcePosition begin = cursor;
-                advance_head( matchLen );  // only done for the first DEDENT at the same line
-                do {
-                    tokens.emplace_back( buffer, begin, cursor, TxTokenId::DEDENT );
-                    indentStack.pop();
-                    std::cout << "DEDENT at line=" << cursor.line << ",col=" << cursor.column << ", "
-                              << matchLen << " < " << prevIndent << std::endl;
-
-                    prevIndent = ( indentStack.empty() ? 0 : indentStack.top());
-                    if ( matchLen < prevIndent ) {
-                        begin = cursor;
-                    } else {
-                        // check consistency with previous indentation levels (it should match one of the previous lengths exactly):
-                        if ( matchLen > prevIndent ) {
-                            std::cout << "Inconsistent indentation at line=" << cursor.line << ",col="
-                                      << cursor.column << ", " << matchLen << " > " << prevIndent << std::endl;
-                        }
-                        break;
-                    }
-                } while ( true );
-            } else {
-                if ( matchLen > prevIndent ) {
-                    indentStack.push( matchLen );
-                    tokenId = TxTokenId::INDENT;
-                    std::cout << "INDENT at line=" << cursor.line << ",col=" << cursor.column << ", "
-                              << matchLen << " > " << prevIndent << std::endl;
-                } else {  // matchLen == prevIndent
-                    // same indentation as previous, treat as simple whitespace
-                    tokenId = TxTokenId::WHITESPACE;
-                }
-                TxSourcePosition begin = cursor;
-                advance_head( matchLen );
-                tokens.emplace_back( buffer, begin, cursor, tokenId );
-            }
-            return tokens.at( nextToken++ );
-        }
-    }
-
-    // match token:
-    const TxTokenDef* matchedTokenDef = nullptr;
-    size_t candidateMatchLen = 0;
-    for ( auto& tokDef : tokenDefinitions ) {
-        size_t matchLen = tokDef.matcher->match( &( buffer.source[cursor.index] ));
-        if ( matchLen > 0 ) {
-            //std::cout << "candidate match: " << tokDef.label << " matchLen=" << matchLen << std::endl;
-            if ( tokDef.matcher->exact ) {
-                candidateMatchLen = matchLen;
-                matchedTokenDef = &tokDef;
-                break;
-            } else if ( matchLen > candidateMatchLen ) {
-                candidateMatchLen = matchLen;
-                matchedTokenDef = &tokDef;
-            }
-        }
-    }
-
-    if ( candidateMatchLen ) {
-        // a token matched
-        TxSourcePosition begin = cursor;
-        advance_head( candidateMatchLen );
-        tokens.emplace_back( buffer, begin, cursor, matchedTokenDef->id );
-    } else {
-        // no token matched
-        TxSourcePosition begin = cursor;
-        advance_head( 1 );
-        tokens.emplace_back( buffer, begin, cursor, TxTokenId::ERROR );
-    }
-    return tokens.at( nextToken++ );
+    scannerStack.top()->scan_token( *this );
+    auto& token = this->tokens.at( this->nextToken++ );
+    return token;
 }
 
 
-using namespace std;
-
-int scanner_main() {
-    const char* srcText = ";() /* * / */\n;##foo\n    bar\n     etc\n    tmp\n bad";
-    cout << "Attempting scan of \n\"" << srcText << "\"" << endl;
-    TxSourceBuffer srcBuffer( { srcText } );
-    TxScanState state( srcBuffer );
-
-    do {
-        auto token = state.next_token();
-        token.print( 0 );
-        cout << endl;
-        if ( token.id == TxTokenId::ERROR ) {
-            cout << "Unrecognized character '" << srcBuffer.source[token.begin.index] << "'" << endl;
-        } else if ( token.id == TxTokenId::END )
-            break;
-    } while ( true );
-
-    return 0;
+std::string TxToken::str() const {
+    std::ostringstream ostr;
+    ostr << "line=" << begin.line << ",col=" << begin.column << " " << id
+         << " \"" << getSourceText() << '"';
+    return ostr.str();
 }
 
-void TxToken::print( int indent ) {
-    for ( int i = 0; i < indent; i++ ) {
-        std::cout << ' ';
-    }
-    for ( auto& tokDef : tokenDefinitions ) {
-        if ( tokDef.id == id ) {
-            std::cout << "line=" << begin.line << ",col=" << begin.column << " " << tokDef.label << " \""
-                      << getSourceText() << '"';
-            return;
-        }
-    }
-    std::cout << "line=" << begin.line << ",col=" << begin.column << " id=" << id << " \"" << getSourceText() << '"';
-}
 
 #pragma clang diagnostic pop

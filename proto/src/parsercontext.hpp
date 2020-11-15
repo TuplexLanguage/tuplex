@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stack>
+#include <utility>
 
 #include "util/printable.hpp"
 
@@ -14,6 +15,7 @@ class location;
 }
 
 class TxDriver;
+class TxSourceScan;
 class TxNode;
 class TxParsingUnitNode;
 class LlvmGenerationContext;
@@ -30,7 +32,7 @@ class TxParserContext : public Printable {
     TxDriver& _driver;
     TxIdentifier _moduleName;  // note, may be empty
     /** used for parse error messages */
-    std::string* _currentInputFilename = nullptr;
+    std::string _inputFilename;
 
     /** non-empty if currently processing within an EXPERR block */
     std::stack<ExpectedErrorClause*> expErrorStack;
@@ -40,12 +42,15 @@ class TxParserContext : public Printable {
 
     void emit_comp_error( const std::string& msg, ExpectedErrorClause* expErrorContext );
     void emit_comp_warning( const std::string& msg );
-    void emit_comp_info( const std::string& msg );
+    static void emit_comp_info( const std::string& msg );
 
     /** the expected-error nodes having been parsed */
     std::vector<TxNode*> expErrorNodes;
 
 public:
+    /** set directly by parser */
+    TxSourceScan* scanState = nullptr;
+
     /** set directly by parser */
     TxParsingUnitNode* parsingUnit = nullptr;
 
@@ -55,13 +60,13 @@ public:
     enum ParseInputSourceSet { BUILTINS, TX_SOURCES, FIRST_USER_SOURCE, REST_USER_SOURCES };
     const ParseInputSourceSet parseInputSourceSet;
 
-    TxParserContext( TxDriver& driver, TxIdentifier moduleName, const std::string &filePath, ParseInputSourceSet parseInputSourceSet )
-            : _driver( driver ), _moduleName( moduleName ), parseInputSourceSet( parseInputSourceSet ) {
-        // FUTURE: make parser not save *pointer* to filename, necessitating this leaky snippet:
-        this->_currentInputFilename = new std::string( filePath );
+    TxParserContext( TxDriver& driver, TxIdentifier moduleName, std::string filePath,
+                     ParseInputSourceSet parseInputSourceSet )
+            : _driver( driver ), _moduleName( std::move( moduleName )),
+              _inputFilename( std::move( filePath )), parseInputSourceSet( parseInputSourceSet ) {
     }
 
-    virtual ~TxParserContext() = default;
+    ~TxParserContext() override = default;
 
     inline TxDriver& driver() const {
         return this->_driver;
@@ -79,14 +84,14 @@ public:
     bool is_internal_builtin();
 
     /** Returns true if this parser context is processing user source code. */
-    bool is_user_source() {
+    bool is_user_source() const {
         return ( this->parseInputSourceSet == FIRST_USER_SOURCE || this->parseInputSourceSet == REST_USER_SOURCES );
     }
 
     /** The path of the file currently being parsed.
      * Used later to pass the file path to the location tracker. */
-    std::string* current_input_filepath() const {
-        return this->_currentInputFilename;
+    const std::string* current_input_filepath() const {
+        return &this->_inputFilename;
     }
 
     /** Checks that the module name is valid in relation to the currently parsed source file and its file name/path. */
@@ -117,5 +122,5 @@ public:
     void begin_exp_err( const TxLocation& loc, ExpectedErrorClause* expError );
     ExpectedErrorClause* end_exp_err( const TxLocation& loc );
 
-    virtual std::string str() const override;
+    std::string str() const override;
 };

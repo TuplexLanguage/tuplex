@@ -1,6 +1,5 @@
-#include <stdio.h>
-#include <string.h>
-#include <iostream>
+#include <cstdio>
+#include <cstring>
 
 #include "util/logging.hpp"
 #include "util/files_env.hpp"
@@ -51,7 +50,7 @@ int main( int argc, const char **argv )
                 printf( "  %-22s %s\n", "-dsx", "Dump full symbol table including built-in symbols" );
                 printf( "  %-22s %s\n", "-dt", "Dump types" );
                 printf( "  %-22s %s\n", "-di", "Dump intermediate representation (LLVM IR)" );
-                printf( "  %-22s %s\n", "-dl", "Print debugging output from lexer (token scanner)" );
+                printf( "  %-22s %s\n", "-dl", "Print debugging output from token scanner" );
                 printf( "  %-22s %s\n", "-dy", "Print debugging output from grammar parser" );
                 printf( "  %-22s %s\n", "-nodbg", "Strip debugging information from generated code" );
                 printf( "  %-22s %s\n", "-dbg", "Include debugging information in generated code" );
@@ -98,7 +97,7 @@ int main( int argc, const char **argv )
             else if ( !strcmp( argv[a], "-di" ) )
                 options.dump_ir = true;
             else if ( !strcmp( argv[a], "-dl" ) )
-                options.debug_lexer = true;
+                options.debug_scanner = true;
             else if ( !strcmp( argv[a], "-dy" ) )
                 options.debug_parser = true;
             else if ( !strcmp( argv[a], "-dbg" ) )
@@ -160,7 +159,7 @@ int main( int argc, const char **argv )
             }
         }
         else {
-            startSourceFiles.push_back( argv[a] );
+            startSourceFiles.emplace_back( argv[a] );
         }
     }
 
@@ -179,15 +178,18 @@ int main( int argc, const char **argv )
             options.run_jit = false;
     }
 
+    if ( options.allow_tx )
+        LOG.warning("Compiler set to allow declaration in and extension of built-in namespace (tx) from user code." );
+
     if ( startSourceFiles.empty() ) {
-        startSourceFiles.push_back( "-" );  // this will read source from stdin
+        startSourceFiles.emplace_back( "-" );  // this will read source from stdin
         // (will also write output to stdout unless an output filename has been specified)
     }
 
     if ( options.sourceSearchPaths.empty() )
         options.sourceSearchPaths = get_path_list( get_environment_variable( "TUPLEX_PATH" ) );
     if ( options.sourceSearchPaths.empty() )
-        options.sourceSearchPaths.push_back( "." );  // if no search paths provided, the current directory is searched
+        options.sourceSearchPaths.emplace_back("." );  // if no search paths provided, the current directory is searched
 
     if ( separateJobs ) {
         // TODO: by default strip directory of outputFileName (write it to current directory unless output dir specified)

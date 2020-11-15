@@ -1,7 +1,6 @@
 #include "parsercontext.hpp"
 
 #include "ast/ast_node.hpp"
-#include "ast/ast_entitydefs.hpp"
 #include "driver.hpp"
 #include "llvm_generator.hpp"
 #include "tx_lang_defs.hpp"
@@ -12,10 +11,8 @@ std::string format_location( const TxLocation& ploc ) {
     char buf[bufSize];
     auto filename = ploc.begin.filename ? ploc.begin.filename->c_str() : "";
     if ( ploc.begin.line == ploc.end.line ) {
-        int lcol = ( ploc.end.column > ploc.begin.column ) ? ploc.end.column : ploc.end.column;
         snprintf( buf, bufSize, "%s %2d.%-2d-%2d", filename,
-                  ploc.begin.line,
-                  ploc.begin.column, lcol );
+                  ploc.begin.line, ploc.begin.column, ploc.end.column );
     }
     else
         snprintf( buf, bufSize, "%s %2d.%-2d-%2d.%-2d", filename,
@@ -54,10 +51,10 @@ static Logger& CLOG = Logger::get( "COMPILER" );
 
 
 void TxParserContext::init_debug() {
-    std::string tmpFileName = ( _currentInputFilename->empty() ? "builtin" : *_currentInputFilename );
+    std::string tmpFileName = ( _inputFilename.empty() ? "builtin" : _inputFilename );
     this->_debugFile = this->_driver.get_llvm_gen_context()->debug_builder()->createFile( tmpFileName, "" );
     bool isOptimized = false;
-    std::string commandLineOptions = "";
+    std::string commandLineOptions;
     unsigned runtimeVersion = 0;
     this->_debugUnit = this->_driver.get_llvm_gen_context()->debug_builder()->createCompileUnit(
             llvm::dwarf::DW_LANG_C, this->_debugFile, get_version_string(), isOptimized, commandLineOptions, runtimeVersion);

@@ -96,7 +96,7 @@ public:
     /** \} */
 
     /// File name to which this position refers.
-    std::string* filename;
+    const std::string* filename;
     /// Current line number.
     unsigned int line;
     /// Current column number.

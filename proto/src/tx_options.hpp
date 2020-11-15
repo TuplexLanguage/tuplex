@@ -8,7 +8,7 @@
 class TxOptions {
 public:
     bool only_parse = false;
-    bool debug_lexer = false;
+    bool debug_scanner = false;
     bool debug_parser = false;
     bool dump_ast = false;
     bool dump_symbol_table = false;
