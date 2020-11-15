@@ -17,6 +17,7 @@ static struct ThresholdLevel THRESHOLD_LEVELS[] {
                                                   { "ENTITY", ALL },
                                                   { "LLVMGEN", ALL },
                                                   { "COMPILER", ALL },
+                                                  { "B-PARSER", ALL },
 };
 
 const char* LEVEL_NAMES[] {

@@ -255,6 +255,7 @@ public:
     TxForStmtNode( const TxLocation& ploc, std::vector<TxFlowHeaderNode*>* loopHeaders, TxStatementNode* body,
                    TxElseClauseNode* elseClause = nullptr )
             : TxStatementNode( ploc ), loopHeaders( loopHeaders ), body( body ), elseClause( elseClause )  {
+        ASSERT( !loopHeaders->empty(), "loopHeaders empty" );
         this->body->predecessor = this->loopHeaders->back()->get_stmt_predecessor();
         if ( this->elseClause )
             this->elseClause->predecessor = this->body->predecessor;

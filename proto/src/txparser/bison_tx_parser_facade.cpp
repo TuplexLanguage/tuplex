@@ -61,7 +61,7 @@ static TxSourceBuffer load_file( FILE* file ) {
                 buffer = chunk;
             }
             else {
-                _LOG.note( "Loaded source file in %d chunks", bufChunks.size() + 1);
+                _LOG.debug( "Loaded source file in %d chunks", bufChunks.size() + 1);
                 buffer = consolidate( bufChunks, chunk, fileSize, readLen );
                 if ( !buffer )
                     return TxSourceBuffer( { nullptr } );
@@ -104,13 +104,15 @@ static TxSourceBuffer load_file( const std::string& filePath ) {
 }
 
 
-int parse( TxParserContext* parserContext, TxSourceBuffer srcBuffer ) {
+static int parse( TxParserContext* parserContext, TxSourceBuffer srcBuffer ) {
     auto scanState = new TxSourceScan( srcBuffer );
     parserContext->scanState = scanState;
 
     yy::TxParser parser( parserContext );
     parser.set_debug_level( parserContext->driver().get_options().debug_parser );
     int ret = parser.parse();
+    _LOG.debug( "Completed grammar parse of source buffer for '%s'",
+                parserContext->current_input_filepath()->c_str() );
     return ret;
 }
 

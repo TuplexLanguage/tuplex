@@ -81,7 +81,7 @@ add_executable(txc
 		txparser/tx_tokens.cpp
 #		txparser/tmp_parser.cpp
 #		bison_parser_facade.cpp
-		bison_tx_parser_facade.cpp
+        txparser/bison_tx_parser_facade.cpp
 
         identifier.cpp
         tx_operations.cpp

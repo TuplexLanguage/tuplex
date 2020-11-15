@@ -8,8 +8,6 @@
 
 class TxParserContext;
 
-static Logger& _LOG = Logger::get( "B-PARSER" );
-
 yy::TxParser::token_type yylex( yy::TxParser::semantic_type* yylval, yy::TxParser::location_type* yylloc, TxParserContext* parserCtx ) {
     do {
         yylloc->step();
@@ -49,7 +47,7 @@ yy::TxParser::token_type yylex( yy::TxParser::semantic_type* yylval, yy::TxParse
 //                return TxTokenId::RBRACE;
 
             default:
-                if ( parserCtx->driver().get_options().debug_scanner ) {
+                if ( parserCtx->driver().get_options().debug_scanner && parserCtx->is_user_source() ) {
                     std::cerr << "Returned token: " << token.str().c_str() << std::endl;
                 }
                 yylloc->columns( token.getSourceText().length());

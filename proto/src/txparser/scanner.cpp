@@ -9,6 +9,14 @@
 #include <cstring>
 
 
+static inline bool char_in_string( char c, const char* str ) {
+    for ( unsigned i = 0; str[i]; i++ ) {
+        if ( c == str[i] )
+            return true;
+    }
+    return false;
+}
+
 class TxTokenMatcher {
 public:
     const std::string pattern;
@@ -58,14 +66,30 @@ public:
     }
 
     uint32_t match( const char* source ) const override {
-        for ( size_t s = 0; true; s++ ) {
-            if ( !source[s] ) {  // end of buffer
-                return s;
-            }
-            else if ( pattern.find( source[s] ) == std::string::npos ) {
-                return s;
-            }
+        size_t s = 0;
+        for ( ; char_in_string( source[s], pattern.c_str()); s++ ) {
         }
+        return s;
+    }
+};
+
+/** Matches a string containing a specific count of of the specified characters, in any order. */
+class TxCharSetCountMatcher : public TxTokenMatcher {
+    const unsigned minLength, maxLength;
+public:
+    explicit TxCharSetCountMatcher( const char* pattern, unsigned minLength, unsigned maxLength,
+                                    bool definitive = false )
+            : TxTokenMatcher( pattern, definitive ), minLength( minLength ), maxLength( maxLength ) {}
+
+    std::vector<int8_t> first_bytes() const override {
+        return std::vector<int8_t>( pattern.cbegin(), pattern.cend());
+    }
+
+    uint32_t match( const char* source ) const override {
+        size_t s = 0;
+        for ( ; char_in_string( source[s], pattern.c_str()); s++ ) {
+        }
+        return ( s >= minLength && s <= maxLength ) ? s : 0;
     }
 };
 
@@ -141,7 +165,7 @@ public:
             if ( !source[s] ) {  // end of buffer
                 return 0;
             }
-            else if ( pattern.find( source[s] ) == std::string::npos ) {
+            else if ( !char_in_string( source[s], pattern.c_str())) {
                 if ( source[s] == '\n' || source[s] == '\r' )
                     return 0;  // empty line - treat as insignificant whitespace
                 else if ( source[s] == '#' && source[s + 1] == '#' )
@@ -165,13 +189,14 @@ public:
     }
 
     uint32_t match( const char* source ) const override {
-        for ( size_t s = 0; true; s++ ) {
-            if ( !source[s] ) {  // end of buffer
+        if ( !( std::isalpha( source[0] ) || source[0] == '_' ))
+            return 0;
+        for ( size_t s = 1; true; s++ ) {
+            if ( !source[s] )  // end of buffer
                 return s;
-            }
-            else if ( !( std::isalpha( source[s] )
-                         || source[s] == '_'
-                         || ( s > 0 && std::isdigit( source[s] )))) {
+            if ( !( std::isalnum( source[s] )
+                    || source[s] == '_'
+                    || source[s] == '#' )) {
                 return s;
             }
         }
@@ -195,7 +220,7 @@ public:
         }
         if ( source[s] == 'U' )
             s++;
-        if ( pattern.find( source[s] ) != std::string::npos )
+        if ( char_in_string( source[s], pattern.c_str()))
             s++;
         return s;
     }
@@ -253,7 +278,7 @@ public:
         s++;
         if ( source[s] == 'U' )
             s++;
-        if ( pattern.find( source[s] ) != std::string::npos )
+        if ( char_in_string( source[s], pattern.c_str()))
             s++;
         return s;
     }
@@ -281,9 +306,12 @@ public:
             for ( s++; std::isdigit( source[s] ) || source[s] == '_'; s++ ) {
             }
         }
-        if ( s == 1 )
+        else if ( s == 1 )
             return 0;  // only '.' without any digits
-        if ( pattern.find( source[s] ) != std::string::npos )
+        else if ( source[s] == '.' )
+            return 0;  // prevent conflation with '..' token
+
+        if ( char_in_string( source[s], pattern.c_str()))
             s++;
         return s;
     }
@@ -310,7 +338,7 @@ public:
                 for ( s++; std::isdigit( source[s] ) || source[s] == '_'; s++ ) {
                 }
             }
-            if ( s == 1 )
+            else if ( s == 1 )
                 return 0;  // only '.' without any digits
         }
         else if ( s == 0 )
@@ -329,8 +357,66 @@ public:
         else
             return 0;
 
-        if ( pattern.find( source[s] ) != std::string::npos )
+        if ( char_in_string( source[s], pattern.c_str()))
             s++;
+        return s;
+    }
+};
+
+class TxHexExpFloatMatcher : public TxTokenMatcher {
+public:
+    TxHexExpFloatMatcher() : TxTokenMatcher( "HFD" ) {}
+
+    std::vector<int8_t> first_bytes() const override {
+        const std::string chars( "0123456789." );
+        return std::vector<int8_t>( chars.cbegin(), chars.cend());
+    }
+
+    uint32_t match( const char* source ) const override {
+        if ( !( source[0] == '0' && ( source[1] == 'x' || source[1] == 'X' )))
+            return 0;
+        size_t s = 2;
+        if ( std::isxdigit( source[s] )) {
+            for ( s++; std::isxdigit( source[s] ) || source[s] == '_'; s++ ) {
+            }
+        }
+        bool hasDot = false;
+        if ( source[s] == '.' ) {
+            hasDot = true;
+            s++;
+            if ( std::isxdigit( source[s] )) {
+                for ( s++; std::isxdigit( source[s] ) || source[s] == '_'; s++ ) {
+                }
+            }
+            else if ( s == 1 )
+                return 0;  // only '.' without any digits
+            else if ( source[s] == '.' )
+                return 0;  // prevent conflation with '..' token
+        }
+        else if ( s == 2 )
+            return 0;
+
+        if ( source[s] == 'p' || source[s] == 'P' ) {
+            s++;
+            if ( source[s] == '+' || source[s] == '-' )
+                s++;
+            if ( std::isxdigit( source[s] )) {
+                for ( s++; std::isxdigit( source[s] ) || source[s] == '_'; s++ ) {
+                }
+            }
+            else
+                return 0;
+        }
+        else if ( !hasDot )  // must have at least one of . and p-expression
+            return 0;
+
+        if ( source[s] == '#' ) {
+            s++;
+            if ( char_in_string( source[s], pattern.c_str()))
+                s++;
+            else
+                return 0;
+        }
         return s;
     }
 };
@@ -376,7 +462,7 @@ class TxCharacterMatcher : public TxTokenMatcher {
 public:
     TxCharacterMatcher() : TxTokenMatcher( "" ) {}
 
-    std::vector<int8_t> first_bytes() const override {  // FIXME
+    std::vector<int8_t> first_bytes() const override {
         return std::vector<int8_t>( { '\'' } );
     }
 
@@ -401,6 +487,49 @@ public:
                 return 0;
             return 3;
         }
+    }
+};
+
+class TxSfWidthMatcher : public TxTokenMatcher {
+public:
+    TxSfWidthMatcher() : TxTokenMatcher( "" ) {}
+
+    std::vector<int8_t> first_bytes() const override {
+        const std::string chars( "123456789" );
+        return std::vector<int8_t>( chars.cbegin(), chars.cend());
+    }
+
+    uint32_t match( const char* source ) const override {
+        if ( source[0] == '*' )
+            return 1;
+        if ( source[0] == '0' || !std::isdigit( source[0] ))
+            return 0;
+        size_t s = 1;
+        for ( ; std::isdigit( source[s] ); s++ ) {
+        }
+        return s;
+    }
+};
+
+class TxSfPrecMatcher : public TxTokenMatcher {
+public:
+    TxSfPrecMatcher() : TxTokenMatcher( "" ) {}
+
+    std::vector<int8_t> first_bytes() const override {
+        return std::vector<int8_t>( { '.' } );
+    }
+
+    uint32_t match( const char* source ) const override {
+        if ( source[0] != '.' )
+            return 0;
+        if ( source[1] == '*' )
+            return 2;
+        if ( !std::isdigit( source[1] ))
+            return 0;
+        size_t s = 2;
+        for ( ; std::isdigit( source[s] ); s++ ) {
+        }
+        return s;
     }
 };
 
@@ -502,13 +631,15 @@ void TxStringFormatScanner::scan_token( TxSourceScan& scanState ) const {
             return;
         }
     }
-    std::cerr << "Exiting scanner stringFormatScanner" << std::endl;
+//    if ( sparserCtx->driver().get_options().debug_scanner && parserCtx->is_user_source()) {
+//        std::cerr << "Exiting scanner stringFormatScanner" << std::endl;
+//    }
     scanState.scannerStack.pop();
 }
 
 
 class TxTopScanner : public TxScanner {
-    static const TxIndentationMatcher indentation_matcher; //( " \t" );
+    static const TxIndentationMatcher indentation_matcher;
     static const std::vector<TxTokenDef> topTokenDefinitions;
     TxStringFormatScanner stringFormatScanner;
 
@@ -566,7 +697,9 @@ void TxTopScanner::scan_token( TxSourceScan& scanState ) const {
         // a token matched
         scanState.add_token( match.id, match.length );
         if ( match.id == TxTokenId::PERCENT ) {
-            std::cerr << "Entering scanner stringFormatScanner" << std::endl;
+//            if ( sparserCtx->driver().get_options().debug_scanner && parserCtx->is_user_source() ) {
+//                std::cerr << "Entering scanner stringFormatScanner" << std::endl;
+//            }
             scanState.scannerStack.push( &stringFormatScanner );
         }
         return;
@@ -701,6 +834,7 @@ const std::vector<TxTokenDef> TxTopScanner::topTokenDefinitions =
                 TOKDEF( TxTokenId::LIT_RADIX_INT, new TxRadixIntegerMatcher()),
                 TOKDEF( TxTokenId::LIT_FLOATING, new TxFloatMatcher()),
                 TOKDEF( TxTokenId::LIT_FLOATING, new TxExpFloatMatcher()),
+                TOKDEF( TxTokenId::LIT_FLOATING, new TxHexExpFloatMatcher()),
                 TOKDEF( TxTokenId::LIT_CHARACTER, new TxCharacterMatcher()),
                 TOKDEF( TxTokenId::LIT_CSTRING, new TxStringMatcher( 'c' )),
                 TOKDEF( TxTokenId::LIT_STRING, new TxStringMatcher()),
@@ -737,15 +871,14 @@ const std::vector<TxTokenDef> TxStringFormatScanner::tokenDefinitions =
         {
                 TOKDEF( TxTokenId::SF_PARAM, new TxNeverMatcher()),  // FUTURE
                 TOKDEF( TxTokenId::SF_FLAGS, new TxNeverMatcher()),  // FUTURE
-                TOKDEF( TxTokenId::SF_PREC, new TxNeverMatcher()),  // TODO
-                TOKDEF( TxTokenId::SF_TYPE, new TxCharSetMatcher( "xXoObBdiufFeEgGscaA" )),  // TODO: only match single char
-                TOKDEF( TxTokenId::SF_WIDTH, new TxCharSetMatcher( "0123456789" )),  // TODO: not match initial 0
-                TOKDEF( TxTokenId::SF_WIDTH, new TxFixedMatcher( "*" )),
                 TOKDEF( TxTokenId::SF_MINUS, new TxFixedMatcher( "-" )),
                 TOKDEF( TxTokenId::SF_PLUS, new TxFixedMatcher( "+" )),
                 TOKDEF( TxTokenId::SF_SPACE, new TxFixedMatcher( " " )),
                 TOKDEF( TxTokenId::SF_ZERO, new TxFixedMatcher( "0" )),
                 TOKDEF( TxTokenId::SF_HASH, new TxFixedMatcher( "#" )),
+                TOKDEF( TxTokenId::SF_WIDTH, new TxSfWidthMatcher()),
+                TOKDEF( TxTokenId::SF_PREC, new TxSfPrecMatcher()),
+                TOKDEF( TxTokenId::SF_TYPE, new TxCharSetCountMatcher( "xXoObBdiufFeEgGscaA", 1, 1 )),
         };
 
 
@@ -797,7 +930,6 @@ const TxToken& TxSourceScan::next_token() {
     auto& token = this->tokens.at( this->nextToken++ );
     return token;
 }
-
 
 
 std::string TxToken::str() const {
