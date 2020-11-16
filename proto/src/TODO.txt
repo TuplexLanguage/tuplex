@@ -96,7 +96,7 @@ Be able to specialize an immutable version of mutable generic types, so that the
  - review inheritance and mutability (including interface adapters)
 
 Generate statically constant operations for statically constant value expressions - DONE
- - should also enable arbitrary declaration order of global constants 
+ - should also enable arbitrary declaration order of global constants
 
 Support augmenting built-in types' definitions in tuplex code - DONE
 
@@ -147,6 +147,15 @@ Constructor initialization validation check: That each constructor properly init
 Support named member initialization, preventing excessive copying-by-value for large members - DONE
 
 
+Structure Syntax - Significant Whitespace
+-----------------------------------------
+Replace Flex with custom parser - DONE
+
+Support indent / dedent without braces
+
+Support statement termination with newline instead of semicolon
+
+
 Remaining core array features:
 ------------------------------
 Review array mutability vs element mutability handling - DONE
@@ -176,7 +185,7 @@ Destructors
 
 Misc
 ----
-Windows / Visual Studio development & build support
+LLVM 11 update - DONE
 
 Improved FFI support
  - opaque 64b pointer type
