@@ -109,7 +109,7 @@ type String <: Tuple, Sequenceable{ Char }, Stringer, Formatter : {
             for b in self._bytes:
                 result[result.L] = b;
         }
-    
+
         else : {
             ## left-aligned, padding to the right
             for b in self._bytes:
@@ -117,7 +117,7 @@ type String <: Tuple, Sequenceable{ Char }, Stringer, Formatter : {
             for i in 0..padding:
                 result[result.L] = ' ';
         }
-    
+
         writer.write( result );
     }
 }

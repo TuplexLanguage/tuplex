@@ -146,36 +146,6 @@ public:
                 return s;
             }
         }
-        // TODO: support nested comments
-    }
-};
-
-class TxIndentationMatcher : public TxTokenMatcher {
-public:
-    explicit TxIndentationMatcher( const char* pattern ) noexcept
-            : TxTokenMatcher( pattern, true ) {}
-
-    std::vector<int8_t> first_bytes() const override {
-        return std::vector<int8_t>( pattern.cbegin(), pattern.cend());
-    }
-
-    uint32_t match( const char* source ) const override {
-        // only matches if there are non-whitespace characters on the same line
-        for ( size_t s = 0; true; s++ ) {
-            if ( !source[s] ) {  // end of buffer
-                return 0;
-            }
-            else if ( !char_in_string( source[s], pattern.c_str())) {
-                if ( source[s] == '\n' || source[s] == '\r' )
-                    return 0;  // empty line - treat as insignificant whitespace
-                else if ( source[s] == '#' && source[s + 1] == '#' )
-                    return 0;  // rest of line is a comment - treat as insignificant whitespace
-                else if ( source[s] == '/' && source[s + 1] == '*' )
-                    return 0;  // start of comment - treat as insignificant whitespace (FUTURE: difficult to define consistent behavior for this case)
-                else
-                    return s;
-            }
-        }
     }
 };
 
@@ -639,7 +609,7 @@ void TxStringFormatScanner::scan_token( TxSourceScan& scanState ) const {
 
 
 class TxTopScanner : public TxScanner {
-    static const TxIndentationMatcher indentation_matcher;
+//    static const TxIndentationMatcher indentation_matcher;
     static const std::vector<TxTokenDef> topTokenDefinitions;
     TxStringFormatScanner stringFormatScanner;
 
@@ -650,43 +620,76 @@ public:
 };
 
 void TxTopScanner::scan_token( TxSourceScan& scanState ) const {
-    // Special logic for indentation. Only match for indentation when at start of line.
-    if ( scanState.current_cursor().column == 1 ) {
+    if ( scanState.current_cursor().column == 1
+         && scanState.scopeStacks.back().closingToken == TxTokenId::END ) {
+        // Special logic for indentation.
+        // Only match for indentation when at start of line, and if not in a brace / bracken / paren block.
         // TODO: warn if mixing tabs and spaces
-        const auto indentLen = indentation_matcher.match( scanState.input_buffer());
-        if ( indentLen > 0 ) {
-            TxTokenId tokenId;
-            size_t prevIndent = ( scanState.indentStack.empty() ? 0 : scanState.indentStack.top());
+        uint32_t indentLen;
+        bool emptyLine;
+        {
+            auto source = scanState.input_buffer();
+            size_t s = 0;
+            for ( ; ( source[s] == ' ' || source[s] == '\t' ); s++ ) {
+            }
+            // only matches if there are non-whitespace, non-closing characters on the same line:
+            // if empty line - treat as insignificant whitespace
+            // if rest of line is a comment - treat as insignificant whitespace
+            // if start of multi-line comment - treat as insignificant whitespace
+            // (FUTURE: difficult to define consistent behavior for multi-line comment case)
+            if ( source[s] == 0
+                 || source[s] == '\n' || source[s] == '\r'
+                 || ( source[s] == '#' && source[s + 1] == '#' )
+                 || ( source[s] == '/' && source[s + 1] == '*' )) {
+                emptyLine = true;
+            }
+            else {
+                indentLen = s;
+                emptyLine = false;
+            }
+        }
+
+        if ( !emptyLine ) {
+            size_t prevIndent = ( scanState.scopeStacks.back().indentStack.empty() ? 0 : scanState.scopeStacks.back().indentStack.top());
             if ( indentLen < prevIndent ) {
                 scanState.add_token( TxTokenId::DEDENT, indentLen );
                 do {
-                    scanState.indentStack.pop();
+                    scanState.scopeStacks.back().indentStack.pop();
 
-                    prevIndent = ( scanState.indentStack.empty() ? 0 : scanState.indentStack.top());
+                    if ( scanState.scopeStacks.back().indentStack.empty() && scanState.scopeStacks.size() > 1 ) {
+                        scanState.scopeStacks.pop_back();  // end of an unenclosed block
+                        if ( scanState.scopeStacks.back().closingToken != TxTokenId::END ) {
+                            break;  // outer block is not an unenclosed block, do not generate further DEDENTs
+                        }
+                    }
+                    prevIndent = ( scanState.scopeStacks.back().indentStack.empty() ? 0 : scanState.scopeStacks.back().indentStack.top());
                     if ( indentLen >= prevIndent ) {
                         // check consistency with previous indentation levels (it should match one of the previous lengths exactly):
                         if ( indentLen > prevIndent ) {
                             auto& cursor = scanState.current_cursor();
-                            std::cerr << "Inconsistent indentation at line=" << cursor.line << ",col="
-                                      << cursor.column << ", " << indentLen << " > " << prevIndent << std::endl;
+                            TxLocation loc( scanState.parser_context().current_input_filepath(),
+                                            cursor.line, cursor.column, &scanState.parser_context());
+                            std::ostringstream ostr;
+                            ostr << "Inconsistent indentation at line=" << cursor.line << ",col="
+                                 << cursor.column << ", " << indentLen << " > " << prevIndent;
+                            scanState.parser_context().cerror( loc, ostr.str());
                         }
                         break;
                     }
                     scanState.add_token( TxTokenId::DEDENT, 0 );
                 } while ( true );
+                return;
             }
-            else {
-                if ( indentLen > prevIndent ) {
-                    scanState.indentStack.push( indentLen );
-                    tokenId = TxTokenId::INDENT;
-                }
-                else {  // matchLen == prevIndent
-                    // same indentation as previous, treat as simple whitespace
-                    tokenId = TxTokenId::WHITESPACE;
-                }
-                scanState.add_token( tokenId, indentLen );
+            else if ( indentLen > prevIndent ) {
+                scanState.scopeStacks.back().indentStack.push( indentLen );
+                scanState.add_token( TxTokenId::INDENT, indentLen );
+                return;
             }
-            return;
+            else if ( indentLen > 0 ) {
+                // same indentation as previous, treat as simple whitespace
+                scanState.add_token( TxTokenId::WHITESPACE, indentLen );
+                return;
+            }
         }
     }
 
@@ -695,13 +698,49 @@ void TxTopScanner::scan_token( TxSourceScan& scanState ) const {
 
     if ( match.length ) {
         // a token matched
-        scanState.add_token( match.id, match.length );
-        if ( match.id == TxTokenId::PERCENT ) {
+        switch ( match.id ) {
+            case TxTokenId::PERCENT:
 //            if ( sparserCtx->driver().get_options().debug_scanner && parserCtx->is_user_source() ) {
 //                std::cerr << "Entering scanner stringFormatScanner" << std::endl;
 //            }
-            scanState.scannerStack.push( &stringFormatScanner );
+                scanState.scannerStack.push( &stringFormatScanner );
+                break;
+
+//            case TxTokenId::COLON:
+//                scanState.scopeStacks.emplace_back( TxTokenId::END );
+//                std::cerr << "---> pushing indent stack with " << match.id << std::endl;
+//                break;
+            case TxTokenId::LBRACE:
+                scanState.scopeStacks.emplace_back( TxTokenId::RBRACE );
+                break;
+            case TxTokenId::LBRACKET:
+                scanState.scopeStacks.emplace_back( TxTokenId::RBRACKET );
+                break;
+            case TxTokenId::LPAREN:
+                scanState.scopeStacks.emplace_back( TxTokenId::RPAREN );
+                break;
+
+            case TxTokenId::RBRACE:
+            case TxTokenId::RBRACKET:
+            case TxTokenId::RPAREN:
+                if ( match.id != scanState.scopeStacks.back().closingToken ) {
+                    TxLocation loc( scanState.parser_context().current_input_filepath(),
+                                    scanState.current_cursor().line, scanState.current_cursor().column,
+                                    &scanState.parser_context());
+                    std::ostringstream ostr;
+                    ostr << "Unexpected closing brace / paren / bracket, expected "
+                         << scanState.scopeStacks.back().closingToken << " but was " << match.id;
+                    scanState.parser_context().cerror( loc, ostr.str());
+                    break;
+                }
+                scanState.scopeStacks.pop_back();
+                //std::cerr << "<--- poping indent stack with " << match.id << std::endl;
+                break;
+
+            default:
+                break;
         }
+        scanState.add_token( match.id, match.length );
         return;
     }
 
@@ -709,8 +748,6 @@ void TxTopScanner::scan_token( TxSourceScan& scanState ) const {
     scanState.add_token( TxTokenId::ERROR, 1 );
 }
 
-
-const TxIndentationMatcher TxTopScanner::indentation_matcher( " \t" );
 
 #define TOKDEF( token, matcher )  { token, matcher }
 
@@ -885,8 +922,9 @@ const std::vector<TxTokenDef> TxStringFormatScanner::tokenDefinitions =
 static TxTopScanner topLevelScanner;
 
 
-TxSourceScan::TxSourceScan( const TxSourceBuffer& buffer )
-        : buffer( buffer ), nextToken( 0 ), scannerStack( { &topLevelScanner } ) {
+TxSourceScan::TxSourceScan( TxParserContext& parserContext, const TxSourceBuffer& buffer )
+        : parserContext( parserContext ), buffer( buffer ), nextToken( 0 ), scannerStack( { &topLevelScanner } ) {
+    scopeStacks.emplace_back( TxTokenId::END );
 }
 
 /** moves the head cursor forwards, updating the line index as proper */
@@ -912,6 +950,20 @@ void TxSourceScan::add_token( TxTokenId id, uint32_t len ) {
     tokens.emplace_back( buffer, begin, cursor, id );
 }
 
+std::string TxSourceScan::indent_str() const {
+    std::ostringstream ostr;
+    for ( auto it = this->scopeStacks.cbegin(); it != this->scopeStacks.cend(); ++it ) {
+        if ( it != this->scopeStacks.cbegin())
+            ostr << "|";
+        if ( !it->indentStack.empty()) {
+            for ( unsigned i = 0; i < it->indentStack.top(); i++ ) {
+                ostr << " ";
+            }
+        }
+    }
+    return ostr.str();
+}
+
 
 const TxToken& TxSourceScan::next_token() {
     // first return any queued tokens
@@ -922,6 +974,11 @@ const TxToken& TxSourceScan::next_token() {
     // check end of buffer
     if ( !buffer.source[cursor.index] ) {
         // end of buffer
+        if ( scopeStacks.size() == 1 ) {
+            // produce implicit DEDENTs
+            for ( unsigned i = 0; i < scopeStacks.back().indentStack.size(); i++ )
+                tokens.emplace_back( buffer, cursor, cursor, TxTokenId::DEDENT );
+        }
         tokens.emplace_back( buffer, cursor, cursor, TxTokenId::END );
         return tokens.at( nextToken++ );
     }

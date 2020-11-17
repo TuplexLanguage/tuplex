@@ -243,7 +243,7 @@ YY_DECL;
 %right NOT        /* unary logical not */
 %right NEG        /* negation--unary minus */
 %right ADDR       /* unary prefix address-of */
-%precedence LPAREN RPAREN  LBRACE RBRACE
+%precedence LPAREN RPAREN  LBRACE RBRACE  INDENT DEDENT
 %precedence CARET /* unary postfix de-reference */
 %precedence LBRACKET RBRACKET
 %right DOT
@@ -282,6 +282,11 @@ module_members : member_declaration
                     { $$ = $1;
                       $$->modules.push_back($2); }
 ;
+
+block_begin : INDENT | LBRACE
+            ;
+block_end   : DEDENT | RBRACE
+            ;
 
 sub_module : KW_MODULE module_identifier
                LBRACE  opt_import_stmts  opt_module_members  RBRACE
@@ -387,10 +392,10 @@ mut_token        : KW_MUTABLE    | TILDE ;
 opt_mutable   : %empty { $$ = false; } | mut_token { $$ = true; } ;
 
 type_body
-    :   LBRACE RBRACE                   { $$ = new std::vector<TxDeclarationNode*>(); }
-    |   LBRACE member_list RBRACE       { $$ = $2; }
-    |   LBRACE error RBRACE             { $$ = new std::vector<TxDeclarationNode*>(); TX_SYNTAX_ERROR; }
-    |   LBRACE member_list error RBRACE { $$ = $2;                                    TX_SYNTAX_ERROR; }
+    :   block_begin block_end                   { $$ = new std::vector<TxDeclarationNode*>(); }
+    |   block_begin member_list block_end       { $$ = $2; }
+    |   block_begin error block_end             { $$ = new std::vector<TxDeclarationNode*>(); TX_SYNTAX_ERROR; }
+    |   block_begin member_list error block_end { $$ = $2;                                    TX_SYNTAX_ERROR; }
     ;
 
 member_list : member_declaration
@@ -712,10 +717,10 @@ sf_flag         : SF_MINUS { $$ = SF_MINUS; }
 //// statements
 
 suite
-    :   LBRACE RBRACE                      { $$ = new TxSuiteNode(@$); }
-    |   LBRACE statement_list RBRACE       { $$ = new TxSuiteNode(@$, $2); }
-    |   LBRACE error RBRACE                { $$ = new TxSuiteNode(@$);     TX_SYNTAX_ERROR; }
-    |   LBRACE statement_list error RBRACE { $$ = new TxSuiteNode(@$, $2); TX_SYNTAX_ERROR; }
+    :   block_begin block_end                      { $$ = new TxSuiteNode(@$); }
+    |   block_begin statement_list block_end       { $$ = new TxSuiteNode(@$, $2); }
+    |   block_begin error block_end                { $$ = new TxSuiteNode(@$);     TX_SYNTAX_ERROR; }
+    |   block_begin statement_list error block_end { $$ = new TxSuiteNode(@$, $2); TX_SYNTAX_ERROR; }
     ;
 
 statement_list : statement  { $$ = new std::vector<TxStatementNode*>();

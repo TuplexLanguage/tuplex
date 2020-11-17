@@ -8,6 +8,8 @@
 #include "identifier.hpp"
 #include "tx_error.hpp"
 
+#include "parser_if.hpp"
+
 #include "llvm/IR/DebugInfoMetadata.h"
 
 namespace yy {
@@ -48,23 +50,17 @@ class TxParserContext : public Printable {
     std::vector<TxNode*> expErrorNodes;
 
 public:
-    /** set directly by parser */
-    TxSourceScan* scanState = nullptr;
+    /** Represents the source scan of this parsing unit. */
+    TxSourceScan* const scanState;
 
     /** set directly by parser */
     TxParsingUnitNode* parsingUnit = nullptr;
-
-    /** used by lexer to track nested comments */
-    unsigned commentNestLevel = 0;
 
     enum ParseInputSourceSet { BUILTINS, TX_SOURCES, FIRST_USER_SOURCE, REST_USER_SOURCES };
     const ParseInputSourceSet parseInputSourceSet;
 
     TxParserContext( TxDriver& driver, TxIdentifier moduleName, std::string filePath,
-                     ParseInputSourceSet parseInputSourceSet )
-            : _driver( driver ), _moduleName( std::move( moduleName )),
-              _inputFilename( std::move( filePath )), parseInputSourceSet( parseInputSourceSet ) {
-    }
+                     TxSourceBuffer sourceBuffer, ParseInputSourceSet parseInputSourceSet );
 
     ~TxParserContext() override = default;
 

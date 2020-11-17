@@ -4,14 +4,8 @@
 #include <vector>
 #include <stack>
 
+#include "parser_if.hpp"
 #include "tx_tokens.hpp"
-
-
-/** Contains a handle or reference to the source buffer / stream / file */
-struct TxSourceBuffer {
-    // FUTURE: process input stream of UTF-8 characters instead (they have variable length)
-    const char* source;
-};
 
 
 struct TxLineIndex {
@@ -67,8 +61,16 @@ public:
 
 class TxScanner;
 
+struct TxScopeBlock {
+    explicit TxScopeBlock( TxTokenId closingToken ) : closingToken( closingToken ) { }
+    std::stack<uint32_t> indentStack;
+    TxTokenId closingToken;
+};
 
+/** Represents the scanning of a parsing unit. */
 class TxSourceScan {
+    TxParserContext& parserContext;
+
     void advance_head( size_t length );
 
     // input
@@ -84,22 +86,27 @@ class TxSourceScan {
 
 public:
     // external interface
-    explicit TxSourceScan( const TxSourceBuffer& buffer );
+    explicit TxSourceScan( TxParserContext& parserContext, const TxSourceBuffer& buffer );
 
     const TxToken& next_token();
+
+    TxParserContext& parser_context() const {
+        return parserContext;
+    }
+
+    // internal interface; encapsulate?
+    std::stack<const TxScanner*> scannerStack;
+    std::deque<TxScopeBlock> scopeStacks;
 
     inline const TxSourcePosition& current_cursor() const {
         return this->cursor;
     }
-
-
-    // internal interface; encapsulate?
-    std::stack<const TxScanner*> scannerStack;
-    std::stack<uint32_t> indentStack;
 
     inline const char* input_buffer() const {
         return &buffer.source[cursor.index];
     }
 
     void add_token( TxTokenId id, uint32_t len );
+
+    std::string indent_str() const;
 };

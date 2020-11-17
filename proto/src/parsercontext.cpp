@@ -1,9 +1,10 @@
 #include "parsercontext.hpp"
 
+#include "tx_lang_defs.hpp"
 #include "ast/ast_node.hpp"
 #include "driver.hpp"
+#include "txparser/scanner.hpp"
 #include "llvm_generator.hpp"
-#include "tx_lang_defs.hpp"
 
 
 std::string format_location( const TxLocation& ploc ) {
@@ -48,6 +49,14 @@ static std::string format_location_message( const TxParseOrigin* origin, char co
 
 
 static Logger& CLOG = Logger::get( "COMPILER" );
+
+
+TxParserContext::TxParserContext( TxDriver& driver, TxIdentifier moduleName, std::string filePath,
+                                  TxSourceBuffer sourceBuffer, ParseInputSourceSet parseInputSourceSet )
+        : _driver( driver ), _moduleName( std::move( moduleName )),
+          _inputFilename( std::move( filePath )), scanState( new TxSourceScan( *this, sourceBuffer )),
+          parseInputSourceSet( parseInputSourceSet ) {
+}
 
 
 void TxParserContext::init_debug() {

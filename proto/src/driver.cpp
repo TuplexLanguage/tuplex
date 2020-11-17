@@ -21,9 +21,9 @@
 #include "ast/ast_entitydecls.hpp"
 
 
-const char *CORE_TX_SOURCE_STR =
-    // #include "lang.tx"
-    R"=====(
+const char* CORE_TX_SOURCE_STR =
+        // #include "lang.tx"
+        R"=====(
 module tx;
 
 /** Returns TRUE if v has tid among its supertypes / -interfaces. */
@@ -55,9 +55,10 @@ builtin type Function derives Any : {
         return FALSE;
     }
 }
-    )====="
-;
+    )=====";
 
+
+static TxSourceBuffer load_file( const std::string& filePath );
 
 std::string get_version_string() {
     size_t len = 128;
@@ -68,24 +69,30 @@ std::string get_version_string() {
 
 
 TxDriver::TxDriver( const TxOptions& options )
-        : _LOG( Logger::get( "DRIVER" ) ), options( options ),
-          builtinParserContext(), llvmContext( new llvm::LLVMContext() )
-{
+        : _LOG( Logger::get( "DRIVER" )), options( options ),
+          builtinParserContext(), llvmContext( new llvm::LLVMContext()) {
 }
 
 TxDriver::~TxDriver() = default;
 
 
-
 int TxDriver::compile( const std::vector<std::string>& startSourceFiles, const std::string& outputFileName ) {
     ASSERT( this->parsedSourceFiles.empty(), "Can only run driver instance once" );
 
-    if ( startSourceFiles.empty() ) {
+    if ( startSourceFiles.empty()) {
         this->_LOG.fatal( "No source specified." );
         return 1;
     }
+    if ( options.sourceSearchPaths.empty())
+        this->_LOG.config( "Source search path is empty" );
+    else
+        for ( const auto& pathItem : options.sourceSearchPaths )
+            this->_LOG.config( "Source search path item: '%s'", pathItem.c_str());
 
-    this->builtinParserContext = new TxParserContext( *this, TxIdentifier( "" ), get_builtins_file_name(), TxParserContext::BUILTINS );
+    /*--- prepare the root package and built-in types ---*/
+
+    this->builtinParserContext = new TxParserContext( *this, TxIdentifier( "" ), get_builtins_file_name(),
+                                                      TxSourceBuffer( "" ), TxParserContext::BUILTINS );
 
     this->builtinTypes = new BuiltinTypes( this->builtinParserContext );
     this->package = this->builtinTypes->get_root_package();
@@ -93,23 +100,17 @@ int TxDriver::compile( const std::vector<std::string>& startSourceFiles, const s
     // ONLY used for constant evaluation before code generation pass:
     this->genContext = new LlvmGenerationContext( *this->package, *this->llvmContext );
 
-    if ( options.sourceSearchPaths.empty() )
-        this->_LOG.config( "Source search path is empty" );
-    else
-        for ( const auto& pathItem : options.sourceSearchPaths )
-            this->_LOG.config( "Source search path item: '%s'", pathItem.c_str() );
-
     /*--- prepare the parse units ---*/
 
     {  // initialize the built-in ASTs
-        TxParserContext* parserContext = this->builtinParserContext;
-        parserContext->parsingUnit = this->builtinTypes->createTxModuleAST();
-        this->parsedASTs.push_back( parserContext );
+        this->builtinParserContext->parsingUnit = this->builtinTypes->createTxModuleAST();
+        this->parsedASTs.push_back( this->builtinParserContext );
     }
 
-    {  // parse the built-in source:
-        auto* parserContext = new TxParserContext( *this, TxIdentifier( "" ), __FILE__, TxParserContext::BUILTINS );
-        int ret = parse( parserContext, CORE_TX_SOURCE_STR );
+    {  // parse the intrinsic source:
+        auto* parserContext = new TxParserContext( *this, TxIdentifier( "" ), __FILE__,
+                                                   TxSourceBuffer( CORE_TX_SOURCE_STR ), TxParserContext::BUILTINS );
+        int ret = parse( parserContext );
         if ( ret ) {
             _LOG.fatal( "Exiting due to unrecovered syntax error" );
             return ret;
@@ -118,12 +119,14 @@ int TxDriver::compile( const std::vector<std::string>& startSourceFiles, const s
         this->parsedASTs.push_back( parserContext );
     }
 
-    if ( !this->options.txPath.empty() ) {
+    /*--- enqueue initial sources ---*/
+
+    if ( !this->options.txPath.empty()) {
         // add the tx namespace sources
         std::string txPath( this->options.txPath );
-        this->_LOG.config( "Including tx namespace source path '%s'", txPath.c_str() );
-        if ( !is_path_separator( txPath.back() ) )
-            txPath.push_back( get_path_separator() );
+        this->_LOG.config( "Including tx namespace source path '%s'", txPath.c_str());
+        if ( !is_path_separator( txPath.back()))
+            txPath.push_back( get_path_separator());
         txPath.append( BUILTIN_NS );
         this->add_all_in_dir( BUILTIN_NS, txPath, true );
     }
@@ -134,11 +137,11 @@ int TxDriver::compile( const std::vector<std::string>& startSourceFiles, const s
     /*--- parse all source files (during parsing, files are added to the queue as they are imported) ---*/
 
     TxParserContext::ParseInputSourceSet iss = TxParserContext::TX_SOURCES;
-    while ( !this->sourceFileQueue.empty() ) {
+    while ( !this->sourceFileQueue.empty()) {
         TxIdentifier moduleName = this->sourceFileQueue.front().first;  // note, may be empty
 
         if ( iss == TxParserContext::TX_SOURCES ) {
-            if ( !moduleName.begins_with( BUILTIN_NS ) )  // if first user source file
+            if ( !moduleName.begins_with( BUILTIN_NS ))  // if first user source file
                 iss = TxParserContext::FIRST_USER_SOURCE;
         }
         else if ( iss == TxParserContext::FIRST_USER_SOURCE ) {
@@ -146,22 +149,30 @@ int TxDriver::compile( const std::vector<std::string>& startSourceFiles, const s
         }
 
         std::string nextFilePath = this->sourceFileQueue.front().second;
-        if ( !this->parsedSourceFiles.count( nextFilePath ) ) {  // if not already parsed
-            auto* parserContext = new TxParserContext( *this, moduleName, nextFilePath, iss );
-            int ret = parse( parserContext, nextFilePath );
-            if ( ret ) {
-                if ( ret < 0 )  // input file / stream error
-                    _LOG.fatal( "Exiting due to input file / stream error" );
-                else if ( ret == 1 )  // syntax error
-                    _LOG.fatal( "Exiting due to unrecovered syntax error" );
-                else
-                    // ret == 2, out of memory
-                    _LOG.fatal( "Exiting due to out of memory" );
-                return ret;
+        if ( !this->parsedSourceFiles.count( nextFilePath )) {  // if not already parsed
+            TxSourceBuffer srcBuffer = load_file( nextFilePath );
+            if ( srcBuffer.source != nullptr ) {
+                _LOG.info( "+ Loaded source file '%s'", nextFilePath.c_str());
+                auto* parserContext = new TxParserContext( *this, moduleName, nextFilePath, srcBuffer, iss );
+                int ret = parse( parserContext );
+                if ( ret ) {
+                    if ( ret < 0 )  // input file / stream error
+                        _LOG.fatal( "Exiting due to input file / stream error" );
+                    else if ( ret == 1 )  // syntax error
+                        _LOG.fatal( "Exiting due to unrecovered syntax error" );
+                    else
+                        // ret == 2, out of memory
+                        _LOG.fatal( "Exiting due to out of memory" );
+                    return ret;
+                }
+                ASSERT( parserContext->parsingUnit, "parsingUnit not set by parser" );
+                this->parsedASTs.push_back( parserContext );
+                this->parsedSourceFiles.emplace( nextFilePath, parserContext->parsingUnit );
             }
-            ASSERT( parserContext->parsingUnit, "parsingUnit not set by parser" );
-            this->parsedASTs.push_back( parserContext );
-            this->parsedSourceFiles.emplace( nextFilePath, parserContext->parsingUnit );
+            else {
+                _LOG.fatal( "Exiting due to input file / stream error" );
+                return -1;
+            }
         }
         this->sourceFileQueue.pop_front();
     }
@@ -200,7 +211,7 @@ int TxDriver::compile( const std::vector<std::string>& startSourceFiles, const s
         run_type_pass( parserContext->parsingUnit->module, "module" );
     }
 
-    auto & reinterpretedASTs = this->package->registry().get_enqueued_specializations();
+    auto& reinterpretedASTs = this->package->registry().get_enqueued_specializations();
     unsigned nextSpecIx = 0;
     unsigned specCount = reinterpretedASTs.size();
 
@@ -240,7 +251,7 @@ int TxDriver::compile( const std::vector<std::string>& startSourceFiles, const s
 
     /*--- perform type definition and full resolution passes on trailing types ---*/
 
-    while ( specCount != reinterpretedASTs.size() ) {
+    while ( specCount != reinterpretedASTs.size()) {
         nextSpecIx = specCount;
         specCount = reinterpretedASTs.size();
 
@@ -272,7 +283,7 @@ int TxDriver::compile( const std::vector<std::string>& startSourceFiles, const s
     for ( auto parserContext : this->parsedASTs ) {
         run_verification_pass( parserContext->parsingUnit->module, "module" );
     }
-    for ( auto node : this->package->registry().get_enqueued_specializations() ) {
+    for ( auto node : this->package->registry().get_enqueued_specializations()) {
         run_verification_pass( node, "reinterpretation" );
     }
 
@@ -307,10 +318,10 @@ int TxDriver::compile( const std::vector<std::string>& startSourceFiles, const s
     if ( this->options.dump_ast ) {
         auto visitorFunc = []( const TxNode* node, const AstCursor& parent, const std::string& role, void* ctx ) {
             char buf[256];
-            snprintf( buf, 256, "%*s%s", parent.depth*2, "", role.c_str() );
-            printf( "%-50s %s\n", buf, node->str().c_str() );
+            snprintf( buf, 256, "%*s%s", parent.depth * 2, "", role.c_str());
+            printf( "%-50s %s\n", buf, node->str().c_str());
             //std::cout << std::string( parent.depth*2, ' ' ) << role << " " << node->to_string() << std::endl;
-            };
+        };
         AstVisitor visitor = { visitorFunc, nullptr };
 
         for ( auto parserContext : this->parsedASTs ) {
@@ -349,12 +360,12 @@ int TxDriver::compile( const std::vector<std::string>& startSourceFiles, const s
 }
 
 bool TxDriver::add_import( const TxIdentifier& moduleName ) {
-    if ( this->package->lookup_module( moduleName ) ) {
-        this->_LOG.debug( "Skipping import of previously imported module: %s", moduleName.str().c_str() );
+    if ( this->package->lookup_module( moduleName )) {
+        this->_LOG.debug( "Skipping import of previously imported module: %s", moduleName.str().c_str());
         return true;
     }
-    if ( moduleName.begins_with( BUILTIN_NS ) ) {  // so we won't search for built-in modules' sources
-        this->_LOG.debug( "Skipping import of built-in namespace: %s", moduleName.str().c_str() );
+    if ( moduleName.begins_with( BUILTIN_NS )) {  // so we won't search for built-in modules' sources
+        this->_LOG.debug( "Skipping import of built-in namespace: %s", moduleName.str().c_str());
         return true;
     }
     // TODO: guard against or handle circular imports
@@ -387,36 +398,36 @@ bool TxDriver::add_import( const TxIdentifier& moduleName ) {
     return false;
 }
 
-int TxDriver::add_all_in_dir( const TxIdentifier& moduleName, const std::string &dirPath, bool recurseSubDirs ) {
+int TxDriver::add_all_in_dir( const TxIdentifier& moduleName, const std::string& dirPath, bool recurseSubDirs ) {
     int addCount = 0;
     tinydir_dir dir;
-    tinydir_open( &dir, dirPath.c_str() );
+    tinydir_open( &dir, dirPath.c_str());
     while ( dir.has_next ) {
         tinydir_file file;
         tinydir_readfile( &dir, &file );
         if ( file.is_dir ) {
             if ( recurseSubDirs ) {
-                if ( !strchr( file.name, '.' ) ) {
+                if ( !strchr( file.name, '.' )) {
                     TxIdentifier submodName( moduleName, file.name );
                     this->add_all_in_dir( submodName, file.path, true );
                 }
             }
         }
-        else if ( !strcmp( file.extension, "tx" ) ) {
+        else if ( !strcmp( file.extension, "tx" )) {
             this->add_source_file( moduleName, file.path );
             addCount++;
         }
         tinydir_next( &dir );
     }
     tinydir_close( &dir );
-    this->_LOG.debug( "Added %d source files to compilation from directory '%s'", addCount, dirPath.c_str() );
+    this->_LOG.debug( "Added %d source files to compilation from directory '%s'", addCount, dirPath.c_str());
     return addCount;
 }
 
-void TxDriver::add_source_file( const TxIdentifier& moduleName, const std::string &filePath ) {
-    this->_LOG.debug( "Adding source file to compilation: '%s'", filePath.c_str() );
+void TxDriver::add_source_file( const TxIdentifier& moduleName, const std::string& filePath ) {
+    this->_LOG.debug( "Adding source file to compilation: '%s'", filePath.c_str());
     // TODO: verify that the source file actually contains the specified module
-    this->sourceFileQueue.emplace_back( std::pair<TxIdentifier, std::string>( moduleName, filePath ) );
+    this->sourceFileQueue.emplace_back( std::pair<TxIdentifier, std::string>( moduleName, filePath ));
 }
 
 int TxDriver::llvm_compile( const std::string& outputFileName ) {
@@ -429,7 +440,7 @@ int TxDriver::llvm_compile( const std::string& outputFileName ) {
         this->genContext->generate_runtime_type_info();
     }
     catch ( const codecheck_error& err ) {
-        LOG_DEBUG( (&_LOG), "Caught code check error generating runtime type info: " << err );
+        LOG_DEBUG(( &_LOG ), "Caught code check error generating runtime type info: " << err );
         return 1;
     }
 
@@ -443,8 +454,8 @@ int TxDriver::llvm_compile( const std::string& outputFileName ) {
     }
 
     // generate the code for the type specializations that are defined by reinterpreted source:
-    for ( auto specNode : this->package->registry().get_enqueued_specializations() ) {
-        _LOG.debug( "Generating code for enqueued specialization: %s", specNode->get_declaration()->str().c_str() );
+    for ( auto specNode : this->package->registry().get_enqueued_specializations()) {
+        _LOG.debug( "Generating code for enqueued specialization: %s", specNode->get_declaration()->str().c_str());
         codegen_errors += this->genContext->generate_code( specNode );
     }
 
@@ -457,9 +468,9 @@ int TxDriver::llvm_compile( const std::string& outputFileName ) {
     this->genContext->generate_runtime_vtables();
 
     bool mainGenerated = false;
-    if ( auto funcDecl = this->package->getMainFunc() ) {
+    if ( auto funcDecl = this->package->getMainFunc()) {
         auto funcField = funcDecl->get_definer()->field();
-        this->genContext->generate_main( funcDecl->get_unique_full_name(), funcField->qtype().type() );
+        this->genContext->generate_main( funcDecl->get_unique_full_name(), funcField->qtype().type());
         mainGenerated = true;
         LOG_DEBUG( &_LOG, "Generated program entry for user main method " << funcDecl );
     }
@@ -471,7 +482,7 @@ int TxDriver::llvm_compile( const std::string& outputFileName ) {
     _LOG.info( "+ LLVM code generated (not yet written)" );
 
     if ( this->options.strip_debug )
-        llvm::StripDebugInfo( this->genContext->llvmModule() );
+        llvm::StripDebugInfo( this->genContext->llvmModule());
 
     if ( this->options.dump_ir )
         this->genContext->print_IR();
@@ -495,8 +506,97 @@ int TxDriver::llvm_compile( const std::string& outputFileName ) {
 
     if ( !this->options.no_bc_output ) {
         retCode = this->genContext->write_bitcode( outputFileName );
-        _LOG.info( "+ Wrote bitcode file '%s'", outputFileName.c_str() );
+        _LOG.info( "+ Wrote bitcode file '%s'", outputFileName.c_str());
     }
 
     return retCode;
+}
+
+
+static Logger& _LOG = Logger::get( "DRIVER" );
+
+const size_t chunk_size = 4000;  // FiXME: test this with small chunk size
+
+/// consolidates chunks into a contiguous buffer
+static char* consolidate( std::vector<char*>& bufChunks, char* lastChunk,
+                          size_t fileSize, size_t lastReadLen) {
+    auto buffer = (char*) malloc( sizeof( char ) * ( fileSize + 1 ));
+    if ( !buffer ) {
+        _LOG.fatal( "memory allocation failed" );
+        for ( auto ch : bufChunks )
+            free( ch );
+        free( lastChunk );
+        return nullptr;
+    }
+    auto dest = buffer;
+    for ( auto ch : bufChunks ) {
+        memcpy( dest, ch, chunk_size );
+        free( ch );
+        dest += chunk_size;
+    }
+    memcpy( dest, lastChunk, lastReadLen );
+    free( lastChunk );
+    return buffer;
+}
+
+static TxSourceBuffer load_file( FILE* file ) {
+    char* buffer;
+    std::vector<char*> bufChunks;
+    size_t fileSize = 0;
+    do {
+        auto chunk = (char*) malloc( chunk_size + 1 );
+        if ( !chunk ) {
+            _LOG.fatal( "memory allocation failed" );
+            for ( auto ch : bufChunks )
+                free( ch );
+            return TxSourceBuffer( nullptr );
+        }
+        // read the next chunk of the file:
+        size_t readLen = fread( chunk, 1, chunk_size, file );
+        fileSize += readLen;
+        if ( feof( file )) {
+            if ( bufChunks.empty()) {
+                //_LOG.debug( "Loaded source file in single chunk");
+                buffer = chunk;
+            }
+            else {
+                _LOG.debug( "Loaded source file in %d chunks", bufChunks.size() + 1);
+                buffer = consolidate( bufChunks, chunk, fileSize, readLen );
+                if ( !buffer )
+                    return TxSourceBuffer( nullptr );
+            }
+            buffer[fileSize] = '\0';  // append null terminator
+            break;
+        }
+        else if ( readLen != chunk_size ) {
+            _LOG.fatal( "File reading error, read %ld bytes, errno=%d", readLen, errno);
+            for ( auto ch : bufChunks )
+                free( ch );
+            free( chunk );
+            return TxSourceBuffer( nullptr );
+        }
+        bufChunks.push_back( chunk );
+    } while ( true );
+
+    return TxSourceBuffer( buffer );
+}
+
+static TxSourceBuffer load_file( const std::string& filePath ) {
+    if ( filePath.empty() || filePath == "-" ) {
+        return load_file( stdin );
+    }
+    else {
+        if ( file_status( filePath ) != 1 ) {
+            _LOG.fatal( "Source file name '%s' is not found or not a file.", filePath.c_str());
+            return TxSourceBuffer( nullptr );
+        }
+        FILE* file = fopen( filePath.c_str(), "rb" );  // open in 'binary' i.e. without translations
+        if ( !file ) {
+            _LOG.fatal( "Could not open source file '%s': %s", filePath.c_str(), strerror(errno));
+            return TxSourceBuffer( nullptr );
+        }
+        TxSourceBuffer srcBuffer = load_file( file );
+        fclose( file );
+        return srcBuffer;
+    }
 }

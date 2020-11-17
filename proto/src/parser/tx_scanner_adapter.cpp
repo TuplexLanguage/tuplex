@@ -1,10 +1,10 @@
 // an adapter between Bison parser and Tx scanner
 
-#include "txparser/scanner.hpp"
 #include "tx_options.hpp"
 
 #include "bison_parser.hpp"
 #include "driver.hpp"
+#include "txparser/scanner.hpp"
 
 class TxParserContext;
 
@@ -16,13 +16,13 @@ yy::TxParser::token_type yylex( yy::TxParser::semantic_type* yylval, yy::TxParse
         ASSERT( yylloc->begin.column == parserCtx->scanState->current_cursor().column,
                 "Mismatching columns: " << yylloc->begin.column << " != " << parserCtx->scanState->current_cursor().column );
         auto& token = parserCtx->scanState->next_token();
-        switch( token.id ) {
+        switch ( token.id ) {
             // translate / filter certain tokens
             case TxTokenId::WHITESPACE:
-                yylloc->columns( token.getSourceText().length() );
+                yylloc->columns( token.getSourceText().length());
                 break;
             case TxTokenId::NEWLINE:
-                yylloc->lines( token.getSourceText().length() );
+                yylloc->lines( token.getSourceText().length());
                 break;
             case TxTokenId::COMMENT:
                 if ( token.end.line > token.begin.line ) {
@@ -31,25 +31,30 @@ yy::TxParser::token_type yylex( yy::TxParser::semantic_type* yylval, yy::TxParse
                         yylloc->columns( token.end.column - 1 );
                 }
                 else
-                    yylloc->columns( token.getSourceText().length() );
+                    yylloc->columns( token.getSourceText().length());
                 break;
-            case TxTokenId::INDENT:
-            case TxTokenId::DEDENT:
-                yylloc->columns( token.getSourceText().length() );
-                break;
-//            case TxTokenId::INDENT:
-//                yylloc->columns( token.getSourceText().length() );
-//                yylval->emplace<std::string>( token.getSourceText() );
-//                return TxTokenId::LBRACE;
-//            case TxTokenId::DEDENT:
-//                yylloc->columns( token.getSourceText().length() );
-//                yylval->emplace<std::string>( token.getSourceText() );
-//                return TxTokenId::RBRACE;
 
             default:
-                if ( parserCtx->driver().get_options().debug_scanner && parserCtx->is_user_source() ) {
+                if ( parserCtx->driver().get_options().debug_scanner /* && parserCtx->is_user_source() */ ) {
                     std::cerr << "Returned token: " << token.str().c_str() << std::endl;
+                    switch ( token.id ) {
+                        case TxTokenId::LBRACE:
+                        case TxTokenId::LBRACKET:
+                        case TxTokenId::LPAREN:
+                        case TxTokenId::RBRACE:
+                        case TxTokenId::RBRACKET:
+                        case TxTokenId::RPAREN:
+                            std::cerr << parserCtx->scanState->indent_str() << token.getSourceText() << std::endl;
+                            break;
+                        case TxTokenId::INDENT:
+                        case TxTokenId::DEDENT:
+                            std::cerr << parserCtx->scanState->indent_str() << "|" << std::endl;
+                            break;
+                        default:
+                            break;
+                    }
                 }
+
                 yylloc->columns( token.getSourceText().length());
                 yylval->emplace<std::string>( token.getSourceText());
                 return token.id;
