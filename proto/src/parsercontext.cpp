@@ -176,6 +176,11 @@ void TxParserContext::cwarning( const TxParseOrigin* origin, const std::string& 
     this->emit_comp_warning( str );
 }
 
+void TxParserContext::cwarning( const TxLocation& loc, const std::string& msg ) {
+    auto str = format_location_message( loc, msg.c_str() );
+    this->emit_comp_warning( str );
+}
+
 void TxParserContext::cinfo( const TxLocation& loc, const std::string& msg ) {
     auto str = format_location_message( loc, msg.c_str() );
     this->emit_comp_info( str );

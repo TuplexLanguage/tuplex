@@ -624,13 +624,19 @@ void TxTopScanner::scan_token( TxSourceScan& scanState ) const {
          && scanState.scopeStacks.back().closingToken == TxTokenId::END ) {
         // Special logic for indentation.
         // Only match for indentation when at start of line, and if not in a brace / bracken / paren block.
-        // TODO: warn if mixing tabs and spaces
         uint32_t indentLen;
         bool emptyLine;
         {
             auto source = scanState.input_buffer();
+            bool mixedIndentChars = false;
             size_t s = 0;
             for ( ; ( source[s] == ' ' || source[s] == '\t' ); s++ ) {
+                if ( source[s] != scanState.firstUsedIndentChar ) {
+                    if ( scanState.firstUsedIndentChar == 0 )
+                        scanState.firstUsedIndentChar = source[s];
+                    else
+                        mixedIndentChars = true;
+                }
             }
             // only matches if there are non-whitespace, non-closing characters on the same line:
             // if empty line - treat as insignificant whitespace
@@ -646,6 +652,14 @@ void TxTopScanner::scan_token( TxSourceScan& scanState ) const {
             else {
                 indentLen = s;
                 emptyLine = false;
+                if ( mixedIndentChars ) {
+                    auto& cursor = scanState.current_cursor();
+                    TxLocation loc( scanState.parser_context().current_input_filepath(),
+                                    cursor.line, cursor.column, &scanState.parser_context());
+                    std::ostringstream ostr;
+                    ostr << "Mixed spaces and tabs in indentations";
+                    scanState.parser_context().cerror( loc, ostr.str());
+                }
             }
         }
 

@@ -750,6 +750,7 @@ simple_stmt
     |   flow_else_stmt             %prec KW_ELSE { $$ = $1; }
     |   experr_stmt                %prec STMT    { $$ = $1; }
     |   error SEMICOLON            %prec STMT    { $$ = new TxNoOpStmtNode(@$); TX_SYNTAX_ERROR; }
+    |   SEMICOLON                  %prec STMT    { $$ = new TxNoOpStmtNode(@$); }
     ;
 
 elementary_stmt

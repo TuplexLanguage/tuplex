@@ -97,6 +97,7 @@ public:
     // internal interface; encapsulate?
     std::stack<const TxScanner*> scannerStack;
     std::deque<TxScopeBlock> scopeStacks;
+    char firstUsedIndentChar = 0;
 
     inline const TxSourcePosition& current_cursor() const {
         return this->cursor;

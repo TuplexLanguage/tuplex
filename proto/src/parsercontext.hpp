@@ -112,6 +112,7 @@ public:
 
     /** should only be used when ParseOrigin is not available */
     void cerror( const TxLocation& loc, const std::string& msg );
+    void cwarning( const TxLocation& loc, const std::string& msg );
 
     // Compilation error handling.
     void begin_exp_err( const TxParseOrigin* origin );
