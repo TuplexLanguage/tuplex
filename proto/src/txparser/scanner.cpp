@@ -623,7 +623,7 @@ void TxTopScanner::scan_token( TxSourceScan& scanState ) const {
     if ( scanState.current_cursor().column == 1
          && scanState.scopeStacks.back().closingToken == TxTokenId::END ) {
         // Special logic for indentation.
-        // Only match for indentation when at start of line, and if not in a brace / bracken / paren block.
+        // Only match for indentation when at start of line, and if not in a brace / bracket / paren block.
         uint32_t indentLen;
         bool emptyLine;
         {

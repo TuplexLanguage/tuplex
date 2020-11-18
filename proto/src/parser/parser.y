@@ -307,7 +307,7 @@ import_identifier   : NAME                              { $$ = new TxIdentifier(
                     ;
 
 
-opt_sc     : %empty | SEMICOLON ;
+opt_sc     : NEWLINE | SEMICOLON ;
 opt_comma  : %empty | COMMA ;
 
 
@@ -330,7 +330,7 @@ import_statement   : KW_IMPORT import_identifier opt_sc  { $$ = new TxImportNode
 
 member_declaration
     // field
-    : declaration_flags field_def SEMICOLON
+    : declaration_flags field_def opt_sc
             { $$ = new TxFieldDeclNode(@$, $1, $2); }
 
     // type
@@ -341,7 +341,7 @@ member_declaration
             { $$ = ( $2 ? new TxFieldDeclNode(@$, $1, $2, true) : NULL ); }
 
     // error recovery
-    |   error SEMICOLON  { $$ = NULL; }
+    |   error opt_sc  { $$ = NULL; }
 
     |   experr_decl      { $$ = $1; }
     ;
@@ -429,13 +429,13 @@ type_declaration : declaration_flags type_or_if opt_mutable identifier type_deri
                  | error type_body  { $$ = NULL; }
                  ;
 
-type_derivation : derives_token type_expression SEMICOLON  { $$ = new TxDerivedTypeNode(@$, $2); }
+type_derivation : derives_token type_expression opt_sc  { $$ = new TxDerivedTypeNode(@$, $2); }
                 | derives_token type_expression COLON type_body  { $$ = new TxDerivedTypeNode(@$, $2, $4); }
                 | derives_token type_expression COMMA type_expr_list COLON type_body
                                                            { $$ = new TxDerivedTypeNode(@$, $2, $4, $6); }
                 | COLON type_body                                { $$ = new TxDerivedTypeNode(@$, $2); }
 
-                | derives_token error SEMICOLON  { $$ = new TxDerivedTypeNode(@$, (TxTypeExpressionNode*)nullptr); }
+                | derives_token error opt_sc  { $$ = new TxDerivedTypeNode(@$, (TxTypeExpressionNode*)nullptr); }
                 | derives_token error COLON type_body  { $$ = new TxDerivedTypeNode(@$, $4); }
                 ;
 
@@ -482,9 +482,9 @@ func_arg_def   : identifier COLON type_expression
 
 method_def  : identifier function_signature COLON statement
                 { $$ = new TxNonLocalFieldDefNode(@$, $1, new TxLambdaExprNode(@$, $2, $4, true), false); }
-            | identifier function_signature SEMICOLON  // abstract method (KW_ABSTRACT should be specified)
+            | identifier function_signature opt_sc  // abstract method (KW_ABSTRACT should be specified)
                 { $$ = new TxNonLocalFieldDefNode(@$, $1, $2, nullptr); }
-            | identifier error SEMICOLON  { $$ = nullptr; }
+            | identifier error opt_sc  { $$ = nullptr; }
             | identifier error suite  { $$ = nullptr; }
             ;
 
@@ -744,12 +744,12 @@ single_statement
 
 simple_stmt
     :   type_decl_stmt             %prec STMT    { $$ = $1; }
-    |   elementary_stmt SEMICOLON  %prec STMT    { $$ = $1; }
-    |   terminal_stmt   SEMICOLON  %prec STMT    { $$ = $1; }
-    |   init_stmt       SEMICOLON  %prec STMT    { $$ = $1; }
+    |   elementary_stmt opt_sc     %prec STMT    { $$ = $1; }
+    |   terminal_stmt   opt_sc     %prec STMT    { $$ = $1; }
+    |   init_stmt       opt_sc     %prec STMT    { $$ = $1; }
     |   flow_else_stmt             %prec KW_ELSE { $$ = $1; }
     |   experr_stmt                %prec STMT    { $$ = $1; }
-    |   error SEMICOLON            %prec STMT    { $$ = new TxNoOpStmtNode(@$); TX_SYNTAX_ERROR; }
+    |   error opt_sc               %prec STMT    { $$ = new TxNoOpStmtNode(@$); TX_SYNTAX_ERROR; }
     |   SEMICOLON                  %prec STMT    { $$ = new TxNoOpStmtNode(@$); }
     ;
 
@@ -800,7 +800,9 @@ flow_else_stmt   : KW_IF    cond_clause    COLON simple_stmt else_clause  { $$ =
                  ;
 
 else_clause      : KW_ELSE COLON statement  { $$ = new TxElseClauseNode(@$, $3); }
-                 | KW_ELSE statement  { $$ = new TxElseClauseNode(@$, $2); }  // colon is currently optional since unambiguous
+                   // colon is currently optional since unambiguous
+                 | KW_ELSE NEWLINE statement  { $$ = new TxElseClauseNode(@$, $3); }
+                 | KW_ELSE statement  { $$ = new TxElseClauseNode(@$, $2); }
                  ;
 
 
@@ -817,7 +819,7 @@ in_clause        : identifier KW_IN gen_val_expr                   { $$ = new Tx
                  | identifier COMMA identifier KW_IN gen_val_expr  { $$ = new TxInClauseNode( @$, $1, $3, $5 ); }
                  ;
 
-for_header       : elementary_stmt SEMICOLON gen_val_expr SEMICOLON elementary_stmt  { $$ = new TxForHeaderNode( @$, $1, $3, $5 ); }
+for_header       : elementary_stmt opt_sc gen_val_expr opt_sc elementary_stmt  { $$ = new TxForHeaderNode( @$, $1, $3, $5 ); }
                  ;
 
 

@@ -131,21 +131,21 @@ utf8_to_utf32( input : &[]UByte, index : &~UInt ) -> Char : {
         chr : ~Char = 0;
         if ( ( nextByte & 2#1110_0000 ) == 2#1100_0000 ) : {
             index^ = ix+2;
-            chr = ( input[ix]   & 2#0001_1111 ) << 6 |
-                  ( input[ix+1] & 2#0011_1111 );
+            chr = ( ( input[ix]   & 2#0001_1111 ) << 6 |
+                    ( input[ix+1] & 2#0011_1111 ) );
         }
         else if ( ( nextByte & 2#1111_0000 ) == 2#1110_0000 ) : {
             index^ = ix+2;
-            chr = ( input[ix]   & 2#0000_1111 ) << 12 |
-                  ( input[ix+1] & 2#0011_1111 ) <<  6 |
-                  ( input[ix+2] & 2#0011_1111 );
+            chr = ( ( input[ix]   & 2#0000_1111 ) << 12 |
+                    ( input[ix+1] & 2#0011_1111 ) <<  6 |
+                    ( input[ix+2] & 2#0011_1111 ) );
         }
         else if ( ( nextByte & 2#1111_1000 ) == 2#1111_0000 ) : {
             index^ = ix+4;
-            chr = ( input[ix]   & 2#0000_0111 ) << 18 |
-                  ( input[ix+1] & 2#0011_1111 ) << 12 |
-                  ( input[ix+2] & 2#0011_1111 ) <<  6 |
-                  ( input[ix+3] & 2#0011_1111 );
+            chr = ( ( input[ix]   & 2#0000_0111 ) << 18 |
+                    ( input[ix+1] & 2#0011_1111 ) << 12 |
+                    ( input[ix+2] & 2#0011_1111 ) <<  6 |
+                    ( input[ix+3] & 2#0011_1111 ) );
         }
         return chr;
     }

@@ -10,10 +10,10 @@ CONSTANT := 42;
 
 #experr: type BadType1 UnknownType;
 
-#experr 2: type BadType2 derives Tuple : {
+#experr 1: type BadType2 derives Tuple : {
     instfield : Float;
     virtual FOO : Int = 2.73;  ## bad type conversion
-    virtual BAR := 7  ## missing semicolon
+    virtual BAR := 7
 }
 
 #experr 1: type BadType3 derives UnknownType : {
@@ -29,7 +29,7 @@ type OkType derives Tuple : {
     }
     virtual good := 14;
     #experr 1: virtual FOO : Int = 2.73;  ## bad type conversion
-    #experr 1: virtual BAR := 7  ## missing semicolon
+    virtual BAR := 7
     virtual missed := 17;
     virtual found := 18;
 }
@@ -48,18 +48,16 @@ main()->Int : {
     #experr: i = i + 3 bad tokens;
 
     #experr: {
-        i = i + 3 ## missing semicolon
-    }
+        i = i + 3 }  ## missing semicolon
 
     #experr: {
-        i = i + 3 ## missing semicolon
-        i = i + 3;
+        i = i + 3   i = i + 3  ## missing semicolon
     }
 
-    #experr 3: {
+    #experr 2: {
         i = i + 3 bad tokens;
         i = i + 3.0;  ## bad type conversion
-        i = i + 3 ## missing semicolon
+        i = i + 3
     }
 
     assert i == 3;

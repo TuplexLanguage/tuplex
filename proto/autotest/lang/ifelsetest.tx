@@ -1,31 +1,30 @@
 first() : {
-    v := ~ 0UL;
+    v := ~ 0UL
 
     if TRUE : {
-        v = v + 1;
+        v = v + 1
     }
     if FALSE :
     {
-        v = v + 2;
+        v = v + 2
     }
 
     if TRUE : {
-        v = v + 4;
+        v = v + 4
     }
     else : {
-        v = v + 8;
+        v = v + 8
     }
     if FALSE : {
-        v = v + 16;
+        v = v + 16
     } else : {
-        v = v + 32;
+        v = v + 32
     }
 
     if TRUE: { v = v + 64; }
     if FALSE :{ v = v + 128; } else { v = v + 256; }
 
-    if TRUE
-    :{
+    if TRUE :{
         if TRUE: { v = v + 512; }
         else { v = v + 1024; }
     }
@@ -38,74 +37,73 @@ first() : {
 
     if TRUE: {} else {}
 
-    expected : ULong = 1+4+32+64+256+512;
-    assert v == expected;
+    expected : ULong = 1+4+32+64+256+512
+    assert v == expected
 }
 
 second() : {
-    v := ~ 0UL;
+    v := ~ 0UL
 
     if TRUE:
-        v = v + 1;
-    if TRUE:  v = v + 2;
+        v = v + 1
+    if TRUE:  v = v + 2
 
-    if FALSE:  v = v + 4;
-    else       v = v + 8;
+    if FALSE:  v = v + 4
+    else       v = v + 8
 
     if TRUE:
-        if FALSE:  v = v + 16;
-        else       v = v + 32;
-    else  v = v + 64;
+        if FALSE:  v = v + 16
+        else       v = v + 32
+    else  v = v + 64
 
     if FALSE:
-        v = v + 128;
+        v = v + 128
     else if TRUE:
-        v = v + 256;
+        v = v + 256
     else if TRUE:
-        v = v + 512;
+        v = v + 512
     else
-        v = v + 1024;
+        v = v + 1024
 
-    expected : ULong = 1+2+8+32+256;
-    assert v == expected;
+    expected : ULong = 1+2+8+32+256
+    assert v == expected
 }
 
 third() :
-    v := ~ 0UL;
+    v := ~ 0UL
 
     if TRUE :
-        v = v + 1;
+        v = v + 1
 
     if FALSE :
 
-        v = v + 2;
+        v = v + 2
 
 
     if TRUE :
-        v = v + 4;
+        v = v + 4
 
     else :
-        v = v + 8;
+        v = v + 8
 
     if FALSE :
-        v = v + 16;
+        v = v + 16
     else :
-        v = v + 32;
+        v = v + 32
 
 
-    if TRUE:  v = v + 64;
-    if FALSE : v = v + 128;  else  v = v + 256;
+    if TRUE:  v = v + 64
+    if FALSE : v = v + 128;  else  v = v + 256
 
-    if TRUE
-    :
-        if TRUE:  v = v + 512;
-        else  v = v + 1024;
+    if TRUE :
+        if TRUE:  v = v + 512
+        else  v = v + 1024
 
 
-    else
+    else :
 
-        if TRUE:  v = v + 2048;
-        else  v = v + 4096;
+        if TRUE:  v = v + 2048
+        else  v = v + 4096
 
 
     if TRUE:
@@ -118,61 +116,61 @@ third() :
     #experr: if TRUE: else ;
 
     if TRUE:
-    v = v + 8192;   ## FUTURE: yield warning about missing indent
-    else
-    v = v + 16384;  ## FUTURE: yield warning about missing indent
-    v = v + 32768;
+    v = v + 8192   ## FUTURE: yield warning about missing indent
+    else:
+    v = v + 16384  ## FUTURE: yield warning about missing indent
+    v = v + 32768
 
     if FALSE: #experr 3:
-    	v = v + 42;  ## indent contains spaces and tabs
-	    v = v + 42;  ## indent contains spaces and tabs
-					v = v + 42;  ## 5 tab characters as indent (different from rest of file's indents)
+    	v = v + 42  ## indent contains spaces and tabs
+	    v = v + 42  ## indent contains spaces and tabs
+					v = v + 42  ## 5 tab characters as indent (different from rest of file's indents)
 
-    expected : ULong = 1+4+32+64+256+512+8192+32768;
-    assert v == expected;
+    expected : ULong = 1+4+32+64+256+512+8192+32768
+    assert v == expected
 
 
 fourth() :
-    v := ~ 0UL;
+    v := ~ 0UL
 
     if TRUE:
-        v = v + 1;
-    if TRUE:  v = v + 2;
+        v = v + 1
+    if TRUE:  v = v + 2
 
-    if FALSE:  v = v + 4;
-    else       v = v + 8;
+    if FALSE:  v = v + 4
+    else       v = v + 8
 
     if TRUE:
-        if FALSE:  v = v + 16;
-        else       v = v + 32;
-    else  v = v + 64;
+        if FALSE:  v = v + 16
+        else       v = v + 32
+    else  v = v + 64
 
     if FALSE:
-        v = v + 128;
+        v = v + 128
     else if TRUE:
-        v = v + 256;
+        v = v + 256
     else if TRUE:
-        v = v + 512;
-    else
-        v = v + 1024;
+        v = v + 512
+    else:
+        v = v + 1024
 
     if FALSE:
-        if TRUE:  v = v + 2048;
-    else  v = v + 4096;
+        if TRUE:  v = v + 2048
+    else  v = v + 4096
 
     if TRUE:
         if FALSE:
             if FALSE:
-                v = v + 8192;
-        else  v = v + 16384;
-    v = v + 32768;
+                v = v + 8192
+        else  v = v + 16384
+    v = v + 32768
 
-    expected : ULong = 1+2+8+32+256+4096+16384+32768;
-    assert v == expected;
+    expected : ULong = 1+2+8+32+256+4096+16384+32768
+    assert v == expected
 
 
 main() :
-    first();
-    second();
-    third();
-    fourth();
+    first()
+    second()
+    third()
+    fourth()
