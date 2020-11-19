@@ -71,6 +71,7 @@ YY_DECL;
 #include "tx_lang_defs.hpp"
 #include "tx_operations.hpp"
 #include "tx_error.hpp"
+#include "txparser/scanner.hpp"
 
 #define BEGIN_TXEXPERR(loc, expError) parserCtx->begin_exp_err(loc, expError)
 #define END_TXEXPERR(loc)             parserCtx->end_exp_err(loc)
@@ -250,7 +251,7 @@ YY_DECL;
 %precedence ARRAY_LIT
 %right KW_MODULE KW_IMPORT  /* high token shift precedence */
 %right KW_ELSE
-%right SEMICOLON     /* semantic statement separator, always/greedily shift */
+%right SEMICOLON NEWLINE    /* semantic statement separator, always/greedily shift */
 
 %start parsing_unit
 
@@ -307,12 +308,13 @@ import_identifier   : NAME                              { $$ = new TxIdentifier(
                     ;
 
 
-opt_sc     : NEWLINE | SEMICOLON ;
+eos        : NEWLINE | SEMICOLON ;
+//opt_eos    : %empty | eos ;
 opt_comma  : %empty | COMMA ;
 
 
 opt_module_decl    : %empty %prec STMT { $$ = new TxIdentifier( LOCAL_NS ); }
-                   | KW_MODULE module_identifier opt_sc { $$ = $2; } ;
+                   | KW_MODULE module_identifier eos { $$ = $2; } ;
 
 opt_import_stmts   : %empty { $$ = new std::vector<TxImportNode*>(); }
                    | import_statements { $$ = $1; } ;
@@ -323,14 +325,14 @@ import_statements  : import_statement
                      { $$ = $1; if ($2) $$->push_back($2); }
                    ;
 
-import_statement   : KW_IMPORT import_identifier opt_sc  { $$ = new TxImportNode(@$, $2); }
-                   | KW_IMPORT error opt_sc                { $$ = NULL; }
+import_statement   : KW_IMPORT import_identifier eos  { $$ = new TxImportNode(@$, $2); }
+                   | KW_IMPORT error eos              { $$ = NULL; }
                    ;
 
 
 member_declaration
     // field
-    : declaration_flags field_def opt_sc
+    : declaration_flags field_def eos
             { $$ = new TxFieldDeclNode(@$, $1, $2); }
 
     // type
@@ -340,8 +342,10 @@ member_declaration
     |   declaration_flags method_def
             { $$ = ( $2 ? new TxFieldDeclNode(@$, $1, $2, true) : NULL ); }
 
+    | NEWLINE  { $$ = NULL; }
+
     // error recovery
-    |   error opt_sc  { $$ = NULL; }
+    |   error eos  { $$ = NULL; }
 
     |   experr_decl      { $$ = $1; }
     ;
@@ -429,13 +433,15 @@ type_declaration : declaration_flags type_or_if opt_mutable identifier type_deri
                  | error type_body  { $$ = NULL; }
                  ;
 
-type_derivation : derives_token type_expression opt_sc  { $$ = new TxDerivedTypeNode(@$, $2); }
+type_derivation : derives_token type_expression eos              { $$ = new TxDerivedTypeNode(@$, $2); }
                 | derives_token type_expression COLON type_body  { $$ = new TxDerivedTypeNode(@$, $2, $4); }
                 | derives_token type_expression COMMA type_expr_list COLON type_body
-                                                           { $$ = new TxDerivedTypeNode(@$, $2, $4, $6); }
+                                                                 { $$ = new TxDerivedTypeNode(@$, $2, $4, $6); }
+                | derives_token type_expression COMMA type_expr_list eos
+                                                                 { $$ = new TxDerivedTypeNode(@$, $2, $4); }
                 | COLON type_body                                { $$ = new TxDerivedTypeNode(@$, $2); }
 
-                | derives_token error opt_sc  { $$ = new TxDerivedTypeNode(@$, (TxTypeExpressionNode*)nullptr); }
+                | derives_token error eos  { $$ = new TxDerivedTypeNode(@$, (TxTypeExpressionNode*)nullptr); }
                 | derives_token error COLON type_body  { $$ = new TxDerivedTypeNode(@$, $4); }
                 ;
 
@@ -482,9 +488,9 @@ func_arg_def   : identifier COLON type_expression
 
 method_def  : identifier function_signature COLON statement
                 { $$ = new TxNonLocalFieldDefNode(@$, $1, new TxLambdaExprNode(@$, $2, $4, true), false); }
-            | identifier function_signature opt_sc  // abstract method (KW_ABSTRACT should be specified)
+            | identifier function_signature eos  // abstract method (KW_ABSTRACT should be specified)
                 { $$ = new TxNonLocalFieldDefNode(@$, $1, $2, nullptr); }
-            | identifier error opt_sc  { $$ = nullptr; }
+            | identifier error eos  { $$ = nullptr; }
             | identifier error suite  { $$ = nullptr; }
             ;
 
@@ -523,7 +529,9 @@ val_type_prod   : spec_type_expr             { $$ = $1; }
 //    |  enum_type
 //    |  shared_obj_type
 
-spec_type_expr  : named_symbol LBRACE type_arg_list RBRACE  { $$ = new TxGenSpecTypeNode(@$, new TxNamedTypeNode(@1, $1), $3); }
+spec_type_expr  : named_symbol LBRACE type_arg_list
+                  { parserCtx->scanCtx->nl_after_rbrace( true ); }  RBRACE
+                  { $$ = new TxGenSpecTypeNode(@$, new TxNamedTypeNode(@1, $1), $3); }
                 ;
 
 
@@ -676,7 +684,8 @@ expression_list : gen_val_expr  { $$ = new std::vector<TxExpressionNode*>({$1});
 
 intrinsics_expr : KW__ADDRESS LPAREN gen_val_expr RPAREN     { $$ = new TxRefAddressNode(@$, $3); }
                 | KW__TYPEID  LPAREN gen_val_expr RPAREN     { $$ = new TxRefTypeIdNode(@$, $3); }
-                | KW__TYPEID  LBRACE qual_type_expr RBRACE  { $$ = new TxTypeExprTypeIdNode(@$, $3); }
+                | KW__TYPEID  LBRACE qual_type_expr
+                  { parserCtx->scanCtx->nl_after_rbrace( true ); }  RBRACE  { $$ = new TxTypeExprTypeIdNode(@$, $3); }
                 | KW__SIZEOF  LPAREN gen_val_expr RPAREN     { $$ = new TxSizeofExprNode(@$, $3); }
                 | KW__SUPERTYPES LPAREN gen_val_expr RPAREN  { $$ = new TxSupertypesExprNode(@$, $3); }
                 ;
@@ -743,14 +752,14 @@ single_statement
     ;
 
 simple_stmt
-    :   type_decl_stmt             %prec STMT    { $$ = $1; }
-    |   elementary_stmt opt_sc     %prec STMT    { $$ = $1; }
-    |   terminal_stmt   opt_sc     %prec STMT    { $$ = $1; }
-    |   init_stmt       opt_sc     %prec STMT    { $$ = $1; }
-    |   flow_else_stmt             %prec KW_ELSE { $$ = $1; }
-    |   experr_stmt                %prec STMT    { $$ = $1; }
-    |   error opt_sc               %prec STMT    { $$ = new TxNoOpStmtNode(@$); TX_SYNTAX_ERROR; }
-    |   SEMICOLON                  %prec STMT    { $$ = new TxNoOpStmtNode(@$); }
+    :   type_decl_stmt          %prec STMT    { $$ = $1; }
+    |   elementary_stmt eos     %prec STMT    { $$ = $1; }
+    |   terminal_stmt   eos     %prec STMT    { $$ = $1; }
+    |   init_stmt       eos     %prec STMT    { $$ = $1; }
+    |   flow_else_stmt          %prec KW_ELSE { $$ = $1; }
+    |   experr_stmt             %prec STMT    { $$ = $1; }
+    |   error eos               %prec STMT    { $$ = new TxNoOpStmtNode(@$); TX_SYNTAX_ERROR; }
+    |   eos                     %prec STMT    { $$ = new TxNoOpStmtNode(@$); }
     ;
 
 elementary_stmt
@@ -799,10 +808,9 @@ flow_else_stmt   : KW_IF    cond_clause    COLON simple_stmt else_clause  { $$ =
                  | KW_FOR   for_header     COLON suite       else_clause  { $$ = new TxForStmtNode(@$, $2, $4, $5); }
                  ;
 
-else_clause      : KW_ELSE COLON statement  { $$ = new TxElseClauseNode(@$, $3); }
-                   // colon is currently optional since unambiguous
-                 | KW_ELSE NEWLINE statement  { $$ = new TxElseClauseNode(@$, $3); }
-                 | KW_ELSE statement  { $$ = new TxElseClauseNode(@$, $2); }
+// colon is currently optional since unambiguous
+else_clause      : KW_ELSE COLON statement    { $$ = new TxElseClauseNode(@$, $3); }
+                 | KW_ELSE statement          { $$ = new TxElseClauseNode(@$, $2); }
                  ;
 
 
@@ -819,7 +827,7 @@ in_clause        : identifier KW_IN gen_val_expr                   { $$ = new Tx
                  | identifier COMMA identifier KW_IN gen_val_expr  { $$ = new TxInClauseNode( @$, $1, $3, $5 ); }
                  ;
 
-for_header       : elementary_stmt opt_sc gen_val_expr opt_sc elementary_stmt  { $$ = new TxForHeaderNode( @$, $1, $3, $5 ); }
+for_header       : elementary_stmt eos gen_val_expr eos elementary_stmt  { $$ = new TxForHeaderNode( @$, $1, $3, $5 ); }
                  ;
 
 

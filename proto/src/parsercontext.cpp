@@ -54,7 +54,7 @@ static Logger& CLOG = Logger::get( "COMPILER" );
 TxParserContext::TxParserContext( TxDriver& driver, TxIdentifier moduleName, std::string filePath,
                                   TxSourceBuffer sourceBuffer, ParseInputSourceSet parseInputSourceSet )
         : _driver( driver ), _moduleName( std::move( moduleName )),
-          _inputFilename( std::move( filePath )), scanState( new TxSourceScan( *this, sourceBuffer )),
+          _inputFilename( std::move( filePath )), scanCtx( new TxSourceScan( *this, sourceBuffer )),
           parseInputSourceSet( parseInputSourceSet ) {
 }
 

@@ -51,7 +51,7 @@ class TxParserContext : public Printable {
 
 public:
     /** Represents the source scan of this parsing unit. */
-    TxSourceScan* const scanState;
+    TxSourceScan* const scanCtx;
 
     /** set directly by parser */
     TxParsingUnitNode* parsingUnit = nullptr;

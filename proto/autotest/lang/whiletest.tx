@@ -7,38 +7,40 @@ test_while_syntax() : {
     while FALSE:
 
     {
-
+        assert FALSE;
     }
 
     while TRUE: break;
-    
+
     while TRUE: { break; }
 
     while TRUE : {
         break;
     }
+    else assert FALSE;
 
-    while TRUE:
-
+    ## LBRACE not on same line as COLON
+    #experr 2: while TRUE:
     {
         break;
     }
+    else assert FALSE;
 
     while TRUE: break;
     else assert FALSE;
-    
+
     while TRUE: { break; }
     else assert FALSE;
 
     while TRUE: break; else assert FALSE;
-    
+
     while TRUE: { break; } else assert FALSE;
 
     i := ~ 0;
 
     while FALSE: break;
     else i = i + 1;
-    
+
     while FALSE: { break; }
     else i = i + 1;
 
@@ -50,7 +52,7 @@ test_while_logic() : {
         assert FALSE;
     }
 
-    {    
+    {
         e := ~ FALSE;
         while FALSE : {
             assert FALSE;

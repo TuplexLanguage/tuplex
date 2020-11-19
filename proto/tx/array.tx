@@ -9,50 +9,49 @@ module tx
 builtin type ~ Array{E, C : UInt} derives Any, Collection{E}, Updatable{UInt, E} :
 {
 /* requires custom modifiability handling
-    self( seq : &Sequenceable{E} ) : {
-        #self();
+    self( seq : &Sequenceable{E} ) :
+        #self()
         for elem in seq:
-            self[ self.L ] = elem;
-    }
+            self[ self.L ] = elem
+
 */
 
-    override equals( other : &Any ) -> Bool : {
-        ##print( "equals() this type id=" %s _typeid(self) %% " other=" %s _typeid(other) );
-        if other is oa : &Array{E} : {
+    override equals( other : &Any ) -> Bool :
+        ##print( "equals() this type id=" %s _typeid(self) %% " other=" %s _typeid(other) )
+        if other is oa : &Array{E} :
             if self.L != oa.L:
-                return FALSE;
+                return FALSE
             for i in 0..self.L:
                 if self[i] != oa[i]:
-                    return FALSE;
-            return TRUE;
-        }
-        return FALSE;
-    }
+                    return FALSE
+            return TRUE
+        return FALSE
 
-    override empty() -> Bool : {
-        return self.L == 0;
-    }
 
-    override count() -> Ordinal : {
-        return self.L;
-    }
+    override empty() -> Bool :
+        return self.L == 0
 
-    override capacity() -> Ordinal : {
-        return self.C;
-    }
 
-    override contains( val : E ) -> Bool : {
-        for i in 0..self.L : {
+    override count() -> Ordinal :
+        return self.L
+
+
+    override capacity() -> Ordinal :
+        return self.C
+
+
+    override contains( val : E ) -> Bool :
+        for i in 0..self.L :
             if self[i] == val:
-                return TRUE;
-        }
-        return FALSE;
-    }
+                return TRUE
 
-    override add( val : E ) ~ -> Bool : {
-        self[ self.L ] = val;
-        return TRUE;
-    }
+        return FALSE
+
+
+    override add( val : E ) ~ -> Bool :
+        self[ self.L ] = val
+        return TRUE
+
 
 /* built-in:
     override clear() ~ { ... }
@@ -60,101 +59,100 @@ builtin type ~ Array{E, C : UInt} derives Any, Collection{E}, Updatable{UInt, E}
 
 
 
-    override sequencer() -> Ref{ ~Iterator{ E } } : {
-        return new ~ArrayIterator{E}( self );
-    }
+    override sequencer() -> Ref{ ~Iterator{ E } } :
+        return new ~ArrayIterator{E}( self )
+
 
 ## TODO: when method overloading supported, allow for loops to select this for mutable seq's:
-##    sequencer() ~ -> Ref{ ~Updater{ E } } : {
-##        return new ~ArrayUpdater{E}( self );
+##    sequencer() ~ -> Ref{ ~Updater{ E } } :
+##        return new ~ArrayUpdater{E}( self )
 ##    }
 
-    override updater() ~ -> Ref{ ~Updater{ E } } : {
-        return new ~ArrayUpdater{E}( self );
-    }
+    override updater() ~ -> Ref{ ~Updater{ E } } :
+        return new ~ArrayUpdater{E}( self )
 
-    override has( ix : UInt ) -> Bool : {
-        return ix < self.L;
-    }
 
-    override get( ix : UInt ) -> E : {
+    override has( ix : UInt ) -> Bool :
+        return ix < self.L
+
+
+    override get( ix : UInt ) -> E :
         return self[ ix ];  ## (bounds check is built-in)
-    }
 
-    override set( ix : UInt, element : E ) ~ -> E : {
-        prev := self[ ix ];
-        self[ ix ] = element;
-        return prev;
-    }
 
-    override swap( ixA : UInt, ixB : UInt ) ~ : {
-        tmp := self[ ixA ];
-        self[ ixA ] = self[ ixB ];
-        self[ ixB ] = tmp;
-    }
+    override set( ix : UInt, element : E ) ~ -> E :
+        prev := self[ ix ]
+        self[ ix ] = element
+        return prev
+
+
+    override swap( ixA : UInt, ixB : UInt ) ~ :
+        tmp := self[ ixA ]
+        self[ ixA ] = self[ ixB ]
+        self[ ixB ] = tmp
 }
 
 
-type ~ ArrayIterator{ E } <: Tuple, Iterator{ E } : {
-    array     : &Array{E};
-    prevIndex : ~UInt;
+type ~ ArrayIterator{ E } <: Tuple, Iterator{ E } :
+    array     : &Array{E}
+    prevIndex : ~UInt
 
-    self( array : &Array{E} ) : {
-        #init: array( array ), prevIndex( UInt(-1) );
-    }
-
-    override has_next() -> Bool : {
-        return self.prevIndex+1 < self.array.L;
-    }
-
-    override has_prev() -> Bool : {
-        return self.prevIndex != UInt(-1);
-    }
-
-    override next() ~ -> E : {
-        self.prevIndex = self.prevIndex + 1;
-        return self.array[ self.prevIndex ];
-    }
-
-    override prev() ~ -> E : {
-        n := self.prevIndex;
-        self.prevIndex = self.prevIndex - 1;
-        return self.array[ n ];
-    }
-}
+    self( array : &Array{E} ) :
+        #init: array( array ), prevIndex( UInt(-1) )
 
 
-type ~ ArrayUpdater{ E } <: Tuple, Updater{ E } : {
-    array     : &~Array{E};
-    prevIndex : ~UInt;
-
-    self( array : &~Array{E} ) : {
-        #init: array( array ), prevIndex( UInt(-1) );
-    }
-
-    override has_next() -> Bool : {
-        return self.prevIndex+1 < self.array.L;
-    }
-
-    override has_prev() -> Bool : {
-        return self.prevIndex != UInt(-1);
-    }
-
-    override next() ~ -> E : {
-        self.prevIndex = self.prevIndex + 1;
-        return self.array[ self.prevIndex ];
-    }
-
-    override prev() ~ -> E : {
-        n := self.prevIndex;
-        self.prevIndex = self.prevIndex - 1;
-        return self.array[ n ];
-    }
+    override has_next() -> Bool :
+        return self.prevIndex+1 < self.array.L
 
 
-    override set( element : E ) ~ -> E : {
-        tmp := self.array[ self.prevIndex ];
-        self.array[ self.prevIndex ] = element;
-        return tmp;
-    }
-}
+    override has_prev() -> Bool :
+        return self.prevIndex != UInt(-1)
+
+
+    override next() ~ -> E :
+        self.prevIndex = self.prevIndex + 1
+        return self.array[ self.prevIndex ]
+
+
+    override prev() ~ -> E :
+        n := self.prevIndex
+        self.prevIndex = self.prevIndex - 1
+        return self.array[ n ]
+
+
+
+
+type ~ ArrayUpdater{ E } <: Tuple, Updater{ E } :
+    array     : &~Array{E}
+    prevIndex : ~UInt
+
+    self( array : &~Array{E} ) :
+        #init: array( array ), prevIndex( UInt(-1) )
+
+
+    override has_next() -> Bool :
+        return self.prevIndex+1 < self.array.L
+
+
+    override has_prev() -> Bool :
+        return self.prevIndex != UInt(-1)
+
+
+    override next() ~ -> E :
+        self.prevIndex = self.prevIndex + 1
+        return self.array[ self.prevIndex ]
+
+
+    override prev() ~ -> E :
+        n := self.prevIndex
+        self.prevIndex = self.prevIndex - 1
+        return self.array[ n ]
+
+
+
+    override set( element : E ) ~ -> E :
+        tmp := self.array[ self.prevIndex ]
+        self.array[ self.prevIndex ] = element
+        return tmp
+
+

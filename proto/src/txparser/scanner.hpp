@@ -79,6 +79,7 @@ class TxSourceScan {
     // current state
     TxSourcePosition cursor;
     size_t nextToken;
+    bool nlAfterRbrace = false;
 
     // outputs
     TxLineIndex lineIndex;
@@ -87,6 +88,13 @@ class TxSourceScan {
 public:
     // external interface
     explicit TxSourceScan( TxParserContext& parserContext, const TxSourceBuffer& buffer );
+
+    void nl_after_rbrace( bool flag ) {
+        this->nlAfterRbrace = flag;
+    }
+    bool nl_after_rbrace() const {
+        return this->nlAfterRbrace;
+    }
 
     const TxToken& next_token();
 
@@ -106,6 +114,10 @@ public:
     inline const char* input_buffer() const {
         return &buffer.source[cursor.index];
     }
+
+    /** Returns the Id of the last parsed non-empty token (may be zero or more steps ahead of current token).
+     * Returns ERROR if there are no parsed tokens. */
+    TxTokenId last_non_empty_token_id() const;
 
     void add_token( TxTokenId id, uint32_t len );
 

@@ -4,10 +4,14 @@ first() : {
     if TRUE : {
         v = v + 1
     }
-    if FALSE :
+
+    ## LBRACE not on same line as COLON
+    #experr 1: if TRUE :
     {
         v = v + 2
     }
+    else
+        v = v + 8
 
     if TRUE : {
         v = v + 4
@@ -37,7 +41,7 @@ first() : {
 
     if TRUE: {} else {}
 
-    expected : ULong = 1+4+32+64+256+512
+    expected : ULong = 1+2+4+32+64+256+512
     assert v == expected
 }
 
@@ -115,10 +119,12 @@ third() :
 
     #experr: if TRUE: else ;
 
-    if TRUE:
-    v = v + 8192   ## FUTURE: yield warning about missing indent
-    else:
-    v = v + 16384  ## FUTURE: yield warning about missing indent
+    {
+        #experr 1: if TRUE:
+        v = v + 8192  ## missing indent
+        else:
+        v = v + 16384
+    }
     v = v + 32768
 
     if FALSE: #experr 3:
@@ -126,7 +132,7 @@ third() :
 	    v = v + 42  ## indent contains spaces and tabs
 					v = v + 42  ## 5 tab characters as indent (different from rest of file's indents)
 
-    expected : ULong = 1+4+32+64+256+512+8192+32768
+    expected : ULong = 1+4+32+64+256+512+32768
     assert v == expected
 
 

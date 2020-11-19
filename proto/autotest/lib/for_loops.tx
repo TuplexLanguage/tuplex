@@ -1,43 +1,31 @@
 
-for_loops( var : UInt )->Int : {
-    strA := c"foobar";
-    strB := c"macintosh";
+for_loops( var : UInt )->Int :
+    strA := c"foobar"
+    strB := c"macintosh"
 
     for chA, iterA in strA,
-        chB, iterB in strB : {
-        tmp := [ chA, ' ', chB, 0 ];
-        tx.c.puts( tmp );
+        chB, iterB in strB :
+        tmp := [ chA, ' ', chB, 0 ]
+        tx.c.puts( tmp )
         if chA == 'b':
-            iterA.next();
-    }
+            iterA.next()
 
-    for ix := ~0; ix < strA.L; ix = ix + 1 : {
-        tmp := [ strA[ix], ' ', strB[ix], 0 ];
-        tx.c.puts( tmp );
-    }
+    for ix := ~0; ix < strA.L; ix = ix + 1 :
+        tmp := [ strA[ix], ' ', strB[ix], 0 ]
+        tx.c.puts( tmp )
 
-    for i in 0..10 : {
-        tmp := [ i + '0', 0 ];
-        tx.c.puts( tmp );
-    }
+    for i in 0..10 :
+        tmp := [ i + '0', 0 ]
+        tx.c.puts( tmp )
 
     for i in 1..2..21,
-        j in 9..-2..0 : {
-        tmp := [ i + '0', ' ', j + '0', 0 ];
-        tx.c.puts( tmp );
-    }
+        j in 9..-2..0 :
+        tmp := [ i + '0', ' ', j + '0', 0 ]
+        tx.c.puts( tmp )
 
-    return 0;
-}
+    return 0
 
 
-main() -> Int : {
-    {
-        A := 1;
-    }
-    {
-        A := 2;
-    }
-    n := for_loops( 0 );
-    return Int( n );
-}
+main() -> Int :
+    n := for_loops( 0 )
+    return Int( n )

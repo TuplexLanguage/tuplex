@@ -1,255 +1,255 @@
 module tx
 
 
-interface Stringer : {
-    abstract string( writer : &~tx.ByteWriter );
-}
+interface Stringer :
+    abstract string( writer : &~tx.ByteWriter )
 
 
-interface Formatter : {
-    abstract format( writer : &~tx.ByteWriter, format : &StringFormat );
-}
+
+interface Formatter :
+    abstract format( writer : &~tx.ByteWriter, format : &StringFormat )
+
 
 
 /** Concatenates multiple Stringers. */
-type MultiStringer <: Tuple, Stringer : {
-    _stringers : &[]&Stringer;
+type MultiStringer <: Tuple, Stringer :
+    _stringers : &[]&Stringer
 
-    override string( writer : &~tx.ByteWriter ) : {
+    override string( writer : &~tx.ByteWriter ) :
         for str in self._stringers:
-            str.string( writer );
-    }
-}
+            str.string( writer )
 
 
-type StringFormat : {
-    virtual final FLAG_MINUS : UByte = 1;
-    virtual final FLAG_PLUS  : UByte = 2;
-    virtual final FLAG_SPACE : UByte = 4;
-    virtual final FLAG_ZERO  : UByte = 8;
-    virtual final FLAG_HASH  : UByte = 16;
 
-    flags     : UByte;
-    width     : UInt;
-    precision : UInt;
-    typeChar  : UByte;
 
-    self( flags : UByte, width : UInt, precision : UInt, typeChar : UByte ) : {
-        #init: flags( flags ), width( width ), precision( precision ), typeChar( typeChar );
-    }
+type StringFormat :
+    virtual final FLAG_MINUS : UByte = 1
+    virtual final FLAG_PLUS  : UByte = 2
+    virtual final FLAG_SPACE : UByte = 4
+    virtual final FLAG_ZERO  : UByte = 8
+    virtual final FLAG_HASH  : UByte = 16
 
-    self( typeChar : UByte ) : {
-        #init: flags( 0 ), width( 0 ), precision( 0 ), typeChar( typeChar );
-    }
+    flags     : UByte
+    width     : UInt
+    precision : UInt
+    typeChar  : UByte
 
-    self( other : &StringFormat ) : {
-        #init: flags( other.flags ), width( other.width ), precision( other.precision ), typeChar( other.typeChar );
-    }
-}
+    self( flags : UByte, width : UInt, precision : UInt, typeChar : UByte ) :
+        #init: flags( flags ), width( width ), precision( precision ), typeChar( typeChar )
+
+
+    self( typeChar : UByte ) :
+        #init: flags( 0 ), width( 0 ), precision( 0 ), typeChar( typeChar )
+
+
+    self( other : &StringFormat ) :
+        #init: flags( other.flags ), width( other.width ), precision( other.precision ), typeChar( other.typeChar )
+
+
 
 
 /** Makes a Stringer of a Formatter by applying a given format to produce the string. */
-type FormattedStringer <: Tuple, Stringer : {
-    format : StringFormat;
-    object : &Formatter;
+type FormattedStringer <: Tuple, Stringer :
+    format : StringFormat
+    object : &Formatter
 
-    self( format : &StringFormat, object : &Formatter ) : {
-        #init: format( format ), object( object );
-    }
+    self( format : &StringFormat, object : &Formatter ) :
+        #init: format( format ), object( object )
 
-    self( format : &StringFormat, object : &Stringer ) : {
+
+    self( format : &StringFormat, object : &Stringer ) :
         #init: format( format ), object( new StringerFormatter( object ) );  ## FUTURE: redesign or free memory
-    }
 
-    override string( writer : &~tx.ByteWriter ) : {
-        self.object.format( writer, self.format );
-    }
-}
+
+    override string( writer : &~tx.ByteWriter ) :
+        self.object.format( writer, self.format )
+
+
 
 
 /** Makes a Formatter of a Stringer by applying the format to the produced string.
  * This can be used in place of String, the difference is that this object will lazily produce the Stringer's string. */
-type StringerFormatter <: Tuple, Formatter : {
-    object : &Stringer;
+type StringerFormatter <: Tuple, Formatter :
+    object : &Stringer
 
-    override format( writer : &~tx.ByteWriter, format : &StringFormat ) : {
-        str := String( self.object );
-        str.format( writer, format );
-    }
-}
+    override format( writer : &~tx.ByteWriter, format : &StringFormat ) :
+        str := String( self.object )
+        str.format( writer, format )
+
+
 
 
 
 /** Converts an integer to a string in conventional decimal format.
  * @neg if true, a '-' is prepended to the string to indicate negative value
  */
-to_string( writer : &~tx.ByteWriter, value : ULong, neg : Bool ) : {
-    prev : ~ULong = value;
-    val  : ~ULong = value / 10;
-    backward := ~[24]UByte();
-    while prev > 9 : {
-        backward[backward.L] = '0' + UByte( prev - (val * 10) );
-        prev = val;
-        val = val / 10;
-    }
-    backward[backward.L] = '0' + UByte( prev - (val * 10) );
+to_string( writer : &~tx.ByteWriter, value : ULong, neg : Bool ) :
+    prev : ~ULong = value
+    val  : ~ULong = value / 10
+    backward := ~[24]UByte()
+    while prev > 9 :
+        backward[backward.L] = '0' + UByte( prev - (val * 10) )
+        prev = val
+        val = val / 10
 
-    forward := ~[24]UByte();
+    backward[backward.L] = '0' + UByte( prev - (val * 10) )
+
+    forward := ~[24]UByte()
     if neg:
-        forward[forward.L] = '-';
-    for i in 0..backward.L : {
-        forward[forward.L] = backward[backward.L-1-i];
-    }
-    writer.write( forward );
-}
+        forward[forward.L] = '-'
+    for i in 0..backward.L :
+        forward[forward.L] = backward[backward.L-1-i]
 
-RADIX_DIGITS := c"0123456789abcdef";
+    writer.write( forward )
+
+
+RADIX_DIGITS := c"0123456789abcdef"
 
 /** Converts an integer to a string with the specified format.
  * @neg if true, a '-' is prepended to the string to indicate negative value
  */
-format_string( writer : &~tx.ByteWriter, format : &StringFormat, value : ULong, neg : Bool ) : {
-    radix : ~UByte = 10;
-    prefix := ~[3]UByte();
-    if format.typeChar == 'x' : {
-        radix = 16;
-        prefix[0] = 'x';
-        prefix[1] = '0';
-    }
-    else if format.typeChar == 'o' : {
-        radix = 8;
-        prefix[0] = 'o';
-        prefix[1] = '0';
-    }
-    else if format.typeChar == 'b' : {
-        radix = 2;
-        prefix[0] = 'b';
-        prefix[1] = '0';
-    }
+format_string( writer : &~tx.ByteWriter, format : &StringFormat, value : ULong, neg : Bool ) :
+    radix : ~UByte = 10
+    prefix := ~[3]UByte()
+    if format.typeChar == 'x' :
+        radix = 16
+        prefix[0] = 'x'
+        prefix[1] = '0'
 
-    backward := ~[66]UByte();
-    {
-        prev : ~ULong = value;
-        val  : ~ULong = value / radix;
-        while prev >= radix : {
-            backward[backward.L] = RADIX_DIGITS[ UByte( prev - (val * radix) ) ];
-            prev = val;
-            val = val / radix;
-        }
-        backward[backward.L] = RADIX_DIGITS[ UByte( prev - (val * radix) ) ];
-    }
+    else if format.typeChar == 'o' :
+        radix = 8
+        prefix[0] = 'o'
+        prefix[1] = '0'
+
+    else if format.typeChar == 'b' :
+        radix = 2
+        prefix[0] = 'b'
+        prefix[1] = '0'
+
+
+    backward := ~[66]UByte()
+
+        prev : ~ULong = value
+        val  : ~ULong = value / radix
+        while prev >= radix :
+            backward[backward.L] = RADIX_DIGITS[ UByte( prev - (val * radix) ) ]
+            prev = val
+            val = val / radix
+
+        backward[backward.L] = RADIX_DIGITS[ UByte( prev - (val * radix) ) ]
+
 
     if neg:
-        prefix[prefix.L] = '-';
+        prefix[prefix.L] = '-'
     else if ( format.flags & StringFormat.FLAG_PLUS ) != 0:
-        prefix[prefix.L] = '+';
+        prefix[prefix.L] = '+'
     else if ( format.flags & StringFormat.FLAG_SPACE ) != 0:
-        prefix[prefix.L] = ' ';
+        prefix[prefix.L] = ' '
 
     length := backward.L + prefix.L;  ## string length excluding padding
-    padding : ~UInt = 0;
+    padding : ~UInt = 0
     if format.width > length:
-        padding = format.width - length;
-    forward := ~[length+padding]UByte();
+        padding = format.width - length
+    forward := ~[length+padding]UByte()
 
-    if ( format.flags & StringFormat.FLAG_MINUS ) == 0 : {
+    if ( format.flags & StringFormat.FLAG_MINUS ) == 0 :
         ## right-aligned, padding to the left
-        if ( format.flags & StringFormat.FLAG_ZERO ) != 0 : {
+        if ( format.flags & StringFormat.FLAG_ZERO ) != 0 :
             for i in 0..prefix.L:
-                forward[forward.L] = prefix[prefix.L-1-i];
+                forward[forward.L] = prefix[prefix.L-1-i]
             for i in 0..padding:
-                forward[forward.L] = '0';
-        }
-        else : {
-            for i in 0..padding:
-                forward[forward.L] = ' ';
-            for i in 0..prefix.L:
-                forward[forward.L] = prefix[prefix.L-1-i];
-        }
-        for i in 0..backward.L:
-            forward[forward.L] = backward[backward.L-1-i];
-    }
+                forward[forward.L] = '0'
 
-    else : {
+        else :
+            for i in 0..padding:
+                forward[forward.L] = ' '
+            for i in 0..prefix.L:
+                forward[forward.L] = prefix[prefix.L-1-i]
+
+        for i in 0..backward.L:
+            forward[forward.L] = backward[backward.L-1-i]
+
+
+    else :
         ## left-aligned, padding to the right
         for i in 0..prefix.L:
-            forward[forward.L] = prefix[prefix.L-1-i];
+            forward[forward.L] = prefix[prefix.L-1-i]
         for i in 0..backward.L:
-            forward[forward.L] = backward[backward.L-1-i];
+            forward[forward.L] = backward[backward.L-1-i]
         for i in 0..padding:
-            forward[forward.L] = ' ';
-    }
+            forward[forward.L] = ' '
 
-    writer.write( forward );
-}
+
+    writer.write( forward )
+
 
 
 /** Converts an unsigned integer to a string in conventional decimal format. */
-to_string( writer : &~tx.ByteWriter, value : ULong ) : {
-    to_string( writer, value, FALSE );
-}
+to_string( writer : &~tx.ByteWriter, value : ULong ) :
+    to_string( writer, value, FALSE )
+
 
 /** Converts an unsigned integer to a string with the specified format. */
-format_string( writer : &~tx.ByteWriter, format : &StringFormat, value : ULong ) : {
-    format_string( writer, format, value, FALSE );
-}
+format_string( writer : &~tx.ByteWriter, format : &StringFormat, value : ULong ) :
+    format_string( writer, format, value, FALSE )
+
 
 
 /** Converts a signed integer to a string in conventional decimal format. */
-to_string( writer : &~tx.ByteWriter, value : Long ) : {
+to_string( writer : &~tx.ByteWriter, value : Long ) :
     if value < 0:
-        to_string( writer, ULong( -value ), TRUE );
+        to_string( writer, ULong( -value ), TRUE )
     else
-        to_string( writer, ULong( value ), FALSE );
-}
+        to_string( writer, ULong( value ), FALSE )
+
 
 /** Converts a signed integer to a string with the specified format. */
-format_string( writer : &~tx.ByteWriter, format : &StringFormat, value : Long ) : {
+format_string( writer : &~tx.ByteWriter, format : &StringFormat, value : Long ) :
     if value < 0:
-        format_string( writer, format, ULong( -value ), TRUE );
+        format_string( writer, format, ULong( -value ), TRUE )
     else
-        format_string( writer, format, ULong( value ), FALSE );
-}
+        format_string( writer, format, ULong( value ), FALSE )
+
 
 
 
 /** Converts floating point value to a string in conventional decimal format.
  * @neg if true, a '-' is prepended to the string to indicate negative value
  */
-to_string( writer : &~tx.ByteWriter, value : Double, neg : Bool ) : {
+to_string( writer : &~tx.ByteWriter, value : Double, neg : Bool ) :
     ## TODO: a non-simplistic implementation
-    if value < 1e-300D : {
+    if value < 1e-300D :
         ## assume zero
-        "0.0".string( writer );
-    } 
-    else if (value < 1e20) & (value >= 1e-3) : {
+        "0.0".string( writer )
+
+    else if (value < 1e20) & (value >= 1e-3) :
         ## Note: ULong can handle 19 full decimals of precision
-        buf := ~ GrowableUByteArray();
-        intval := ULong( value );
-        to_string( &buf, intval, neg );
-        frac := value - Double( intval );
-        fracintval := ULong( frac * 1e6 );
-        buf.add( '.' );
-        to_string( &buf, fracintval, FALSE );
-        writer.write( buf.array() );
-    }
-    else : {
+        buf := ~ GrowableUByteArray()
+        intval := ULong( value )
+        to_string( &buf, intval, neg )
+        frac := value - Double( intval )
+        fracintval := ULong( frac * 1e6 )
+        buf.add( '.' )
+        to_string( &buf, fracintval, FALSE )
+        writer.write( buf.array() )
+
+    else :
         ## TODO: use scientific notation
-        "<scientific-notation-floats-not-yet-implemented>".string( writer );
-    }
-}
+        "<scientific-notation-floats-not-yet-implemented>".string( writer )
+
+
 
 /** Converts a floating point value to a string in conventional decimal format. */
-to_string( writer : &~tx.ByteWriter, value : Double ) : {
+to_string( writer : &~tx.ByteWriter, value : Double ) :
     if value < 0:
-        to_string( writer, -value, TRUE );
+        to_string( writer, -value, TRUE )
     else
-        to_string( writer, value, FALSE );
-}
+        to_string( writer, value, FALSE )
+
 
 /** Converts a floating point value to a string with the specified format. */
-format_string( writer : &~tx.ByteWriter, format : &StringFormat, value : Double ) : {
-    ##print( "format_string( Double )" );
+format_string( writer : &~tx.ByteWriter, format : &StringFormat, value : Double ) :
+    ##print( "format_string( Double )" )
     ## TODO
-    to_string( writer, value );
-}
+    to_string( writer, value )
+

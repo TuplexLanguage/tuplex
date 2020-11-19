@@ -1,416 +1,330 @@
 module tx
 
+builtin type ~ Elementary    derives Any, Stringer, Formatter
 
-builtin type ~ Elementary    derives Any, Stringer, Formatter : {
-}
+builtin type ~ Scalar        derives Elementary
 
-builtin type ~ Scalar        derives Elementary : {
-}
+builtin type ~ Integer       derives Scalar
 
-builtin type ~ Integer       derives Scalar : {
-}
+builtin type ~ Signed        derives Integer
 
-builtin type ~ Signed        derives Integer : {
-}
+builtin type ~ Unsigned      derives Integer
 
-builtin type ~ Unsigned      derives Integer : {
-}
-
-builtin type ~ Floatingpoint derives Scalar : {
-}
+builtin type ~ Floatingpoint derives Scalar
 
 
-builtin type ~ Byte          derives Signed, Number{Byte}, Enumerable{Byte} : {
+builtin type ~ Byte          derives Signed, Number{Byte}, Enumerable{Byte} :
 
-    override equals( other : &Any ) -> Bool : {
-        if other is o : &Self : {
-            return self^ == o^;
-        }
-        return FALSE;
-    }
+    override equals( other : &Any ) -> Bool :
+        if other is o : &Self :
+            return self^ == o^
+        return FALSE
 
-    virtual override MIN : Byte = -128_B;
-    virtual override MAX : Byte =  127_B;
+    virtual override MIN : Byte = -128_B
+    virtual override MAX : Byte =  127_B
 
     /** returns the last (highest) ordinal for this type */
-    virtual override last_ordinal() -> Ordinal : {
-        return 255_UB;
-    }
+    virtual override last_ordinal() -> Ordinal :
+        return 255_UB
 
     /** returns the value for the specified ordinal */
-    virtual override value( ordinal: Ordinal ) -> Byte : {
+    virtual override value( ordinal: Ordinal ) -> Byte :
         ##if ordinal > self.last_ordinal():  panic
-        return Byte( ordinal - 128 );
-    }
+        return Byte( ordinal - 128 )
 
     /** returns the ordinal for this value */
-    override ordinal() -> Ordinal : {
-        return Ordinal( Long( self ) + 128 );
-    }
+    override ordinal() -> Ordinal :
+        return Ordinal( Long( self ) + 128 )
 
-    override string( writer : &~tx.ByteWriter ) : {
-        to_string( writer, self );
-    }
+    override string( writer : &~tx.ByteWriter ) :
+        to_string( writer, self )
 
-    override format( writer : &~tx.ByteWriter, format : &StringFormat ) : {
-        format_string( writer, format, self );
-    }
-}
+    override format( writer : &~tx.ByteWriter, format : &StringFormat ) :
+        format_string( writer, format, self )
 
-builtin type ~ Short         derives Signed, Number{Short}, Enumerable{Short} : {
 
-    override equals( other : &Any ) -> Bool : {
-        if other is o : &Self : {
-            return self^ == o^;
-        }
-        return FALSE;
-    }
+builtin type ~ Short         derives Signed, Number{Short}, Enumerable{Short} :
 
-    virtual override MIN : Short = -32768_S;
-    virtual override MAX : Short =  32767_S;
+    override equals( other : &Any ) -> Bool :
+        if other is o : &Self :
+            return self^ == o^
+        return FALSE
+
+    virtual override MIN : Short = -32768_S
+    virtual override MAX : Short =  32767_S
 
     /** returns the last (highest) ordinal for this type */
-    virtual override last_ordinal() -> Ordinal : {
-        return 65535_US;
-    }
+    virtual override last_ordinal() -> Ordinal :
+        return 65535_US
 
     /** returns the value for the specified ordinal */
-    virtual override value( ordinal: Ordinal ) -> Short : {
+    virtual override value( ordinal: Ordinal ) -> Short :
         ##if ordinal > self.last_ordinal():  panic
-        return Short( ordinal - 32768 );
-    }
+        return Short( ordinal - 32768 )
 
     /** returns the ordinal for this value */
-    override ordinal() -> Ordinal : {
-        return Ordinal( Long( self ) + 32768 );
-    }
+    override ordinal() -> Ordinal :
+        return Ordinal( Long( self ) + 32768 )
 
-    override string( writer : &~tx.ByteWriter ) : {
-        to_string( writer, self );
-    }
+    override string( writer : &~tx.ByteWriter ) :
+        to_string( writer, self )
 
-    override format( writer : &~tx.ByteWriter, format : &StringFormat ) : {
-        format_string( writer, format, self );
-    }
-}
+    override format( writer : &~tx.ByteWriter, format : &StringFormat ) :
+        format_string( writer, format, self )
 
-builtin type ~ Int           derives Signed, Number{Int}, Enumerable{Int} : {
 
-    override equals( other : &Any ) -> Bool : {
-        if other is o : &Self : {
-            return self^ == o^;
-        }
-        return FALSE;
-    }
+builtin type ~ Int           derives Signed, Number{Int}, Enumerable{Int} :
 
-    virtual override MIN : Int = -2147483648_I;
-    virtual override MAX : Int =  2147483647_I;
+    override equals( other : &Any ) -> Bool :
+        if other is o : &Self :
+            return self^ == o^
+
+        return FALSE
+
+    virtual override MIN : Int = -2147483648_I
+    virtual override MAX : Int =  2147483647_I
 
     /** returns the last (highest) ordinal for this type */
-    virtual override last_ordinal() -> Ordinal : {
-        return 4294967295_UI;
-    }
+    virtual override last_ordinal() -> Ordinal :
+        return 4294967295_UI
 
     /** returns the value for the specified ordinal */
-    virtual override value( ordinal: Ordinal ) -> Int : {
+    virtual override value( ordinal: Ordinal ) -> Int :
         ##if ordinal > self.last_ordinal():  panic
-        return Int( ordinal - 2147483648 );
-    }
+        return Int( ordinal - 2147483648 )
 
     /** returns the ordinal for this value */
-    override ordinal() -> Ordinal : {
-        return Ordinal( Long( self ) + 2147483648 );
-    }
+    override ordinal() -> Ordinal :
+        return Ordinal( Long( self ) + 2147483648 )
 
-    override string( writer : &~tx.ByteWriter ) : {
-        to_string( writer, self );
-    }
+    override string( writer : &~tx.ByteWriter ) :
+        to_string( writer, self )
 
-    override format( writer : &~tx.ByteWriter, format : &StringFormat ) : {
-        format_string( writer, format, self );
-    }
-}
+    override format( writer : &~tx.ByteWriter, format : &StringFormat ) :
+        format_string( writer, format, self )
 
-builtin type ~ Long          derives Signed, Number{Long}, Enumerable{Long} : {
 
-    override equals( other : &Any ) -> Bool : {
-        if other is o : &Self : {
-            return self^ == o^;
-        }
-        return FALSE;
-    }
+builtin type ~ Long          derives Signed, Number{Long}, Enumerable{Long} :
 
-    virtual override MIN : Long = -9223372036854775808_L;
-    virtual override MAX : Long =  9223372036854775807_L;
+    override equals( other : &Any ) -> Bool :
+        if other is o : &Self :
+            return self^ == o^
+        return FALSE
+
+    virtual override MIN : Long = -9223372036854775808_L
+    virtual override MAX : Long =  9223372036854775807_L
 
     /** returns the last (highest) ordinal for this type */
-    virtual override last_ordinal() -> Ordinal : {
-        return 18446744073709551615_UL;
-    }
+    virtual override last_ordinal() -> Ordinal :
+        return 18446744073709551615_UL
 
     /** returns the value for the specified ordinal */
-    virtual override value( ordinal: Ordinal ) -> Long : {
-        return Long( ordinal - 9223372036854775808 );
-    }
+    virtual override value( ordinal: Ordinal ) -> Long :
+        return Long( ordinal - 9223372036854775808 )
 
     /** returns the ordinal for this value */
-    override ordinal() -> Ordinal : {
-        return Ordinal( self^ - -9223372036854775808 );
-    }
+    override ordinal() -> Ordinal :
+        return Ordinal( self^ - -9223372036854775808 )
 
-    override string( writer : &~tx.ByteWriter ) : {
-        to_string( writer, self );
-    }
+    override string( writer : &~tx.ByteWriter ) :
+        to_string( writer, self )
 
-    override format( writer : &~tx.ByteWriter, format : &StringFormat ) : {
-        format_string( writer, format, self );
-    }
-}
+    override format( writer : &~tx.ByteWriter, format : &StringFormat ) :
+        format_string( writer, format, self )
 
 
-builtin type ~ UByte          derives Unsigned, Number{UByte}, Enumerable{UByte} : {
+builtin type ~ UByte          derives Unsigned, Number{UByte}, Enumerable{UByte} :
 
-    override equals( other : &Any ) -> Bool : {
-        if other is o : &Self : {
-            return self^ == o^;
-        }
-        return FALSE;
-    }
+    override equals( other : &Any ) -> Bool :
+        if other is o : &Self :
+            return self^ == o^
+        return FALSE
 
-    virtual override MIN : UByte = 0_UB;
-    virtual override MAX : UByte = 255_UB;
+    virtual override MIN : UByte = 0_UB
+    virtual override MAX : UByte = 255_UB
 
     /** returns the last (highest) ordinal for this type */
-    virtual override last_ordinal() -> Ordinal : {
-        return 255_UB;
-    }
+    virtual override last_ordinal() -> Ordinal :
+        return 255_UB
 
     /** returns the value for the specified ordinal */
-    virtual override value( ordinal: Ordinal ) -> UByte : {
+    virtual override value( ordinal: Ordinal ) -> UByte :
         ##if ordinal > self.last_ordinal():  panic
-        return UByte( ordinal );
-    }
+        return UByte( ordinal )
 
     /** returns the ordinal for this value */
-    override ordinal() -> Ordinal : {
-        return Ordinal( self );
-    }
+    override ordinal() -> Ordinal :
+        return Ordinal( self )
 
-    override string( writer : &~tx.ByteWriter ) : {
-        to_string( writer, self );
-    }
+    override string( writer : &~tx.ByteWriter ) :
+        to_string( writer, self )
 
-    override format( writer : &~tx.ByteWriter, format : &StringFormat ) : {
-        format_string( writer, format, self );
-    }
-}
+    override format( writer : &~tx.ByteWriter, format : &StringFormat ) :
+        format_string( writer, format, self )
 
-builtin type ~ UShort         derives Unsigned, Number{UShort}, Enumerable{UShort} : {
 
-    override equals( other : &Any ) -> Bool : {
-        if other is o : &Self : {
-            return self^ == o^;
-        }
-        return FALSE;
-    }
+builtin type ~ UShort         derives Unsigned, Number{UShort}, Enumerable{UShort} :
 
-    virtual override MIN : UShort = 0_US;
-    virtual override MAX : UShort = 65535_US;
+    override equals( other : &Any ) -> Bool :
+        if other is o : &Self :
+            return self^ == o^
+        return FALSE
+
+    virtual override MIN : UShort = 0_US
+    virtual override MAX : UShort = 65535_US
 
     /** returns the last (highest) ordinal for this type */
-    virtual override last_ordinal() -> Ordinal : {
-        return 65535_US;
-    }
+    virtual override last_ordinal() -> Ordinal :
+        return 65535_US
 
     /** returns the value for the specified ordinal */
-    virtual override value( ordinal: Ordinal ) -> UShort : {
+    virtual override value( ordinal: Ordinal ) -> UShort :
         ##if ordinal > self.last_ordinal():  panic
-        return UShort( ordinal );
-    }
+        return UShort( ordinal )
 
     /** returns the ordinal for this value */
-    override ordinal() -> Ordinal : {
-        return Ordinal( self );
-    }
+    override ordinal() -> Ordinal :
+        return Ordinal( self )
 
-    override string( writer : &~tx.ByteWriter ) : {
-        to_string( writer, self );
-    }
+    override string( writer : &~tx.ByteWriter ) :
+        to_string( writer, self )
 
-    override format( writer : &~tx.ByteWriter, format : &StringFormat ) : {
-        format_string( writer, format, self );
-    }
-}
+    override format( writer : &~tx.ByteWriter, format : &StringFormat ) :
+        format_string( writer, format, self )
 
-builtin type ~ UInt           derives Unsigned, Number{UInt}, Enumerable{UInt} : {
 
-    override equals( other : &Any ) -> Bool : {
-        if other is o : &Self : {
-            return self^ == o^;
-        }
-        return FALSE;
-    }
+builtin type ~ UInt           derives Unsigned, Number{UInt}, Enumerable{UInt} :
 
-    virtual override MIN : UInt = 0_UI;
-    virtual override MAX : UInt = 4294967295_UI;
+    override equals( other : &Any ) -> Bool :
+        if other is o : &Self :
+            return self^ == o^
+        return FALSE
+
+    virtual override MIN : UInt = 0_UI
+    virtual override MAX : UInt = 4294967295_UI
 
     /** returns the last (highest) ordinal for this type */
-    virtual override last_ordinal() -> Ordinal : {
+    virtual override last_ordinal() -> Ordinal :
         ##if ordinal > self.last_ordinal():  panic
-        return 4294967295_UI;
-    }
+        return 4294967295_UI
 
     /** returns the value for the specified ordinal */
-    virtual override value( ordinal: Ordinal ) -> UInt : {
-        return UInt( ordinal );
-    }
+    virtual override value( ordinal: Ordinal ) -> UInt :
+        return UInt( ordinal )
 
     /** returns the ordinal for this value */
-    override ordinal() -> Ordinal : {
-        return Ordinal( self );
-    }
+    override ordinal() -> Ordinal :
+        return Ordinal( self )
 
-    override string( writer : &~tx.ByteWriter ) : {
-        to_string( writer, self );
-    }
+    override string( writer : &~tx.ByteWriter ) :
+        to_string( writer, self )
 
-    override format( writer : &~tx.ByteWriter, format : &StringFormat ) : {
-        format_string( writer, format, self );
-    }
-}
+    override format( writer : &~tx.ByteWriter, format : &StringFormat ) :
+        format_string( writer, format, self )
 
-builtin type ~ ULong          derives Unsigned, Number{ULong}, Enumerable{ULong} : {
 
-    override equals( other : &Any ) -> Bool : {
-        if other is o : &Self : {
-            return self^ == o^;
-        }
-        return FALSE;
-    }
+builtin type ~ ULong          derives Unsigned, Number{ULong}, Enumerable{ULong} :
 
-    virtual override MIN : ULong = 0_UL;
-    virtual override MAX : ULong = 18446744073709551615_UL;
+    override equals( other : &Any ) -> Bool :
+        if other is o : &Self :
+            return self^ == o^
+        return FALSE
+
+    virtual override MIN : ULong = 0_UL
+    virtual override MAX : ULong = 18446744073709551615_UL
 
     /** returns the last (highest) ordinal for this type */
-    virtual override last_ordinal() -> Ordinal : {
-        return 18446744073709551615_UL;
-    }
+    virtual override last_ordinal() -> Ordinal :
+        return 18446744073709551615_UL
 
     /** returns the value for the specified ordinal */
-    virtual override value( ordinal: Ordinal ) -> ULong : {
-        return ULong( ordinal );
-    }
+    virtual override value( ordinal: Ordinal ) -> ULong :
+        return ULong( ordinal )
 
     /** returns the ordinal for this value */
-    override ordinal() -> Ordinal : {
-        return Ordinal( self );
-    }
+    override ordinal() -> Ordinal :
+        return Ordinal( self )
 
-    override string( writer : &~tx.ByteWriter ) : {
-        to_string( writer, self );
-    }
+    override string( writer : &~tx.ByteWriter ) :
+        to_string( writer, self )
 
-    override format( writer : &~tx.ByteWriter, format : &StringFormat ) : {
-        format_string( writer, format, self );
-    }
-}
+    override format( writer : &~tx.ByteWriter, format : &StringFormat ) :
+        format_string( writer, format, self )
 
 
-builtin type ~ Half          derives Floatingpoint, Number{Half} : {
+builtin type ~ Half          derives Floatingpoint, Number{Half} :
 /* requires linking with symbol __gnu_h2f_ieee
-    override equals( other : &Any ) -> Bool : {
-        if other is o : &Self : {
-            return self^ == o^;
-        }
-        return FALSE;
-    }
+    override equals( other : &Any ) -> Bool :
+        if other is o : &Self :
+            return self^ == o^
+        return FALSE
+
 */
-    virtual override MIN : Half = -65503.0;
-    virtual override MAX : Half = 65503.0;
+    virtual override MIN : Half = -65503.0
+    virtual override MAX : Half = 65503.0
 
-    override string( writer : &~tx.ByteWriter ) : {
-        ##to_string( writer, self );
-    }
+    override string( writer : &~tx.ByteWriter ) :
+        ; ##to_string( writer, self )
 
-    override format( writer : &~tx.ByteWriter, format : &StringFormat ) : {
-        ##format_string( writer, format, self );
-    }
-}
+    override format( writer : &~tx.ByteWriter, format : &StringFormat ) :
+        ; ##format_string( writer, format, self )
 
 
-builtin type ~ Float         derives Floatingpoint : {
+builtin type ~ Float         derives Floatingpoint :
 
-    override equals( other : &Any ) -> Bool : {
-        if other is o : &Self : {
-            return self^ == o^;
-        }
-        return FALSE;
-    }
+    override equals( other : &Any ) -> Bool :
+        if other is o : &Self :
+            return self^ == o^
+        return FALSE
 
-    override string( writer : &~tx.ByteWriter ) : {
-        to_string( writer, self );
-    }
+    override string( writer : &~tx.ByteWriter ) :
+        to_string( writer, self )
 
-    override format( writer : &~tx.ByteWriter, format : &StringFormat ) : {
-        format_string( writer, format, self );
-    }
-}
+    override format( writer : &~tx.ByteWriter, format : &StringFormat ) :
+        format_string( writer, format, self )
 
 
-builtin type ~ Double        derives Floatingpoint : {
+builtin type ~ Double        derives Floatingpoint :
 
-    override equals( other : &Any ) -> Bool : {
-        if other is o : &Self : {
-            return self^ == o^;
-        }
-        return FALSE;
-    }
+    override equals( other : &Any ) -> Bool :
+        if other is o : &Self :
+            return self^ == o^
+        return FALSE
 
-    override string( writer : &~tx.ByteWriter ) : {
-        to_string( writer, self );
-    }
+    override string( writer : &~tx.ByteWriter ) :
+        to_string( writer, self )
 
-    override format( writer : &~tx.ByteWriter, format : &StringFormat ) : {
-        format_string( writer, format, self );
-    }
-}
+    override format( writer : &~tx.ByteWriter, format : &StringFormat ) :
+        format_string( writer, format, self )
 
 
-builtin type ~ Bool          derives Elementary, Enumerable{Bool} : {
+builtin type ~ Bool          derives Elementary, Enumerable{Bool} :
 
-    override equals( other : &Any ) -> Bool : {
-        if other is o : &Self : {
-            return self^ == o^;
-        }
-        return FALSE;
-    }
+    override equals( other : &Any ) -> Bool :
+        if other is o : &Self :
+            return self^ == o^
+        return FALSE
 
     /** returns the last (highest) ordinal for this type */
-    virtual override last_ordinal() -> Ordinal : {
-        return 1;
-    }
+    virtual override last_ordinal() -> Ordinal :
+        return 1
 
     /** returns the value for the specified ordinal */
-    virtual override value( ordinal: Ordinal ) -> Bool : {
-        return Bool( ordinal );
-    }
+    virtual override value( ordinal: Ordinal ) -> Bool :
+        return Bool( ordinal )
 
     /** returns the ordinal for this value */
-    override ordinal() -> Ordinal : {
-        return Ordinal( self );
-    }
+    override ordinal() -> Ordinal :
+        return Ordinal( self )
 
-    override string( writer : &~tx.ByteWriter ) : {
+    override string( writer : &~tx.ByteWriter ) :
         if self:
-            writer.write( c"TRUE" );
+            writer.write( c"TRUE" )
         else
-            writer.write( c"FALSE" );
-    }
+            writer.write( c"FALSE" )
 
-    override format( writer : &~tx.ByteWriter, format : &StringFormat ) : {
+    override format( writer : &~tx.ByteWriter, format : &StringFormat ) :
         if self:
-            writer.write( c"TRUE" );
+            writer.write( c"TRUE" )
         else
-            writer.write( c"FALSE" );
-    }
-}
+            writer.write( c"FALSE" )

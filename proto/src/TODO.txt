@@ -153,13 +153,27 @@ Replace Flex with custom parser - DONE
 
 Support indent / dedent without braces - DONE
 
-Support statement termination with newline instead of semicolon
+Support statement termination with newline instead of semicolon - DONE
+
+!!! Clean up tests and tx code with new structure syntax
+FIX - error message or support:
+    ## LBRACE not on same line as COLON
+    ## NOTE: comment after COLON makes it work.....
+    #experr 2: while TRUE:
+    {
+        break;
+    }
+    else assert FALSE;
+
 
 -> Notes / Caveats / difficulties:
 - Semicolon now becomes an "explicit statement terminator, and also the empty statement token"
 - Colon must be on the same line as the preceeding statement
 - Closing brace on same line as last statement still requires semicolon: stmt ; }
 - Shouldn't else now require colon for consistency?
+
+Make blog post about new syntax
+
 
 Remaining core array features:
 ------------------------------

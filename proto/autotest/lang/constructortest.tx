@@ -49,8 +49,8 @@ type ~Lower derives Upper : {
     self( i : Int ) : {
         #init: self( i, i, i);
         ## can't combine self() and other initializers:
-        #experr 2: #init: self( i, i, i), super(i); 
-        #experr 2: #init: self( i, i, i), _f(i); 
+        #experr 2: #init: self( i, i, i), super(i);
+        #experr 2: #init: self( i, i, i), _f(i);
         #experr 2: #init: self( i, i, i), super(i), _f(i), _g(i);
         #experr 4: #init: super(i), self( i, i, i);
         #experr 4: #init: super(i), _f(j), _g(k), self( i, i, i);
@@ -104,7 +104,7 @@ type Bottom derives Lower : {
 
         #experr 1: #self( x );           ## can't invoke more than once
     }
-    
+
     self( d : Double ) : {
         x := Int( d );
         #init: self( x );
@@ -264,7 +264,7 @@ elementary_construction()->Int : {
     stackVar := Float(2.71);
     assert stackVar == 2.71;
 
-    ## default value initialization    
+    ## default value initialization
     stackB := Bool();
     heapB := new Bool();
     stackI := Int();

@@ -1,91 +1,91 @@
 module tx
 
 
-interface Range{ E } <: Indicable{ Long, E } : {
+interface Range{ E } <: Indicable{ Long, E } :
 
-    abstract override sequencer() -> Ref{ ~Iterator{E} };
+    abstract override sequencer() -> Ref{ ~Iterator{E} }
 
-    abstract override count() -> Ordinal;
+    abstract override count() -> Ordinal
 
-    abstract override has( key : Long ) -> Bool;
+    abstract override has( key : Long ) -> Bool
 
-    abstract override get( key : Long ) -> E;
-}
+    abstract override get( key : Long ) -> E
+
 
 
 
 /** A range between two values of an Enumerable type. */
-type ERange{ E derives Enumerable } <: Tuple, Range{ E }, Stringer : {
+type ERange{ E derives Enumerable } <: Tuple, Range{ E }, Stringer :
 
     /** The ERange iterator. */
-    type ~ ERangeIterator <: Tuple, Iterator{ E } : {
-        range   : &ERange{E};
-        nextIndex : ~ULong = 0;
+    type ~ ERangeIterator <: Tuple, Iterator{ E } :
+        range   : &ERange{E}
+        nextIndex : ~ULong = 0
 
-        override has_next() -> Bool : {
-            return self.nextIndex < self.range.count();
-        }
+        override has_next() -> Bool :
+            return self.nextIndex < self.range.count()
 
-        override has_prev() -> Bool : {
-            return self.nextIndex > 0;
-        }
 
-        override next() ~ -> E : {
-            n := self.nextIndex;
-            self.nextIndex = self.nextIndex + 1;
-            return self.range.get( Long( n ) );
-        }
+        override has_prev() -> Bool :
+            return self.nextIndex > 0
 
-        override prev() ~ -> E : {
-            self.nextIndex = self.nextIndex - 1;
-            return self.range.get( Long( self.nextIndex ) );
-        }
-    }
+
+        override next() ~ -> E :
+            n := self.nextIndex
+            self.nextIndex = self.nextIndex + 1
+            return self.range.get( Long( n ) )
+
+
+        override prev() ~ -> E :
+            self.nextIndex = self.nextIndex - 1
+            return self.range.get( Long( self.nextIndex ) )
+
+
 
     ## valid indices are all integers between [ 0, _indexLimit )
-    _indexLimit : Long;
+    _indexLimit : Long
 
-    start : E;
-    limit : E;
-    stride : Long;
+    start : E
+    limit : E
+    stride : Long
 
-    self( start : E, limit : E, stride : Long ) : {
-        if stride == 0:  panic ( "Zero stride in ERange" );
-        indexLimit : ~Long = ( Long( limit.ordinal() - start.ordinal() ) + stride - 1 ) / stride;
+    self( start : E, limit : E, stride : Long ) :
+        if stride == 0:  panic ( "Zero stride in ERange" )
+        indexLimit : ~Long = ( Long( limit.ordinal() - start.ordinal() ) + stride - 1 ) / stride
         if indexLimit < 0:
-            indexLimit = 0;
-        #init: _indexLimit( indexLimit ), start( start ), limit( limit ), stride( stride );
-    }
+            indexLimit = 0
+        #init: _indexLimit( indexLimit ), start( start ), limit( limit ), stride( stride )
 
-    override sequencer() -> Ref{ ~ERangeIterator } : {
-        return new ~ERangeIterator( self );
-    }
 
-    override count() -> Ordinal : {
-        return Ordinal( self._indexLimit );
-    }
+    override sequencer() -> Ref{ ~ERangeIterator } :
+        return new ~ERangeIterator( self )
 
-    override has( index : Long ) -> Bool : {
+
+    override count() -> Ordinal :
+        return Ordinal( self._indexLimit )
+
+
+    override has( index : Long ) -> Bool :
         if index < 0:
-            return -index <= self._indexLimit;
+            return -index <= self._indexLimit
         else
-            return index < self._indexLimit;
-    }
+            return index < self._indexLimit
 
-    override get( index : Long ) -> E : {
-        ix := ~ index;
-        if ix < 0 : {
-            ix = ix + self._indexLimit;
-            if ix < 0:  panic "Invalid range index: " %d index %% " < -" %d self._indexLimit;
-        }
-        if ix >= self._indexLimit:  panic "Invalid range index: " %d ix %% " >= " %d self._indexLimit;
-        return E.value( Ordinal( Long( self.start.ordinal() ) + ix * self.stride ) );
-    }
 
-    override string( writer : &~tx.ByteWriter ) : {
+    override get( index : Long ) -> E :
+        ix := ~ index
+        if ix < 0 :
+            ix = ix + self._indexLimit
+            if ix < 0:  panic "Invalid range index: " %d index %% " < -" %d self._indexLimit
+
+        if ix >= self._indexLimit:  panic "Invalid range index: " %d ix %% " >= " %d self._indexLimit
+        return E.value( Ordinal( Long( self.start.ordinal() ) + ix * self.stride ) )
+
+
+    override string( writer : &~tx.ByteWriter ) :
         ## TODO: Either support duck-typing in generic types or provide "unchecked { ... }" mechanism (or similar)
-        ## str := %s self.start %% ".." %s self.stride %% ".." %s self.limit;
-        str := "{ERange}";
-        str.string( writer );
-    }
-}
+        ## str := %s self.start %% ".." %s self.stride %% ".." %s self.limit
+        str := "{ERange}"
+        str.string( writer )
+
+
