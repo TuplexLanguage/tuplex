@@ -1,49 +1,49 @@
-type ~ FuncType derives ( a : Int )->Int;
+type ~ FuncType derives ( a : Int )->Int
 
 square( a : Int )->Int : { return a * a; }
 
 ## these are equivalent:
-aFunction : ( a : Int )->Int = square;
-bFunction : FuncType         = square;
-cFunction                   := square;
+aFunction : ( a : Int )->Int = square
+bFunction : FuncType         = square
+cFunction                   := square
 
 ## function returning function:
-type FuncProvider derives ()-> ( a : Int )->Int;
+type FuncProvider derives ()-> ( a : Int )->Int
 
-type Multiplier : {
-    b : Int;
+type Multiplier :
+    b : Int
 
     mul( a : Int )->Int : { return a * self.b; }
 
-    higher( f : FuncType )->Int : {
-        return f( self.b );
-    }
-}
+    higher( f : FuncType )->Int :
+        return f( self.b )
 
-main()->Int : {
+
+
+main()->Int :
     localFunc := ( a : Int )->Int : return a * 2; ;
 
-    value : ~Int = 2;
+    value : ~Int = 2
 
     ## global function invocation:
     value = square( value ); ## 4
 
     ## local function assignment and invocation:
-    tmpFn : ~FuncType = localFunc;
+    tmpFn : ~FuncType = localFunc
     value = tmpFn( value );  ## 8
 
     ## global function assignment and invocation:
-    tmpFn = aFunction;
+    tmpFn = aFunction
     value = tmpFn( value );  ## 64
 
     ## instance method assignment and invocation:
-    mulObj := Multiplier(2);
-    tmpFn = mulObj.mul;
+    mulObj := Multiplier(2)
+    tmpFn = mulObj.mul
     value = tmpFn( value );  ## 128
 
     ## higher order function and inline lambda:
-    value = value + mulObj.higher( ( a : Int )->Int : { return a + 1; } );
+    value = value + mulObj.higher( ( a : Int )->Int : { return a + 1; } )
 
-    assert value == 131;
-    return 0;
-}
+    assert value == 131
+    return 0
+

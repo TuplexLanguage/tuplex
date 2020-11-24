@@ -1,3 +1,2 @@
-main() : {
-    tx.c.puts( c"Hello, world!" );
-}
+main() :
+    tx.c.puts( c"Hello, world!" )

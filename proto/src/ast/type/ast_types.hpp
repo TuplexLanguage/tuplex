@@ -302,6 +302,10 @@ public:
     TxDerivedTypeNode( const TxLocation& ploc, std::vector<TxDeclarationNode*>* members )
         : TxDerivedTypeNode(ploc, nullptr, new std::vector<TxTypeExpressionNode*>(), members) { }
 
+    /** Creates an 'empty' type derivation but with interfaces. */
+    TxDerivedTypeNode( const TxLocation& ploc, TxTypeExpressionNode* baseType, std::vector<TxTypeExpressionNode*>* interfaces )
+            : TxDerivedTypeNode(ploc, baseType, interfaces, new std::vector<TxDeclarationNode*>()) { }
+
     /** Creates an 'empty' type derivation. */
     TxDerivedTypeNode( const TxLocation& ploc, TxTypeExpressionNode* baseType )
         : TxDerivedTypeNode(ploc, baseType, new std::vector<TxTypeExpressionNode*>(), new std::vector<TxDeclarationNode*>()) { }

@@ -96,7 +96,7 @@ Be able to specialize an immutable version of mutable generic types, so that the
  - review inheritance and mutability (including interface adapters)
 
 Generate statically constant operations for statically constant value expressions - DONE
- - should also enable arbitrary declaration order of global constants 
+ - should also enable arbitrary declaration order of global constants
 
 Support augmenting built-in types' definitions in tuplex code - DONE
 
@@ -147,6 +147,59 @@ Constructor initialization validation check: That each constructor properly init
 Support named member initialization, preventing excessive copying-by-value for large members - DONE
 
 
+Structure Syntax - Significant Whitespace
+-----------------------------------------
+Replace Flex with custom parser - DONE
+
+Support indent / dedent without braces - DONE
+
+Support statement termination with newline instead of semicolon - DONE
+
+Clean up tests and tx code with new structure syntax - DONE
+
+
+-> Notes / Caveats / difficulties:
+- Semicolon now becomes an "explicit statement terminator, and also the empty statement token"
+- Colon must be on the same line as the preceeding statement
+- Shouldn't else now require colon for consistency?
+- If allowing combination of braces and indents, there's no way to distinguish between
+  colon-statement: {
+            brace-enclosed single body (instead of indents
+        }
+  colon-statement:
+        {
+            body part 1 with its own var-scope
+        }
+        {
+            body part 2 with its own var-scope
+        }
+  - and what should be a consistent treatment of
+    while lower != upper : {
+        pos := ( lower + upper ) / 2;
+        st := supers[pos];
+        if st == tid:
+            return TRUE;
+        else if st > tid:
+            upper = pos;
+        else:
+            lower = pos + 1;
+    }
+
+-> Decision
+-  For now, braces as statement and scope grouping is allowed, it is needed to support single-line statement lists.
+-  Brace-enclosed scopes are stripped of significant whitespace by scanner (i.e. no INDENT/DEDENT/NEWLINE).
+
+-  Parens, brackets, braces suppress NEWLINEs between them.
+
+-  A missing INDENT after COLON NEWLINE is an error.
+
+
+Make blog post about new syntax
+
+FUTURE: A non-whitespace token after COLON means a single-line body terminated by NEWLINE.
+        (Then brace-enclosed scope may not be needed anymore.)
+
+
 Remaining core array features:
 ------------------------------
 Review array mutability vs element mutability handling - DONE
@@ -176,7 +229,7 @@ Destructors
 
 Misc
 ----
-Windows / Visual Studio development & build support
+LLVM 11 update - DONE
 
 Improved FFI support
  - opaque 64b pointer type

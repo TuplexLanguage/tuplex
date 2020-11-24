@@ -1,50 +1,44 @@
 
-abstract interface Enumerable{ E derives Enumerable{E} } : {
+abstract interface Enumerable{ E derives Enumerable{E} } :
     /** returns the last (highest) ordinal for this type */
-    virtual abstract last_ordinal() -> UInt;
+    virtual abstract last_ordinal() -> UInt
 
     /** returns the value for the specified ordinal (panics upon out-of-bounds) */
-    virtual abstract value( ordinal: UInt ) -> E;
+    virtual abstract value( ordinal: UInt ) -> E
 
     /** returns the ordinal for this value */
-    abstract ordinal() -> UInt;
+    abstract ordinal() -> UInt
+
+    virtual first() -> E :
+        return E.value( 0 )
+
+    virtual last() -> E :
+        return E.value( E.last_ordinal() )
 
 
-    virtual first() -> E : {
-        return E.value( 0 );
-    }
+type ERange{ E derives Enumerable{E} } derives Tuple :
+    _last : UInt
 
-    virtual last() -> E : {
-        return E.value( E.last_ordinal() );
-    }
-}
+    start : E
+    end   : E
+    step  : Long
 
-type ERange{ E derives Enumerable{E} } derives Tuple : {
-    _last : UInt;
-
-    start : E;
-    end   : E;
-    step  : Long;
-
-    self( start : E, end : E, step : Long ) : {
-        last : ~UInt = 0;
+    self( start : E, end : E, step : Long ) :
+        last : ~UInt = 0
         if step >= 0:
-            last = UInt( ( Long( end.ordinal() )   - start.ordinal() + 1L ) / step );
+            last = UInt( ( Long( end.ordinal() )   - start.ordinal() + 1L ) / step )
         else
-            last = UInt( ( Long( start.ordinal() ) - end.ordinal()   + 1L ) / -step );
+            last = UInt( ( Long( start.ordinal() ) - end.ordinal()   + 1L ) / -step )
+        #init: _last( last ), start( start ), end( end ), step( step )
 
-        #init: _last( last ), start( start ), end( end ), step( step );
-    }
+    last_index() -> UInt :
+        return self._last
 
-    last_index() -> UInt : {
-        return self._last;
-    }
-    at( index : UInt ) -> E : {
-        assert index <= self._last;
-        return E.value( self.start.ordinal() + UInt( index * self.step ) );
-    }
-}
+    at( index : UInt ) -> E :
+        assert index <= self._last
+        return E.value( self.start.ordinal() + UInt( index * self.step ) )
 
-main() : {
-##    irange : ERange{Int};
-}
+
+main() :
+##    irange : ERange{Int}
+    ;

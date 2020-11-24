@@ -1,61 +1,60 @@
 ## Similar to sequence interface test but without generics
 
-interface Sequenceable <: Interface : {
-    abstract sequencer() ->Ref{~Sequencer};
-}
+interface Sequenceable <: Interface :
+    abstract sequencer() ->Ref{~Sequencer}
 
-interface Sequencer : {
-    abstract emptyFunc();
-    abstract hasNext()->Bool;
-    abstract next()~->Int;
-}
 
-type SingleRef <: Tuple, Sequenceable : {
+interface Sequencer :
+    abstract emptyFunc()
+    abstract hasNext()->Bool
+    abstract next()~->Int
 
-    type ~ SingleSeq <: Tuple, Sequencer : {
-        element : Int;
-        done : ~Bool;
 
-        self( element : Int ) : {
-            #init: element( element ), done( FALSE );
-        }
-        override emptyFunc() : {
-        }
-        override hasNext()->Bool : {
-            return !self.done;
-        }
-        override next() ~ ->Int : {
+type SingleRef <: Tuple, Sequenceable :
+
+    type ~ SingleSeq <: Tuple, Sequencer :
+        element : Int
+        done : ~Bool
+
+        self( element : Int ) :
+            #init: element( element ), done( FALSE )
+
+        override emptyFunc() : ;
+
+        override hasNext()->Bool :
+            return !self.done
+
+        override next() ~ ->Int :
             if self.done:
-                tx.c.puts( c"Panic: No next element" );
-            self.done = TRUE;
-            return self.element;
-        }
-    }
-
-    element : Int;
-    
-    self( element : Int ) : {
-        #init: element( element );
-    }
-
-    override sequencer()->Ref{~Sequencer} : {
-        el : Int = self.element;
-        seq := new ~SingleSeq( el );
-        seq.emptyFunc();
-        return seq;
-    }
-}
+                tx.c.puts( c"Panic: No next element" )
+            self.done = TRUE
+            return self.element
 
 
-main()->Int : {
-    myint : Int = 5;
-    singleton := new SingleRef( myint );
-    seq := singleton.sequencer();
-    seq.emptyFunc();
-    hn := seq.hasNext();
-    elem := seq.next();
-    assert 5 == elem;
-    assert !seq.hasNext();
+    element : Int
 
-    return 0;
-}
+    self( element : Int ) :
+        #init: element( element )
+
+
+    override sequencer()->Ref{~Sequencer} :
+        el : Int = self.element
+        seq := new ~SingleSeq( el )
+        seq.emptyFunc()
+        return seq
+
+
+
+
+main()->Int :
+    myint : Int = 5
+    singleton := new SingleRef( myint )
+    seq := singleton.sequencer()
+    seq.emptyFunc()
+    hn := seq.hasNext()
+    elem := seq.next()
+    assert 5 == elem
+    assert !seq.hasNext()
+
+    return 0
+

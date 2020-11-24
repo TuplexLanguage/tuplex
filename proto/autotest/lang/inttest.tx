@@ -1,268 +1,268 @@
-test_int_literals_and_limits() : {
-    {
-        b := 0B;
-        s := 0S;
-        i := 0I;
-        l := 0L;
-        ub := 0UB;
-        us := 0US;
-        ui := 0UI;
-        ul := 0UL;
-        #experr: b := 0 B;
-        #experr: s := 0 S;
-        #experr: i := 0 I;
-        #experr: l := 0 L;
-        #experr: ub := 0 UB;
-        #experr: us := 0 US;
-        #experr: ui := 0 UI;
-        #experr: ul := 0 UL;
-    }
-    {
-        b := -0B;
-        s := -1S;
-        i := - 0I;
-        l := - 1L;
-    }
+test_int_literals_and_limits() :
+
+    b := 0B
+    s := 0S
+    i := 0I
+    l := 0L
+    ub := 0UB
+    us := 0US
+    ui := 0UI
+    ul := 0UL
+    #experr: b := 0 B
+    #experr: s := 0 S
+    #experr: i := 0 I
+    #experr: l := 0 L
+    #experr: ub := 0 UB
+    #experr: us := 0 US
+    #experr: ui := 0 UI
+    #experr: ul := 0 UL
+
+
+    b := -0B
+    s := -1S
+    i := - 0I
+    l := - 1L
+
 
     ## test unsigned->signed promotion upon unary -
-    #experr: var : UByte  = -1UB;
-    #experr: var : UShort = - 1US;
-    #experr: var : UInt   = -1UI;
-    #experr: var : ULong  = - 1UL;
+    #experr: var : UByte  = -1UB
+    #experr: var : UShort = - 1US
+    #experr: var : UInt   = -1UI
+    #experr: var : ULong  = - 1UL
 
-    { ## radix tests
-        rb := 2#1111_1111#UB;
-        rs := 8#177777#US;
-        ri := 16#FFFF_FFFF#UI;
-        rl := 16#FFFF_FFFF_FFFF_FFFF#UL;
-        assert rb == 255;
-        assert rs == 65535;
-        assert ri == 4294967295;
-        assert rl == 18446744073709551615;
-        assert 2#-1000_0000#B == -128;
-        assert 8# -100000#S == -32768;
-        assert 16#- 8000_0000#I == -2147483648;
-        assert 16# - 8000_0000_0000_0000#L == -9223372036854775807L-1;
+    ## radix tests
+    rb := 2#1111_1111#UB
+    rs := 8#177777#US
+    ri := 16#FFFF_FFFF#UI
+    rl := 16#FFFF_FFFF_FFFF_FFFF#UL
+    assert rb == 255
+    assert rs == 65535
+    assert ri == 4294967295
+    assert rl == 18446744073709551615
+    assert 2#-1000_0000#B == -128
+    assert 8# -100000#S == -32768
+    assert 16#- 8000_0000#I == -2147483648
+    assert 16# - 8000_0000_0000_0000#L == -9223372036854775807L-1
 
-        xi := 0xFFFF_FFFF#UI;
-        xl := 0xFFFF_FFFF_FFFF_FFFF#UL;
-        assert 0x7FFF_FFFF#I == 2147483647;
-        assert 0x7FFF_FFFF_FFFF_FFFF#L == 9223372036854775807L;
-    }
+    xi := 0xFFFF_FFFF#UI
+    xl := 0xFFFF_FFFF_FFFF_FFFF#UL
+    assert 0x7FFF_FFFF#I == 2147483647
+    assert 0x7FFF_FFFF_FFFF_FFFF#L == 9223372036854775807L
+
 
   ## limits
-  
-    ub0 : UByte = 0;
-    ub1 : UByte = 255;
-    #experr: var : UByte = -1;
-    #experr: var : UByte = 256;
 
-    us0 : UShort = 0;
-    us1 : UShort = 65535;
-    #experr: var : UShort = -1;
-    #experr: var : UShort = 65536;
+    ub0 : UByte = 0
+    ub1 : UByte = 255
+    #experr: var : UByte = -1
+    #experr: var : UByte = 256
 
-    ui0 : UInt = 0;
-    ui1 : UInt = 4294967295;
-    #experr: var : UInt = -1;
-    #experr: var : UInt = 4294967296;
-    
-    ul0 : ULong = 0;
-    ul1 : ULong = 18446744073709551615;
-    #experr: var : ULong = -1;
-    #experr: var : ULong = 18446744073709551616;
+    us0 : UShort = 0
+    us1 : UShort = 65535
+    #experr: var : UShort = -1
+    #experr: var : UShort = 65536
 
-    sb0 : Byte = -128;
-    sb1 : Byte = 127;
-    #experr: var : Byte = -129;
-    #experr: var : Byte = 128;
+    ui0 : UInt = 0
+    ui1 : UInt = 4294967295
+    #experr: var : UInt = -1
+    #experr: var : UInt = 4294967296
 
-    ss0 : Short = -32768;
-    ss1 : Short = 32767;
-    #experr: var : Short = -32769;
-    #experr: var : Short = 32768;
+    ul0 : ULong = 0
+    ul1 : ULong = 18446744073709551615
+    #experr: var : ULong = -1
+    #experr: var : ULong = 18446744073709551616
 
-    si0 : Int = -2147483648;
-    si1 : Int = 2147483647;
-    #experr: var : Int = -2147483649;
-    #experr: var : Int = 2147483648;
-    
-    sl0 : Long = -9223372036854775808;
-    sl1 : Long = 9223372036854775807;
-    #experr: var : Long = -9223372036854775809;
-    #experr: var : Long = 9223372036854775808;
+    sb0 : Byte = -128
+    sb1 : Byte = 127
+    #experr: var : Byte = -129
+    #experr: var : Byte = 128
+
+    ss0 : Short = -32768
+    ss1 : Short = 32767
+    #experr: var : Short = -32769
+    #experr: var : Short = 32768
+
+    si0 : Int = -2147483648
+    si1 : Int = 2147483647
+    #experr: var : Int = -2147483649
+    #experr: var : Int = 2147483648
+
+    sl0 : Long = -9223372036854775808
+    sl1 : Long = 9223372036854775807
+    #experr: var : Long = -9223372036854775809
+    #experr: var : Long = 9223372036854775808
 
 
-    ub0 : UByte = 0UB;
-    ub1 : UByte = 255UB;
-    #experr: var : UByte = -1UB;
-    #experr: var : UByte = 256UB;
+    ub0 : UByte = 0UB
+    ub1 : UByte = 255UB
+    #experr: var : UByte = -1UB
+    #experr: var : UByte = 256UB
 
-    us0 : UShort = 0US;
-    us1 : UShort = 65535US;
-    #experr: var : UShort = -1US;
-    #experr: var : UShort = 65536US;
+    us0 : UShort = 0US
+    us1 : UShort = 65535US
+    #experr: var : UShort = -1US
+    #experr: var : UShort = 65536US
 
-    ui0 : UInt = 0UI;
-    ui1 : UInt = 4294967295UI;
-    #experr: var : UInt = -1UI;
-    #experr: var : UInt = 4294967296UI;
-    
-    ul0 : ULong = 0UL;
-    ul1 : ULong = 18446744073709551615UL;
-    #experr: var : ULong = -1UL;
-    #experr: var : ULong = 18446744073709551616UL;
+    ui0 : UInt = 0UI
+    ui1 : UInt = 4294967295UI
+    #experr: var : UInt = -1UI
+    #experr: var : UInt = 4294967296UI
 
-    sb0 : Byte = -128B;
-    sb1 : Byte = 127B;
-    #experr: var : Byte = -129B;
-    #experr: var : Byte = 128B;
+    ul0 : ULong = 0UL
+    ul1 : ULong = 18446744073709551615UL
+    #experr: var : ULong = -1UL
+    #experr: var : ULong = 18446744073709551616UL
 
-    ss0 : Short = -32768S;
-    ss1 : Short = 32767S;
-    #experr: var : Short = -32769S;
-    #experr: var : Short = 32768S;
+    sb0 : Byte = -128B
+    sb1 : Byte = 127B
+    #experr: var : Byte = -129B
+    #experr: var : Byte = 128B
 
-    si0 : Int = -2147483648I;
-    si1 : Int = 2147483647I;
-    #experr: var : Int = -2147483649I;
-    #experr: var : Int = 2147483648I;
-    
-    sl0 : Long = -9223372036854775808L;
-    sl1 : Long = 9223372036854775807L;
-    #experr: var : Long = -9223372036854775809L;
-    #experr: var : Long = 9223372036854775808L;
+    ss0 : Short = -32768S
+    ss1 : Short = 32767S
+    #experr: var : Short = -32769S
+    #experr: var : Short = 32768S
+
+    si0 : Int = -2147483648I
+    si1 : Int = 2147483647I
+    #experr: var : Int = -2147483649I
+    #experr: var : Int = 2147483648I
+
+    sl0 : Long = -9223372036854775808L
+    sl1 : Long = 9223372036854775807L
+    #experr: var : Long = -9223372036854775809L
+    #experr: var : Long = 9223372036854775808L
 
 
   ## forced signed <-> unsigned conversions:
-    assert Byte( 2#0000_0000_UB ) == 0;
-    assert Byte( 2#0000_0001_UB ) == 1;
-    assert Byte( 2#0111_1111_UB ) == 127;
-    assert Byte( 2#1111_1111_UB ) == -1;
-    assert Byte( 2#1000_0000_UB ) == -128;
+    assert Byte( 2#0000_0000_UB ) == 0
+    assert Byte( 2#0000_0001_UB ) == 1
+    assert Byte( 2#0111_1111_UB ) == 127
+    assert Byte( 2#1111_1111_UB ) == -1
+    assert Byte( 2#1000_0000_UB ) == -128
 
-    assert UByte( 2#0000_0000_B ) == 0;
-    assert UByte( 2#0000_0001_B ) == 1;
-    assert UByte( 2#0111_1111_B ) == 127;
-    assert UByte( 2#1111_1111_S ) == 255;
-    assert UByte( 2#1000_0000_S ) == 128;
+    assert UByte( 2#0000_0000_B ) == 0
+    assert UByte( 2#0000_0001_B ) == 1
+    assert UByte( 2#0111_1111_B ) == 127
+    assert UByte( 2#1111_1111_S ) == 255
+    assert UByte( 2#1000_0000_S ) == 128
 
     ## TODO: the other integer sizes
 
     ## TODO: test promotions and demotions
-}
-
-test_int_comparisons() : {
-    assert 0 == 0;
-
-    assert 1B == 1B;
-    assert 1B == 1S;
-    assert 1B == 1I;
-    assert 1B == 1L;
-    assert 1B == 1UB;
-    assert 1B == 1US;
-    assert 1B == 1UI;
-    assert 1B == 1UL;
-
-    assert 1S == 1B;
-    assert 1S == 1S;
-    assert 1S == 1I;
-    assert 1S == 1L;
-    assert 1S == 1UB;
-    assert 1S == 1US;
-    assert 1S == 1UI;
-    assert 1S == 1UL;
-
-    assert 1I == 1B;
-    assert 1I == 1S;
-    assert 1I == 1I;
-    assert 1I == 1L;
-    assert 1I == 1UB;
-    assert 1I == 1US;
-    assert 1I == 1UI;
-    assert 1I == 1UL;
-
-    assert 1L == 1B;
-    assert 1L == 1S;
-    assert 1L == 1I;
-    assert 1L == 1L;
-    assert 1L == 1UB;
-    assert 1L == 1US;
-    assert 1L == 1UI;
-    assert 1L == 1UL;
-
-    assert 1UB == 1B;
-    assert 1UB == 1S;
-    assert 1UB == 1I;
-    assert 1UB == 1L;
-    assert 1UB == 1UB;
-    assert 1UB == 1US;
-    assert 1UB == 1UI;
-    assert 1UB == 1UL;
-
-    assert 1US == 1B;
-    assert 1US == 1S;
-    assert 1US == 1I;
-    assert 1US == 1L;
-    assert 1US == 1UB;
-    assert 1US == 1US;
-    assert 1US == 1UI;
-    assert 1US == 1UL;
-
-    assert 1UI == 1B;
-    assert 1UI == 1S;
-    assert 1UI == 1I;
-    assert 1UI == 1L;
-    assert 1UI == 1UB;
-    assert 1UI == 1US;
-    assert 1UI == 1UI;
-    assert 1UI == 1UL;
-
-    assert 1UL == 1B;
-    assert 1UL == 1S;
-    assert 1UL == 1I;
-    assert 1UL == 1L;
-    assert 1UL == 1UB;
-    assert 1UL == 1US;
-    assert 1UL == 1UI;
-    assert 1UL == 1UL;
 
 
-    assert -1B == -1B;
-    assert -1B == -1S;
-    assert -1B == -1I;
-    assert -1B == -1L;
+test_int_comparisons() :
+    assert 0 == 0
 
-    assert -1S == -1B;
-    assert -1S == -1S;
-    assert -1S == -1I;
-    assert -1S == -1L;
+    assert 1B == 1B
+    assert 1B == 1S
+    assert 1B == 1I
+    assert 1B == 1L
+    assert 1B == 1UB
+    assert 1B == 1US
+    assert 1B == 1UI
+    assert 1B == 1UL
 
-    assert -1I == -1B;
-    assert -1I == -1S;
-    assert -1I == -1I;
-    assert -1I == -1L;
+    assert 1S == 1B
+    assert 1S == 1S
+    assert 1S == 1I
+    assert 1S == 1L
+    assert 1S == 1UB
+    assert 1S == 1US
+    assert 1S == 1UI
+    assert 1S == 1UL
 
-    assert -1L == -1B;
-    assert -1L == -1S;
-    assert -1L == -1I;
-    assert -1L == -1L;
+    assert 1I == 1B
+    assert 1I == 1S
+    assert 1I == 1I
+    assert 1I == 1L
+    assert 1I == 1UB
+    assert 1I == 1US
+    assert 1I == 1UI
+    assert 1I == 1UL
+
+    assert 1L == 1B
+    assert 1L == 1S
+    assert 1L == 1I
+    assert 1L == 1L
+    assert 1L == 1UB
+    assert 1L == 1US
+    assert 1L == 1UI
+    assert 1L == 1UL
+
+    assert 1UB == 1B
+    assert 1UB == 1S
+    assert 1UB == 1I
+    assert 1UB == 1L
+    assert 1UB == 1UB
+    assert 1UB == 1US
+    assert 1UB == 1UI
+    assert 1UB == 1UL
+
+    assert 1US == 1B
+    assert 1US == 1S
+    assert 1US == 1I
+    assert 1US == 1L
+    assert 1US == 1UB
+    assert 1US == 1US
+    assert 1US == 1UI
+    assert 1US == 1UL
+
+    assert 1UI == 1B
+    assert 1UI == 1S
+    assert 1UI == 1I
+    assert 1UI == 1L
+    assert 1UI == 1UB
+    assert 1UI == 1US
+    assert 1UI == 1UI
+    assert 1UI == 1UL
+
+    assert 1UL == 1B
+    assert 1UL == 1S
+    assert 1UL == 1I
+    assert 1UL == 1L
+    assert 1UL == 1UB
+    assert 1UL == 1US
+    assert 1UL == 1UI
+    assert 1UL == 1UL
+
+
+    assert -1B == -1B
+    assert -1B == -1S
+    assert -1B == -1I
+    assert -1B == -1L
+
+    assert -1S == -1B
+    assert -1S == -1S
+    assert -1S == -1I
+    assert -1S == -1L
+
+    assert -1I == -1B
+    assert -1I == -1S
+    assert -1I == -1I
+    assert -1I == -1L
+
+    assert -1L == -1B
+    assert -1L == -1S
+    assert -1L == -1I
+    assert -1L == -1L
 
 
     ## TODO: further develop overflow checking
-    assert -32768 == -32767-1;
+    assert -32768 == -32767-1
     ##assert -32769 == -32768-1;  ## overflow
 
 
-    assert  1 >  0;
-    assert  0 <  1;
-    assert  0 > -1;
-    assert -1 <  0;
-    assert -1 <  1;
-    assert  1 > -1;
-}
+    assert  1 >  0
+    assert  0 <  1
+    assert  0 > -1
+    assert -1 <  0
+    assert -1 <  1
+    assert  1 > -1
 
-main() : {
-    test_int_literals_and_limits();
-    test_int_comparisons();
-}
+
+main() :
+    test_int_literals_and_limits()
+    test_int_comparisons()
+

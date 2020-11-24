@@ -2,196 +2,181 @@ module tx
 
 
 /** A UTF-32 character. */
-type ~ Char <: UInt : {
-}
+type ~ Char <: UInt : { }
 
 
-type String <: Tuple, Sequenceable{ Char }, Stringer, Formatter : {
-    type ~ StringSequencer <: Tuple, Sequencer{ Char } : {
-        string    : &String;
-        nextIndex : ~UInt = 0;
+type String <: Tuple, Sequenceable{ Char }, Stringer, Formatter :
+    type ~ StringSequencer <: Tuple, Sequencer{ Char } :
+        string    : &String
+        nextIndex : ~UInt = 0
 
-        override has_next() -> Bool : {
-            return self.nextIndex < self.string._bytes.L;
-        }
+        override has_next() -> Bool :
+            return self.nextIndex < self.string._bytes.L
 
-        override next() ~ -> Char : {
-            return utf8_to_utf32( self.string._bytes, &self.nextIndex );
-        }
-    }
+        override next() ~ -> Char :
+            return utf8_to_utf32( self.string._bytes, &self.nextIndex )
 
+    _bytes : &Array{UByte}
 
-    _bytes : &Array{UByte};
+    self() :
+        #init: _bytes( new Array{UByte, 0}() )
 
-    self() : {
-        #init: _bytes( new Array{UByte, 0}() );
-    }
 
     /** Constructs a String containing a copy of the provided utf8 array. */
-    self( utf8Array : &Array{UByte} ) : {
-        #init: _bytes( new Array{UByte, utf8Array.L}( utf8Array) );
-    }
+    self( utf8Array : &Array{UByte} ) :
+        #init: _bytes( new Array{UByte, utf8Array.L}( utf8Array) )
+
 
     /** Constructs a String containing a copy of the provided string. */
-    self( str : String ) : {
-        #self( str._bytes );
-    }
+    self( str : String ) :
+        #self( str._bytes )
+
 
     /** Constructs a String containing the provided character. */
-    self( chr : Char ) : {
-        tmp := new ~Array{~UByte, 4}();
-        utf32_to_utf8( tmp, chr );
-        #init: _bytes( tmp );
-    }
+    self( chr : Char ) :
+        tmp := new ~Array{~UByte, 4}()
+        utf32_to_utf8( tmp, chr )
+        #init: _bytes( tmp )
 
-    self( strings : &Array{String} ) : {
-        len : ~UInt = 0;
+
+    self( strings : &Array{String} ) :
+        len : ~UInt = 0
         for str in strings:
-            len = len + str._bytes.L;
-        bytes := new ~Array{~UByte, len}();
-        i : ~UInt = 0;
-        for str in strings : {
-            for byte in str._bytes : {
-                bytes[i] = byte;
-                i = i + 1;
-            }
-        }
-        #init: _bytes( bytes );
-    }
+            len = len + str._bytes.L
+        bytes := new ~Array{~UByte, len}()
+        i : ~UInt = 0
+        for str in strings :
+            for byte in str._bytes :
+                bytes[i] = byte
+                i = i + 1
 
-    self( stringer : &Stringer ) : {
-        buf := ~ GrowableUByteArray();
-        stringer.string( &buf );
-        #self( buf.array() );
+        #init: _bytes( bytes )
+
+
+    self( stringer : &Stringer ) :
+        buf := ~ GrowableUByteArray()
+        stringer.string( &buf )
+        #self( buf.array() )
         ## FUTURE: take ownership of array from GrowableUByteArray instead of copying string twice
-    }
+
 
 
 /* TODO
-    override equals( other : &Any ) -> Bool : {
-        if other is os : &String : {
-            return self._bytes == os._bytes;
-        }
-        return FALSE;
-    }
+    override equals( other : &Any ) -> Bool :
+        if other is os : &String :
+            return self._bytes == os._bytes
+
+        return FALSE
+
 */
 
     ## TODO: implement Collection{Char}
-    count() -> ULong : {
+    count() -> ULong :
         return self._bytes.L;  ## FIXME: properly count the utf8 characters
-    }
 
-    override sequencer() -> Ref{ ~Sequencer{ Char } } : {
-        return new ~StringSequencer( self );
-    }
 
-    override string( writer : &~tx.ByteWriter ) : {
-        writer.write( self._bytes );
-    }
+    override sequencer() -> Ref{ ~Sequencer{ Char } } :
+        return new ~StringSequencer( self )
 
-    override format( writer : &~tx.ByteWriter, format : &StringFormat ) : {
-        padding : ~UInt = 0;
-        nofChars := UInt( self.count() );
+
+    override string( writer : &~tx.ByteWriter ) :
+        writer.write( self._bytes )
+
+
+    override format( writer : &~tx.ByteWriter, format : &StringFormat ) :
+        padding : ~UInt = 0
+        nofChars := UInt( self.count() )
         if format.width > nofChars:
-            padding = format.width - nofChars;
-        result := ~[ self._bytes.L + padding ]UByte();
+            padding = format.width - nofChars
+        result := ~[ self._bytes.L + padding ]UByte()
 
-        if ( format.flags & StringFormat.FLAG_MINUS ) == 0 : {
+        if ( format.flags & StringFormat.FLAG_MINUS ) == 0 :
             ## right-aligned, padding to the left
-            if ( format.flags & StringFormat.FLAG_ZERO ) != 0 : {
+            if ( format.flags & StringFormat.FLAG_ZERO ) != 0 :
                 for i in 0..padding:
-                    result[result.L] = '0';
-            }
-            else : {
+                    result[result.L] = '0'
+
+            else :
                 for i in 0..padding:
-                    result[result.L] = ' ';
-            }
+                    result[result.L] = ' '
+
             for b in self._bytes:
-                result[result.L] = b;
-        }
-    
-        else : {
+                result[result.L] = b
+
+        else :
             ## left-aligned, padding to the right
             for b in self._bytes:
-                result[result.L] = b;
+                result[result.L] = b
             for i in 0..padding:
-                result[result.L] = ' ';
-        }
-    
-        writer.write( result );
-    }
-}
+                result[result.L] = ' '
+
+        writer.write( result )
 
 
+utf8_to_utf32( input : &[]UByte, index : &~UInt ) -> Char :
+    ix := index^
+    nextByte : ~UByte = input[ix]
+    if ( ( nextByte & 16#80 ) != 0 ) :
+        chr : ~Char = 0
+        if ( ( nextByte & 2#1110_0000 ) == 2#1100_0000 ) :
+            index^ = ix+2
+            chr = ( ( input[ix]   & 2#0001_1111 ) << 6 |
+                    ( input[ix+1] & 2#0011_1111 ) )
 
-utf8_to_utf32( input : &[]UByte, index : &~UInt ) -> Char : {
-    ix := index^;
-    nextByte : ~UByte = input[ix];
-    if ( ( nextByte & 16#80 ) != 0 ) : {
-        chr : ~Char = 0;
-        if ( ( nextByte & 2#1110_0000 ) == 2#1100_0000 ) : {
-            index^ = ix+2;
-            chr = ( input[ix]   & 2#0001_1111 ) << 6 |
-                  ( input[ix+1] & 2#0011_1111 );
-        }
-        else if ( ( nextByte & 2#1111_0000 ) == 2#1110_0000 ) : {
-            index^ = ix+2;
-            chr = ( input[ix]   & 2#0000_1111 ) << 12 |
-                  ( input[ix+1] & 2#0011_1111 ) <<  6 |
-                  ( input[ix+2] & 2#0011_1111 );
-        }
-        else if ( ( nextByte & 2#1111_1000 ) == 2#1111_0000 ) : {
-            index^ = ix+4;
-            chr = ( input[ix]   & 2#0000_0111 ) << 18 |
-                  ( input[ix+1] & 2#0011_1111 ) << 12 |
-                  ( input[ix+2] & 2#0011_1111 ) <<  6 |
-                  ( input[ix+3] & 2#0011_1111 );
-        }
-        return chr;
-    }
-    else : {
-        index^ = ix+1;
-        return nextByte;
-    }
-}
+        else if ( ( nextByte & 2#1111_0000 ) == 2#1110_0000 ) :
+            index^ = ix+2
+            chr = ( ( input[ix]   & 2#0000_1111 ) << 12 |
+                    ( input[ix+1] & 2#0011_1111 ) <<  6 |
+                    ( input[ix+2] & 2#0011_1111 ) )
+
+        else if ( ( nextByte & 2#1111_1000 ) == 2#1111_0000 ) :
+            index^ = ix+4
+            chr = ( ( input[ix]   & 2#0000_0111 ) << 18 |
+                    ( input[ix+1] & 2#0011_1111 ) << 12 |
+                    ( input[ix+2] & 2#0011_1111 ) <<  6 |
+                    ( input[ix+3] & 2#0011_1111 ) )
+
+        return chr
+
+    else :
+        index^ = ix+1
+        return nextByte
+
 
 /** Converts a Char (UTF-32) to a UTF-8. */
-utf32_to_utf8( output : &[]~UByte, input : Char ) -> UByte : {
-    if (input <= 16#7F) : {
-        output[0] = UByte( input );
-        return 1;
-    }
-    if (input <= 16#7FF) : {
+utf32_to_utf8( output : &[]~UByte, input : Char ) -> UByte :
+    if (input <= 16#7F) :
+        output[0] = UByte( input )
+        return 1
+
+    if (input <= 16#7FF) :
         output[0] = 16#C0 | UByte(input >> 6);             /* 110xxxxx */
         output[1] = 16#80 | UByte(input & 16#3F);          /* 10xxxxxx */
-        return 2;
-    }
-    if (input <= 16#FFFF) : {
+        return 2
+
+    if (input <= 16#FFFF) :
         output[0] = 16#E0 | UByte(input >> 12);            /* 1110xxxx */
         output[1] = 16#80 | UByte((input >> 6) & 16#3F);   /* 10xxxxxx */
         output[2] = 16#80 | UByte(input & 16#3F);          /* 10xxxxxx */
-        return 3;
-    }
-    if (input <= 16#10FFFF) : {
+        return 3
+
+    if (input <= 16#10FFFF) :
         output[0] = 16#F0 | UByte(input >> 18);            /* 11110xxx */
         output[1] = 16#80 | UByte((input >> 12) & 16#3F);  /* 10xxxxxx */
         output[2] = 16#80 | UByte((input >> 6) & 16#3F);   /* 10xxxxxx */
         output[3] = 16#80 | UByte(input & 16#3F);          /* 10xxxxxx */
-        return 4;
-    }
-    return 0;
-}
+        return 4
+
+    return 0
+
 
 /** The output buffer may require a capacity up to twice the input size. */
-iso_8859_1_to_utf8( output : &[]~UByte, input : &[]UByte ) : {
-    ##out := [in.L*2]UByte;
-    for chr in input : {
-        if chr < 16#80 : {
-            output.add( chr );
-        }
-        else : {
-            output.add( 16#c0 | (chr >> 6) );
-            output.add( 16#80 | (chr & 16#3f) );
-        }
-    }
-}
+iso_8859_1_to_utf8( output : &[]~UByte, input : &[]UByte ) :
+    ##out := [in.L*2]UByte
+    for chr in input :
+        if chr < 16#80 :
+            output.add( chr )
+
+        else :
+            output.add( 16#c0 | (chr >> 6) )
+            output.add( 16#80 | (chr & 16#3f) )

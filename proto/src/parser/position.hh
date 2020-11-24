@@ -57,7 +57,7 @@ class position
 {
 public:
     /// Construct a position.
-    explicit position( std::string* f = YY_NULLPTR,
+    explicit position( const std::string* f = YY_NULLPTR,
                        unsigned int l = 1u,
                        unsigned int c = 1u )
             : filename( f ),

@@ -71,6 +71,7 @@ YY_DECL;
 #include "tx_lang_defs.hpp"
 #include "tx_operations.hpp"
 #include "tx_error.hpp"
+#include "txparser/scanner.hpp"
 
 #define BEGIN_TXEXPERR(loc, expError) parserCtx->begin_exp_err(loc, expError)
 #define END_TXEXPERR(loc)             parserCtx->end_exp_err(loc)
@@ -153,6 +154,7 @@ YY_DECL;
 %token KW_SWITCH KW_CASE KW_WITH KW_AS
 %token KW_AND KW_OR KW_NOT
 %token KW_RAISES KW_TRY KW_EXCEPT KW_FINALLY KW_RAISE
+%token KW_DO KW_SCOPE
 
  /* literals: */
 %token <std::string> NAME LIT_DEC_INT LIT_RADIX_INT LIT_FLOATING LIT_CHARACTER LIT_CSTRING LIT_STRING
@@ -204,7 +206,7 @@ YY_DECL;
 %type <std::vector<TxStatementNode*> *> statement_list
 %type <TxSuiteNode*> suite
 %type <TxStatementNode*> statement single_statement assignment_stmt return_stmt break_stmt continue_stmt type_decl_stmt
-%type <TxStatementNode*> flow_stmt simple_stmt elementary_stmt terminal_stmt flow_else_stmt
+%type <TxStatementNode*> flow_stmt simple_stmt elementary_stmt terminal_stmt flow_else_stmt base_stmt compound_stmt
 %type <TxStatementNode*> init_stmt delete_stmt assert_stmt panic_stmt experr_stmt
 %type <TxElseClauseNode*> else_clause
 %type <TxFlowHeaderNode*> cond_clause is_clause in_clause for_header
@@ -243,14 +245,14 @@ YY_DECL;
 %right NOT        /* unary logical not */
 %right NEG        /* negation--unary minus */
 %right ADDR       /* unary prefix address-of */
-%precedence LPAREN RPAREN  LBRACE RBRACE
+%precedence LPAREN RPAREN  LBRACE RBRACE  INDENT DEDENT
 %precedence CARET /* unary postfix de-reference */
 %precedence LBRACKET RBRACKET
 %right DOT
 %precedence ARRAY_LIT
 %right KW_MODULE KW_IMPORT  /* high token shift precedence */
 %right KW_ELSE
-%right SEMICOLON     /* semantic statement separator, always/greedily shift */
+%right SEMICOLON NEWLINE    /* semantic statement separator, always/greedily shift */
 
 %start parsing_unit
 
@@ -283,8 +285,18 @@ module_members : member_declaration
                       $$->modules.push_back($2); }
 ;
 
+block_begin : NEWLINE INDENT ;
+block_end   : DEDENT         ;
+
+brace_begin : LBRACE | LBRACE NEWLINE ;
+brace_end   : RBRACE | RBRACE NEWLINE ;
+
 sub_module : KW_MODULE module_identifier
-               LBRACE  opt_import_stmts  opt_module_members  RBRACE
+               block_begin  opt_import_stmts  opt_module_members  block_end
+                 { $$ = new TxModuleNode( @$, $2, $4, &$5->declarations, &$5->modules );
+                   parserCtx->validate_module_name( $$, $2 );
+                 }
+           | KW_MODULE module_identifier brace_begin  opt_import_stmts  opt_module_members  brace_end
                  { $$ = new TxModuleNode( @$, $2, $4, &$5->declarations, &$5->modules );
                    parserCtx->validate_module_name( $$, $2 );
                  }
@@ -302,12 +314,13 @@ import_identifier   : NAME                              { $$ = new TxIdentifier(
                     ;
 
 
-opt_sc     : %empty | SEMICOLON ;
+eos        : NEWLINE | SEMICOLON ;
+
 opt_comma  : %empty | COMMA ;
 
 
 opt_module_decl    : %empty %prec STMT { $$ = new TxIdentifier( LOCAL_NS ); }
-                   | KW_MODULE module_identifier opt_sc { $$ = $2; } ;
+                   | KW_MODULE module_identifier eos { $$ = $2; } ;
 
 opt_import_stmts   : %empty { $$ = new std::vector<TxImportNode*>(); }
                    | import_statements { $$ = $1; } ;
@@ -318,14 +331,14 @@ import_statements  : import_statement
                      { $$ = $1; if ($2) $$->push_back($2); }
                    ;
 
-import_statement   : KW_IMPORT import_identifier opt_sc  { $$ = new TxImportNode(@$, $2); }
-                   | KW_IMPORT error opt_sc                { $$ = NULL; }
+import_statement   : KW_IMPORT import_identifier eos  { $$ = new TxImportNode(@$, $2); }
+                   | KW_IMPORT error eos              { $$ = NULL; }
                    ;
 
 
 member_declaration
     // field
-    : declaration_flags field_def SEMICOLON
+    : declaration_flags field_def eos
             { $$ = new TxFieldDeclNode(@$, $1, $2); }
 
     // type
@@ -336,7 +349,7 @@ member_declaration
             { $$ = ( $2 ? new TxFieldDeclNode(@$, $1, $2, true) : NULL ); }
 
     // error recovery
-    |   error SEMICOLON  { $$ = NULL; }
+    |   error eos  { $$ = NULL; }
 
     |   experr_decl      { $$ = $1; }
     ;
@@ -387,10 +400,14 @@ mut_token        : KW_MUTABLE    | TILDE ;
 opt_mutable   : %empty { $$ = false; } | mut_token { $$ = true; } ;
 
 type_body
-    :   LBRACE RBRACE                   { $$ = new std::vector<TxDeclarationNode*>(); }
-    |   LBRACE member_list RBRACE       { $$ = $2; }
-    |   LBRACE error RBRACE             { $$ = new std::vector<TxDeclarationNode*>(); TX_SYNTAX_ERROR; }
-    |   LBRACE member_list error RBRACE { $$ = $2;                                    TX_SYNTAX_ERROR; }
+    :   block_begin block_end                   { $$ = new std::vector<TxDeclarationNode*>(); }
+    |   block_begin member_list block_end       { $$ = $2; }
+    |   block_begin error block_end             { $$ = new std::vector<TxDeclarationNode*>(); TX_SYNTAX_ERROR; }
+    |   block_begin member_list error block_end { $$ = $2;                                    TX_SYNTAX_ERROR; }
+    |   brace_begin brace_end                   { $$ = new std::vector<TxDeclarationNode*>(); }
+    |   brace_begin member_list brace_end       { $$ = $2; }
+    |   brace_begin error brace_end             { $$ = new std::vector<TxDeclarationNode*>(); TX_SYNTAX_ERROR; }
+    |   brace_begin member_list error brace_end { $$ = $2;                                    TX_SYNTAX_ERROR; }
     ;
 
 member_list : member_declaration
@@ -420,17 +437,21 @@ type_declaration : declaration_flags type_or_if opt_mutable identifier type_deri
                  | declaration_flags type_or_if opt_mutable identifier LBRACE type_param_list RBRACE type_derivation
                         { $$ = new TxTypeDeclNode(@$, $1, $4, $6,   $8, $2, $3); }
 
-                 // error recovery, handles when an error occurs before a type body's LBRACE:
+                 // error recovery, handles when an error occurs before a type body's begin:
                  | error type_body  { $$ = NULL; }
                  ;
 
-type_derivation : derives_token type_expression SEMICOLON  { $$ = new TxDerivedTypeNode(@$, $2); }
+type_derivation : derives_token type_expression eos              { $$ = new TxDerivedTypeNode(@$, $2); }
                 | derives_token type_expression COLON type_body  { $$ = new TxDerivedTypeNode(@$, $2, $4); }
                 | derives_token type_expression COMMA type_expr_list COLON type_body
-                                                           { $$ = new TxDerivedTypeNode(@$, $2, $4, $6); }
+                                                                 { $$ = new TxDerivedTypeNode(@$, $2, $4, $6); }
+                | derives_token type_expression COMMA type_expr_list eos
+                                                                 { $$ = new TxDerivedTypeNode(@$, $2, $4); }
                 | COLON type_body                                { $$ = new TxDerivedTypeNode(@$, $2); }
+                | eos                                            { $$ = new TxDerivedTypeNode(@$,
+                                                                           new std::vector<TxDeclarationNode*>()); }
 
-                | derives_token error SEMICOLON  { $$ = new TxDerivedTypeNode(@$, (TxTypeExpressionNode*)nullptr); }
+                | derives_token error eos  { $$ = new TxDerivedTypeNode(@$, (TxTypeExpressionNode*)nullptr); }
                 | derives_token error COLON type_body  { $$ = new TxDerivedTypeNode(@$, $4); }
                 ;
 
@@ -477,9 +498,9 @@ func_arg_def   : identifier COLON type_expression
 
 method_def  : identifier function_signature COLON statement
                 { $$ = new TxNonLocalFieldDefNode(@$, $1, new TxLambdaExprNode(@$, $2, $4, true), false); }
-            | identifier function_signature SEMICOLON  // abstract method (KW_ABSTRACT should be specified)
+            | identifier function_signature eos  // abstract method (KW_ABSTRACT should be specified)
                 { $$ = new TxNonLocalFieldDefNode(@$, $1, $2, nullptr); }
-            | identifier error SEMICOLON  { $$ = nullptr; }
+            | identifier error eos  { $$ = nullptr; }
             | identifier error suite  { $$ = nullptr; }
             ;
 
@@ -518,7 +539,8 @@ val_type_prod   : spec_type_expr             { $$ = $1; }
 //    |  enum_type
 //    |  shared_obj_type
 
-spec_type_expr  : named_symbol LBRACE type_arg_list RBRACE  { $$ = new TxGenSpecTypeNode(@$, new TxNamedTypeNode(@1, $1), $3); }
+spec_type_expr  : named_symbol LBRACE type_arg_list RBRACE
+                  { $$ = new TxGenSpecTypeNode(@$, new TxNamedTypeNode(@1, $1), $3); }
                 ;
 
 
@@ -671,7 +693,7 @@ expression_list : gen_val_expr  { $$ = new std::vector<TxExpressionNode*>({$1});
 
 intrinsics_expr : KW__ADDRESS LPAREN gen_val_expr RPAREN     { $$ = new TxRefAddressNode(@$, $3); }
                 | KW__TYPEID  LPAREN gen_val_expr RPAREN     { $$ = new TxRefTypeIdNode(@$, $3); }
-                | KW__TYPEID  LBRACE qual_type_expr RBRACE  { $$ = new TxTypeExprTypeIdNode(@$, $3); }
+                | KW__TYPEID  LBRACE qual_type_expr RBRACE   { $$ = new TxTypeExprTypeIdNode(@$, $3); }
                 | KW__SIZEOF  LPAREN gen_val_expr RPAREN     { $$ = new TxSizeofExprNode(@$, $3); }
                 | KW__SUPERTYPES LPAREN gen_val_expr RPAREN  { $$ = new TxSupertypesExprNode(@$, $3); }
                 ;
@@ -712,10 +734,14 @@ sf_flag         : SF_MINUS { $$ = SF_MINUS; }
 //// statements
 
 suite
-    :   LBRACE RBRACE                      { $$ = new TxSuiteNode(@$); }
-    |   LBRACE statement_list RBRACE       { $$ = new TxSuiteNode(@$, $2); }
-    |   LBRACE error RBRACE                { $$ = new TxSuiteNode(@$);     TX_SYNTAX_ERROR; }
-    |   LBRACE statement_list error RBRACE { $$ = new TxSuiteNode(@$, $2); TX_SYNTAX_ERROR; }
+    :   block_begin block_end                      { $$ = new TxSuiteNode(@$); }
+    |   block_begin statement_list block_end       { $$ = new TxSuiteNode(@$, $2); }
+    |   block_begin error block_end                { $$ = new TxSuiteNode(@$);     TX_SYNTAX_ERROR; }
+    |   block_begin statement_list error block_end { $$ = new TxSuiteNode(@$, $2); TX_SYNTAX_ERROR; }
+    |   brace_begin brace_end                      { $$ = new TxSuiteNode(@$); }
+    |   brace_begin statement_list brace_end       { $$ = new TxSuiteNode(@$, $2); }
+    |   brace_begin error brace_end                { $$ = new TxSuiteNode(@$);     TX_SYNTAX_ERROR; }
+    |   brace_begin statement_list error brace_end { $$ = new TxSuiteNode(@$, $2); TX_SYNTAX_ERROR; }
     ;
 
 statement_list : statement  { $$ = new std::vector<TxStatementNode*>();
@@ -724,7 +750,7 @@ statement_list : statement  { $$ = new std::vector<TxStatementNode*>();
                ;
 
 // statement is a syntactically terminated program statement, either with a separator token,
-// or in the case of a suite with a }.
+// or in the case of a suite with a block_end.
 // Conditional statements can be seen as statements prefixed with a condition clause
 // (which in itself is not syntactically terminated).
 statement
@@ -735,16 +761,26 @@ statement
 single_statement
     :   flow_stmt                  %prec STMT    { $$ = $1; }
     |   simple_stmt                %prec STMT    { $$ = $1; }
+    |   KW_DO COLON suite          %prec STMT    { $$ = $3; }
     ;
 
 simple_stmt
-    :   type_decl_stmt             %prec STMT    { $$ = $1; }
-    |   elementary_stmt SEMICOLON  %prec STMT    { $$ = $1; }
-    |   terminal_stmt   SEMICOLON  %prec STMT    { $$ = $1; }
-    |   init_stmt       SEMICOLON  %prec STMT    { $$ = $1; }
-    |   flow_else_stmt             %prec KW_ELSE { $$ = $1; }
-    |   experr_stmt                %prec STMT    { $$ = $1; }
-    |   error SEMICOLON            %prec STMT    { $$ = new TxNoOpStmtNode(@$); TX_SYNTAX_ERROR; }
+    :   compound_stmt           %prec STMT    { $$ = $1; }
+    |   base_stmt               %prec STMT    { $$ = $1; }
+    ;
+
+compound_stmt
+    :   type_decl_stmt          %prec STMT    { $$ = $1; }
+    |   flow_else_stmt          %prec KW_ELSE { $$ = $1; }
+    |   experr_stmt             %prec STMT    { $$ = $1; }
+    ;
+
+base_stmt
+    :   elementary_stmt eos     %prec STMT    { $$ = $1; }
+    |   terminal_stmt   eos     %prec STMT    { $$ = $1; }
+    |   init_stmt       eos     %prec STMT    { $$ = $1; }
+    |   error           eos     %prec STMT    { $$ = new TxNoOpStmtNode(@$); TX_SYNTAX_ERROR; }
+    |   SEMICOLON               %prec STMT    { $$ = new TxNoOpStmtNode(@$); }
     ;
 
 elementary_stmt
@@ -793,8 +829,9 @@ flow_else_stmt   : KW_IF    cond_clause    COLON simple_stmt else_clause  { $$ =
                  | KW_FOR   for_header     COLON suite       else_clause  { $$ = new TxForStmtNode(@$, $2, $4, $5); }
                  ;
 
-else_clause      : KW_ELSE COLON statement  { $$ = new TxElseClauseNode(@$, $3); }
-                 | KW_ELSE statement  { $$ = new TxElseClauseNode(@$, $2); }  // colon is currently optional since unambiguous
+// colon is currently optional since unambiguous
+else_clause      : KW_ELSE COLON statement    { $$ = new TxElseClauseNode(@$, $3); }
+                 | KW_ELSE statement          { $$ = new TxElseClauseNode(@$, $2); }
                  ;
 
 
@@ -811,7 +848,7 @@ in_clause        : identifier KW_IN gen_val_expr                   { $$ = new Tx
                  | identifier COMMA identifier KW_IN gen_val_expr  { $$ = new TxInClauseNode( @$, $1, $3, $5 ); }
                  ;
 
-for_header       : elementary_stmt SEMICOLON gen_val_expr SEMICOLON elementary_stmt  { $$ = new TxForHeaderNode( @$, $1, $3, $5 ); }
+for_header       : elementary_stmt eos gen_val_expr eos elementary_stmt  { $$ = new TxForHeaderNode( @$, $1, $3, $5 ); }
                  ;
 
 
@@ -827,7 +864,7 @@ type_decl_stmt   : type_or_if opt_mutable identifier type_derivation
                  | type_or_if opt_mutable identifier LBRACE type_param_list RBRACE type_derivation
                      { $$ = new TxTypeStmtNode(@$, $3, $5,   $7, $1, $2); }
 
-                 // error recovery, handles when an error occurs before a type body's LBRACE:
+                 // error recovery, handles when an error occurs before a type body's begin:
                  | error type_body  { $$ = new TxNoOpStmtNode(@$); TX_SYNTAX_ERROR; }
                  ;
 

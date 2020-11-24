@@ -1,115 +1,114 @@
 
-type ~ CompoundType derives Tuple : {
-    virtual SFIELD := -1;
-    virtual SFIELD2 := 2.73;
-    field0 : Long;
-    field1 : ~Long;
-    field2 : ~Float;
-    field3 : [20]Int;
+type ~ CompoundType derives Tuple :
+    virtual SFIELD := -1
+    virtual SFIELD2 := 2.73
+    field0 : Long
+    field1 : ~Long
+    field2 : ~Float
+    field3 : [20]Int
     field4 := c"abra"; ## inline init
-    field5 : ~InnerCompType;
-    field6 : ~&~InnerCompType;
-    type ~ InnerCompType derives Tuple : {
-        virtual PI := 3.14;
-        blaha : ~Float;
-    }
-    self() : {
-        ##init: field0(0), field0(0), field0(0), field0([20]Int()), field0(InnerCompType( 0.0 ), field0(new ~InnerCompType( 0.0 ) );
-        #init: field0(0), field1(0), field2(0), field3(), field5(0.0), field6( new ~InnerCompType( 0.0 ) );
-    }
-}
+    field5 : ~InnerCompType
+    field6 : ~&~InnerCompType
+    type ~ InnerCompType derives Tuple :
+        virtual PI := 3.14
+        blaha : ~Float
+
+    self() :
+        ##init: field0(0), field0(0), field0(0), field0([20]Int()), field0(InnerCompType( 0.0 ), field0(new ~InnerCompType( 0.0 ) )
+        #init: field0(0), field1(0), field2(0), field3(), field5(0.0), field6( new ~InnerCompType( 0.0 ) )
+
 
 type ~ Subtype derives CompoundType : {
     ##subfield1 : ~Long;
 }
 
-type MemberInitTestType : {
+
+type MemberInitTestType :
 /*
 Private virtual can be truly virtual.
 Public virtual is virtual, but referencing them without a base expression is non-polymorphic.
 */
-    virtual FIELD1 := 4;
-    virtual FIELD2 := FIELD1 + 1;
-    virtual FIELD3 := FIELD4;
-    virtual FIELD4 := FIELD1;
-    virtual FIELD5 := FIELD6 + 1;
-    virtual FIELD6 := FIELD1 + 1;
+    virtual FIELD1 := 4
+    virtual FIELD2 := FIELD1 + 1
+    virtual FIELD3 := FIELD4
+    virtual FIELD4 := FIELD1
+    virtual FIELD5 := FIELD6 + 1
+    virtual FIELD6 := FIELD1 + 1
 
-    virtual PUB_FIELD1 := 4;
-    virtual PUB_FIELD2 := PUB_FIELD1 + 1;
-    virtual PUB_FIELD3 := PUB_FIELD4;
-    virtual PUB_FIELD4 := PUB_FIELD1;
-    virtual PUB_FIELD5 := PUB_FIELD6 + 1;
-    virtual PUB_FIELD6 := PUB_FIELD1 + 1;
+    virtual PUB_FIELD1 := 4
+    virtual PUB_FIELD2 := PUB_FIELD1 + 1
+    virtual PUB_FIELD3 := PUB_FIELD4
+    virtual PUB_FIELD4 := PUB_FIELD1
+    virtual PUB_FIELD5 := PUB_FIELD6 + 1
+    virtual PUB_FIELD6 := PUB_FIELD1 + 1
 
     /* TODO: initializers with modifiable statics
-    virtual ~PUB_MFIELD1 := 4;
-    virtual ~PUB_MFIELD2 := PUB_MFIELD1 + 1;
-    virtual ~PUB_MFIELD3 := PUB_MFIELD4;
-    virtual ~PUB_MFIELD4 := PUB_MFIELD1;
-    virtual ~PUB_MFIELD5 := PUB_MFIELD6 + 1;
-    virtual ~PUB_MFIELD6 := PUB_MFIELD1 + 1;
+    virtual ~PUB_MFIELD1 := 4
+    virtual ~PUB_MFIELD2 := PUB_MFIELD1 + 1
+    virtual ~PUB_MFIELD3 := PUB_MFIELD4
+    virtual ~PUB_MFIELD4 := PUB_MFIELD1
+    virtual ~PUB_MFIELD5 := PUB_MFIELD6 + 1
+    virtual ~PUB_MFIELD6 := PUB_MFIELD1 + 1
     */
 
     /* TODO: controlled error message upon recursive definition
-    REC1 := REC2;
-    REC2 := REC1;
+    REC1 := REC2
+    REC2 := REC1
     */
 
     ## TODO: support for inlined instance field initializer
-    ##instField : Int = 3;
-}
+    ##instField : Int = 3
 
-testfunc() : {
-    type BadMembers : {
-        good : tx.Int = 0;
-        #experr 1: bad1 : unknown;
+
+testfunc() :
+    type BadMembers :
+        good : tx.Int = 0
+        #experr 1: bad1 : unknown
         #experr 1: bad2 : $local.CompoundType;  ## not explicitly referenceable
-        #experr 1: bad3 : tx;
-        #experr 1: bad4 : tx.c;
-        #experr 1: bad5 : tx.unknown;
+        #experr 1: bad3 : tx
+        #experr 1: bad4 : tx.c
+        #experr 1: bad5 : tx.unknown
         ##experr 1: bad6 : tx.c.puts;             ## currently possible to take type of a field
         ##experr 1: bad7 : CompoundType.SFIELD2;  ## currently possible to take type of a field
-        #experr 1: bad8 : CompoundType.field3;
-        #experr 1: bad9 : ~CompoundType.field3;
-    }
+        #experr 1: bad8 : CompoundType.field3
+        #experr 1: bad9 : ~CompoundType.field3
 
-    ro_obj := CompoundType();
+    ro_obj := CompoundType()
     #experr: ro_obj.field0 = 133;  ## non-mutable instance field
     #experr: ro_obj.field1 = 133;  ## can't change mutable field of non-mutable object
 
-    obj := ~CompoundType();
+    obj := ~CompoundType()
     #experr: obj.SFIELD = 133;  ## non-mutable virtual field
-    obj.field1 = 133;
-    obj.field2 = CompoundType.SFIELD2 * 10.0;
-    assert obj.field1 == 133;
-    assert obj.field2 == 27.3;
-    var := obj.field2;
-    assert var == 27.3;
+    obj.field1 = 133
+    obj.field2 = CompoundType.SFIELD2 * 10.0
+    assert obj.field1 == 133
+    assert obj.field2 == 27.3
+    var := obj.field2
+    assert var == 27.3
 
-    robj : ~&~CompoundType = &obj;
-    assert robj.field1 == obj.field1;
-    assert robj.field2 == obj.field2;
+    robj : ~&~CompoundType = &obj
+    assert robj.field1 == obj.field1
+    assert robj.field2 == obj.field2
 
-    robj.field5.blaha = 273.0;
-    assert obj.field5.blaha == 273.0;
+    robj.field5.blaha = 273.0
+    assert obj.field5.blaha == 273.0
 
-    assert CompoundType.InnerCompType.PI == 3.14;
-    subobj1 := ~CompoundType.InnerCompType( 2.73 );
-    subobj2 := ~obj.InnerCompType( 2.73 );
-    assert subobj1.PI == 3.14;
-    assert subobj2.PI == 3.14;
-    obj.field6 = &subobj1;
-    obj.field6.blaha = 513.0;
-    obj.field6 = &subobj2;
-    obj.field6.blaha = 514.0;
-    assert subobj1.blaha == 513.0;
-    assert subobj2.blaha == 514.0;
+    assert CompoundType.InnerCompType.PI == 3.14
+    subobj1 := ~CompoundType.InnerCompType( 2.73 )
+    subobj2 := ~obj.InnerCompType( 2.73 )
+    assert subobj1.PI == 3.14
+    assert subobj2.PI == 3.14
+    obj.field6 = &subobj1
+    obj.field6.blaha = 513.0
+    obj.field6 = &subobj2
+    obj.field6.blaha = 514.0
+    assert subobj1.blaha == 513.0
+    assert subobj2.blaha == 514.0
 
-    #experr 1: bad1 : Long = CompoundType.field1;
-    #experr 1: bad2 := obj.InnerCompType;
-}
+    #experr 1: bad1 : Long = CompoundType.field1
+    #experr 1: bad2 := obj.InnerCompType
 
-main() : {
-    testfunc();
-}
+
+main() :
+    testfunc()
+

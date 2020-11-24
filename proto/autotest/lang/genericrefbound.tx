@@ -3,37 +3,36 @@
 
 module my
 
-type ~ AType{S derives Ref} derives Tuple : {
-    memref : S;
+type ~ AType{S derives Ref} derives Tuple :
+    memref : S
     type GenAlias derives S;  ## currently allowed
-    type GenRef derives Ref{S};
+    type GenRef derives Ref{S}
 
-    getref()->S : {
-        return self^.memref;
-    }
-}
+    getref()->S :
+        return self^.memref
 
-type RInt derives Ref{Int};
 
-type ATypeRInt derives AType{RInt};
+type RInt derives Ref{Int}
 
-#experr: type BadAType derives AType{Float} : { ## doesn't match parameter's constraint type
-}
+type ATypeRInt derives AType{RInt}
 
-main()->Int : {
+#experr: type BadAType derives AType{Float} : { }  ## doesn't match parameter's constraint type
+
+
+main()->Int :
     #experr: type Err derives AType{Byte};    ## doesn't match parameter's constraint type
     #experr: err := AType{Short}(2);   ## doesn't match parameter's constraint type
     #experr: type Err derives AType{AType};   ## doesn't match parameter's constraint type
 
-    val : Int = 42;
-    aobj := ATypeRInt(val);
-    sobj := ATypeRInt(val);
-    hobj := new ATypeRInt(val);
-    s1 : sobj.S = &val;
-    s2 : sobj.my#AType#S = &val;
+    val : Int = 42
+    aobj := ATypeRInt(val)
+    sobj := ATypeRInt(val)
+    hobj := new ATypeRInt(val)
+    s1 : sobj.S = &val
+    s2 : sobj.my#AType#S = &val
     ##s3 : hobj^.S;  ## type expr doesn't handle ^
 
-    assert sobj.getref()^ == 42;
-    assert hobj.getref()^ == 42;
-    return 0;
-}
+    assert sobj.getref()^ == 42
+    assert hobj.getref()^ == 42
+    return 0
+

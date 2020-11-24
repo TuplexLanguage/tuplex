@@ -42,16 +42,16 @@ run_cmd( """txc -foobar 2>/dev/null""", 1 )
 run_cmd( """echo "" | txc -nojit """ + options)
 
 # minimal source file containing syntax error, should return 1
-run_cmd( """echo "bad syntax" | txc -nojit """ + options + """ 2>/dev/null""", 1 )
+run_cmd( """echo "unrecoverably bad syntax {" | txc -nojit """ + options + """ 2>/dev/null""", 1 )
 
 # minimal source file containing semantic error, should return 2
 run_cmd( """echo "X : Int = 1.1;" | txc -nojit """ + options + """ 2>/dev/null""", 2 )
 
 # run minimal source file (implicit 'return 0')
-run_cmd( """echo "main() : { }" | txc -jit """ + options )
+run_cmd( """echo "main() : ;" | txc -jit """ + options )
 
 # run minimal source file with explicit 'return 0'
-run_cmd( """echo "main()->Int : { return 0; }" | txc -jit """ + options )
+run_cmd( """echo "main()->Int : return 0" | txc -jit """ + options )
 
 # test assertions
 run_cmd( """echo "main()->Int : { assert TRUE;  return 0; }" | txc -jit """ + options )

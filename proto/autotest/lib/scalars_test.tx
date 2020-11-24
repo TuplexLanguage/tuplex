@@ -1,61 +1,59 @@
-test_scalar_ordinals() : {
-    assert Byte.MIN.ordinal() == 0;
-    assert Short.MIN.ordinal() == 0;
-    assert Int.MIN.ordinal() == 0;
-    assert Long.MIN.ordinal() == 0;
-    assert UByte.MIN.ordinal() == 0;
-    assert UShort.MIN.ordinal() == 0;
-    assert UInt.MIN.ordinal() == 0;
-    assert ULong.MIN.ordinal() == 0;
+test_scalar_ordinals() :
+    assert Byte.MIN.ordinal() == 0
+    assert Short.MIN.ordinal() == 0
+    assert Int.MIN.ordinal() == 0
+    assert Long.MIN.ordinal() == 0
+    assert UByte.MIN.ordinal() == 0
+    assert UShort.MIN.ordinal() == 0
+    assert UInt.MIN.ordinal() == 0
+    assert ULong.MIN.ordinal() == 0
 
-    assert Byte.MAX.ordinal() == UByte.MAX.ordinal();
-    assert Short.MAX.ordinal() == UShort.MAX.ordinal();
-    assert Int.MAX.ordinal() == UInt.MAX.ordinal();
-    assert Long.MAX.ordinal() == ULong.MAX.ordinal();
+    assert Byte.MAX.ordinal() == UByte.MAX.ordinal()
+    assert Short.MAX.ordinal() == UShort.MAX.ordinal()
+    assert Int.MAX.ordinal() == UInt.MAX.ordinal()
+    assert Long.MAX.ordinal() == ULong.MAX.ordinal()
 
-    {
-        start := (-2B).ordinal();
-        limit := 3B.ordinal();
-        assert limit - start == 5;
-        assert Byte.value( start ) == -2;
-        assert Byte.value( start+1 ) == -1;
-        assert Byte.value( start+2 ) == 0;
-        assert Byte.value( start+3 ) == 1;
-        assert Byte.value( start+4 ) == 2;
-    }
-    {
-        start := (-2S).ordinal();
-        limit := 3S.ordinal();
-        assert limit - start == 5;
-        assert Short.value( start ) == -2;
-        assert Short.value( start+1 ) == -1;
-        assert Short.value( start+2 ) == 0;
-        assert Short.value( start+3 ) == 1;
-        assert Short.value( start+4 ) == 2;
-    }
-    {
-        start := (-2I).ordinal();
-        limit := 3I.ordinal();
-        assert limit - start == 5;
-        assert Int.value( start ) == -2;
-        assert Int.value( start+1 ) == -1;
-        assert Int.value( start+2 ) == 0;
-        assert Int.value( start+3 ) == 1;
-        assert Int.value( start+4 ) == 2;
-    }
-    {
-        start := (-2L).ordinal();
-        limit := 3L.ordinal();
-        assert limit - start == 5;
-        assert Long.value( start ) == -2;
-        assert Long.value( start+1 ) == -1;
-        assert Long.value( start+2 ) == 0;
-        assert Long.value( start+3 ) == 1;
-        assert Long.value( start+4 ) == 2;
-    }
-}
+    do:
+        start := (-2B).ordinal()
+        limit := 3B.ordinal()
+        assert limit - start == 5
+        assert Byte.value( start ) == -2
+        assert Byte.value( start+1 ) == -1
+        assert Byte.value( start+2 ) == 0
+        assert Byte.value( start+3 ) == 1
+        assert Byte.value( start+4 ) == 2
 
-main() -> Int : {
-    test_scalar_ordinals();
-    return 0;
-}
+    do:
+        start := (-2S).ordinal()
+        limit := 3S.ordinal()
+        assert limit - start == 5
+        assert Short.value( start ) == -2
+        assert Short.value( start+1 ) == -1
+        assert Short.value( start+2 ) == 0
+        assert Short.value( start+3 ) == 1
+        assert Short.value( start+4 ) == 2
+
+    do:
+        start := (-2I).ordinal()
+        limit := 3I.ordinal()
+        assert limit - start == 5
+        assert Int.value( start ) == -2
+        assert Int.value( start+1 ) == -1
+        assert Int.value( start+2 ) == 0
+        assert Int.value( start+3 ) == 1
+        assert Int.value( start+4 ) == 2
+
+    do:
+        start := (-2L).ordinal()
+        limit := 3L.ordinal()
+        assert limit - start == 5
+        assert Long.value( start ) == -2
+        assert Long.value( start+1 ) == -1
+        assert Long.value( start+2 ) == 0
+        assert Long.value( start+3 ) == 1
+        assert Long.value( start+4 ) == 2
+
+
+main() -> Int :
+    test_scalar_ordinals()
+    return 0

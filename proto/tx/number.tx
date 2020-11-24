@@ -1,8 +1,8 @@
 module tx
 
 
-interface Number{N derives Number{N}} : {
-    virtual abstract MAX : N;
+interface Number{N derives Number{N}} :
+    virtual abstract MAX : N
 
-    virtual abstract MIN : N;
-}
+    virtual abstract MIN : N
+

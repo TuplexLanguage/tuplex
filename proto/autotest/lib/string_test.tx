@@ -1,24 +1,24 @@
 
-test_string_eq() : {
-    empty  := "";
-    empty2 := "";
-    foo    := "foo";
-    foo2   := "foo";
-    foobar := "foobar";
+test_string_eq() :
+    empty  := ""
+    empty2 := ""
+    foo    := "foo"
+    foo2   := "foo"
+    foobar := "foobar"
 
     ## TODO: support value equals in String
-    assert "" == "";
-    assert empty == empty;
-    ##assert empty == empty2;
-    assert empty != foo;
-    assert foo == foo;
-    ##assert foo == foo2;
-    assert foo != foobar;
-    assert foobar == foobar;
-    assert foobar != foo;
-}
+    assert "" == ""
+    assert empty == empty
+    ##assert empty == empty2
+    assert empty != foo
+    assert foo == foo
+    ##assert foo == foo2
+    assert foo != foobar
+    assert foobar == foobar
+    assert foobar != foo
 
-main() -> Int : {
-    test_string_eq();
-    return 0;
-}
+
+main() -> Int :
+    test_string_eq()
+    return 0
+

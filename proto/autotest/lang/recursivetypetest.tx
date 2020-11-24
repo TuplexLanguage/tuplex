@@ -1,121 +1,111 @@
 ## Test valid and invalid recursive type definitions
 
-type Node derives Tuple : {
-    parent : Ref{Node};
+type Node derives Tuple :
+    parent : Ref{Node}
 
-    self() : {  ## creates root
+    self() :  ## creates root
         #init: parent( self );  ## UNSAFE if obj copied
-    }
-    self(parent : Ref{Node}) : {
-        #init: parent( parent );
-    }
 
-    get_parent()->Ref{Node} : {
-        return self.parent;
-    }
+    self(parent : Ref{Node}) :
+        #init: parent( parent )
 
-    is_root()->Bool : {
-        return self === self.parent;
-    }
+    get_parent()->Ref{Node} :
+        return self.parent
 
-    get_depth()->Int : {
+    is_root()->Bool :
+        return self === self.parent
+
+    get_depth()->Int :
         if self.is_root():
-            return 1;
-        return self.get_parent().get_depth() + 1;
-    }
-}
+            return 1
+        return self.get_parent().get_depth() + 1
 
 
 ## guard against recursive type definitions:
 
 ## since these are mutually recursive, one of them will report the error:
-#experr 1: type First derives Secnd;
-#experr 0: type Secnd derives First;
+#experr 1: type First derives Secnd
+#experr 0: type Secnd derives First
 
 
 ## data recursion via reference is OK:
 
-type A : {
-    bref : &B;
-}
-type B : {
-    aref : &A;
-    aobj : A;
+type A :
+    bref : &B
 
-    self( aref : &A, bref : &B ) : {
-        #init: aref( aref ), aobj( bref );
-    }
-}
+type B :
+    aref : &A
+    aobj : A
+
+    self( aref : &A, bref : &B ) :
+        #init: aref( aref ), aobj( bref )
 
 
 ## data type can't contain itself, directly or indirectly:
 
-type AA : {
-    bbobj : BB;
+type AA :
+    bbobj : BB
 
-    self( aaref : &AA ) : {
-        #init: bbobj( aaref );
-    }
-}
-type BB : {
-    aaref : &AA;
-    #experr 1: aaobj : AA;
-}
+    self( aaref : &AA ) :
+        #init: bbobj( aaref )
 
-type CC : {
-    #experr 1: ccobj : CC;
-}
+
+type BB :
+    aaref : &AA
+    #experr 1: aaobj : AA
+
+
+type CC :
+    #experr 1: ccobj : CC
 
 
 ## generic type can specify itself as a base type's type parameter, but instance members must be checked against recursive type definition:
 
-type GenType{T} : {
-    member : T;
-}
+type GenType{T} :
+    member : T
 
-#experr: type SpecTypeErr derives GenType{SpecTypeErr};
+
+#experr: type SpecTypeErr derives GenType{SpecTypeErr}
 /* upon reinterpretation becomes:
-type SpecTypeErr : {
-    member : SpecTypeErr;
-}
+type SpecTypeErr :
+    member : SpecTypeErr
+
 */
 
 ## since these are mutually recursive, one of them will report the error:
-#experr 0: type SpecTypeErrA derives GenType{SpecTypeErrB};
-#experr 1: type SpecTypeErrB derives GenType{SpecTypeErrA};
+#experr 0: type SpecTypeErrA derives GenType{SpecTypeErrB}
+#experr 1: type SpecTypeErrB derives GenType{SpecTypeErrA}
 
 
 /* Sub-typing from Ref is currently disallowed
 
 ## ok with recursive type definition via reference:
-type SpecTypeOk derives GenType{Ref{SpecTypeOk}};
+type SpecTypeOk derives GenType{Ref{SpecTypeOk}}
 
-type ARef derives Ref{BRef};
-type BRef derives Ref{ARef};
+type ARef derives Ref{BRef}
+type BRef derives Ref{ARef}
 
-type CRef derives &DRef;
-type DRef derives &CRef;
+type CRef derives &DRef
+type DRef derives &CRef
 */
 
 
 ## ok with recursive type definition via non-reference and not containing itself (needed to support CRTP):
 
-abstract type SequenceType{T} : {
-    abstract get_successor() -> T;
-}
+abstract type SequenceType{T} :
+    abstract get_successor() -> T
 
-type MyNumber derives SequenceType{MyNumber} : {
-    num : Int;
+
+type MyNumber derives SequenceType{MyNumber} :
+    num : Int
     ##self ( n : Int ) : { self.num = n; }
     override get_successor() -> MyNumber : { return MyNumber( self.num + 1 ); }
-}
 
 
-main()->Int : {
-    root   := new Node();
-    child1 := new Node(root);
-    child2 := new Node(child1);
-    depth := child2.get_depth();
-    assert depth == 3;
-    return 0;
-}
+main()->Int :
+    root   := new Node()
+    child1 := new Node(root)
+    child2 := new Node(child1)
+    depth := child2.get_depth()
+    assert depth == 3
+    return 0

@@ -1,59 +1,54 @@
 ## tests var-args functions
 
-var_func1( x : Int, vars : Float... ) -> Int : {
-    sum : ~Float = 0.0;
-    {
-        ix : ~UInt = 0;
-        while ix < vars.C : {
-            sum = sum + vars[ix];
-            ix = ix + 1;
-        }
-    }
-    return Int( sum * 10.0 ) + x;
-}
+var_func1( x : Int, vars : Float... ) -> Int :
+    sum : ~Float = 0.0
+    do:
+        ix : ~UInt = 0
+        while ix < vars.C :
+            sum = sum + vars[ix]
+            ix = ix + 1
 
-var_func2( x : Int, vars : &[]Float ) -> Int : {
-    sum : ~Float = 0.0;
-    {
-        ix : ~UInt = 0;
-        while ix < vars.C : {
-            sum = sum + vars[ix];
-            ix = ix + 1;
-        }
-    }
-    return Int( sum * 10.0 ) + x;
-}
+    return Int( sum * 10.0 ) + x
+
+
+var_func2( x : Int, vars : &[]Float ) -> Int :
+    sum : ~Float = 0.0
+    do:
+        ix : ~UInt = 0
+        while ix < vars.C :
+            sum = sum + vars[ix]
+            ix = ix + 1
+
+    return Int( sum * 10.0 ) + x
+
 
 
 ## test syntactic sugar for passing a fixed-size array by value
-array_func( vars : [3]Float ) -> Int : {
-    sum : ~Float = 0.0;
-    {
-        ix : ~UInt = 0;
-        while ix < vars.C : {
-            sum = sum + vars[ix];
-            ix = ix + 1;
-        }
-    }
-    return Int( sum * 10.0 );
-}
+array_func( vars : [3]Float ) -> Int :
+    sum : ~Float = 0.0
+    do:
+        ix : ~UInt = 0
+        while ix < vars.C :
+            sum = sum + vars[ix]
+            ix = ix + 1
+
+    return Int( sum * 10.0 )
 
 
-main() -> Int : {
-    n1 := var_func1( 1, 1.1, 2.2, 3.3 );
-    assert n1 == 67;
-    n2 := var_func1( 2, [ 1.1, 2.2, 3.3 ] );
-    assert n2 == 68;
+main() -> Int :
+    n1 := var_func1( 1, 1.1, 2.2, 3.3 )
+    assert n1 == 67
+    n2 := var_func1( 2, [ 1.1, 2.2, 3.3 ] )
+    assert n2 == 68
 
-    n3 := var_func2( 3, 1.1, 2.2, 3.3 );
-    assert n3 == 69;
-    n4 := var_func2( 4, [ 1.1, 2.2, 3.3 ] );
-    assert n4 == 70;
+    n3 := var_func2( 3, 1.1, 2.2, 3.3 )
+    assert n3 == 69
+    n4 := var_func2( 4, [ 1.1, 2.2, 3.3 ] )
+    assert n4 == 70
 
-    n10 := array_func( 1.1, 2.2, 3.3 );
-    assert n10 == 66;
-    n11 := array_func( [ 1.1, 2.2, 3.3 ] );
-    assert n11 == 66;
+    n10 := array_func( 1.1, 2.2, 3.3 )
+    assert n10 == 66
+    n11 := array_func( [ 1.1, 2.2, 3.3 ] )
+    assert n11 == 66
 
-    return n11;
-}
+    return n11

@@ -67,7 +67,7 @@ public:
     }
 
     /// Construct a 0-width location in \a f, \a l, \a c.
-    explicit TxLocation( std::string* f,
+    explicit TxLocation( const std::string* f,
                          unsigned int l,
                          unsigned int c,
                          TxParserContext* parserCtx )

@@ -1,46 +1,45 @@
-interface ~ Sequenceable{E derives Ref} derives Interface : {
-    abstract sequencer()->Ref{~Sequencer{E}};
-}
+interface ~ Sequenceable{E derives Ref} derives Interface :
+    abstract sequencer()->Ref{~Sequencer{E}}
 
-interface ~ Sequencer{E derives Ref} : {
-    abstract hasNext()->Bool;
-    abstract next()~->E;
-}
 
-type SingleRef{S derives Ref} <: Tuple, Sequenceable{S} : {
+interface ~ Sequencer{E derives Ref} :
+    abstract hasNext()->Bool
+    abstract next()~->E
 
-    type ~ SingleSeq <: Tuple, Sequencer{S} : {
-        element : S;
-        done : ~Bool = FALSE;
 
-        override hasNext()->Bool : {
-            return !self.done;
-        }
-        override next() ~ ->S : {
+type SingleRef{S derives Ref} <: Tuple, Sequenceable{S} :
+
+    type ~ SingleSeq <: Tuple, Sequencer{S} :
+        element : S
+        done : ~Bool = FALSE
+
+        override hasNext()->Bool :
+            return !self.done
+
+        override next() ~ ->S :
             if self.done:
-                tx.c.puts( c"Panic: No next element" );
-            self.done = TRUE;
-            return self.element;
-        }
-    }
-
-    element : S;
-
-    override sequencer()->Ref{~Sequencer{S}} : {
-        el : S = self.element;
-        return new ~SingleSeq( el );
-    }
-}
+                tx.c.puts( c"Panic: No next element" )
+            self.done = TRUE
+            return self.element
 
 
-main()->Int : {
-    myint : Int = 5;
-    singleton := new SingleRef{Ref{Int}}( myint );
-    seq := singleton.sequencer();
-    assert seq.hasNext();
-    elem := seq.next();
-    assert 5 == elem^;
-    assert !seq.hasNext();
+
+    element : S
+
+    override sequencer()->Ref{~Sequencer{S}} :
+        el : S = self.element
+        return new ~SingleSeq( el )
+
+
+
+
+main()->Int :
+    myint : Int = 5
+    singleton := new SingleRef{Ref{Int}}( myint )
+    seq := singleton.sequencer()
+    assert seq.hasNext()
+    elem := seq.next()
+    assert 5 == elem^
+    assert !seq.hasNext()
     
-    return 0;
-}
+    return 0

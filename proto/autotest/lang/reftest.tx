@@ -1,87 +1,85 @@
 
 ## can't derive non-empty user types from the Ref type:
 
-type CustomRef{T} derives Ref{T};
+type CustomRef{T} derives Ref{T}
 
 type CustomIntRef derives Ref{Int} : {
 }
 
-#experr 1: type ECustomRef{T} derives Ref{T} : {
-    virtual CONSTANT := 2;
-}
-
-#experr 1: type ECustomIntRef derives Ref{Int} : {
-    get_self() -> &Self : {
-        return self;
-    }
-}
+#experr 1: type ECustomRef{T} derives Ref{T} :
+    virtual CONSTANT := 2
 
 
-basic_ref_syntax() : {
-    otherO : ~Int = 2;
-    __o : ~ Int = otherO;
-    _ro : ~ & ~ Int = &__o;
-    rro : ~ & ~ & ~ Int = &_ro;
-    
-    #experr: _ro   = __o;
-    #experr: rro   = &__o;
+#experr 1: type ECustomIntRef derives Ref{Int} :
+    get_self() -> &Self :
+        return self
 
-    b : ~Bool = FALSE;
-    b =   __o   == otherO  ; assert TRUE == b;
-    b =   _ro^  == otherO  ; assert TRUE == b;
-    b =   rro^^ == otherO  ; assert TRUE == b;
-    
-    b =   &__o  === &otherO  ; assert FALSE == b;
-    b =    _ro  === &otherO  ; assert FALSE == b;
-    b =    rro^ === &otherO  ; assert FALSE == b;
 
-    b =   __o   < otherO  ; assert FALSE == b;
-    b =   _ro^  < otherO  ; assert FALSE == b;
-    b =   rro^^ < otherO  ; assert FALSE == b;
-    
-    assert 2 == __o;
-    _ro^  = 3         ; assert 3 == __o;
-    rro^^ = 4         ; assert 4 == __o;
-    
-    rro^  = &otherO   ; assert 2 == otherO;
-    _ro^  = 3         ; assert 3 == otherO;
-    rro^^ = 4         ; assert 4 == otherO;
+basic_ref_syntax() :
+    otherO : ~Int = 2
+    __o : ~ Int = otherO
+    _ro : ~ & ~ Int = &__o
+    rro : ~ & ~ & ~ Int = &_ro
+
+    #experr: _ro   = __o
+    #experr: rro   = &__o
+
+    b : ~Bool = FALSE
+    b =   __o   == otherO  ; assert TRUE == b
+    b =   _ro^  == otherO  ; assert TRUE == b
+    b =   rro^^ == otherO  ; assert TRUE == b
+
+    b =   &__o  === &otherO  ; assert FALSE == b
+    b =    _ro  === &otherO  ; assert FALSE == b
+    b =    rro^ === &otherO  ; assert FALSE == b
+
+    b =   __o   < otherO  ; assert FALSE == b
+    b =   _ro^  < otherO  ; assert FALSE == b
+    b =   rro^^ < otherO  ; assert FALSE == b
+
+    assert 2 == __o
+    _ro^  = 3         ; assert 3 == __o
+    rro^^ = 4         ; assert 4 == __o
+
+    rro^  = &otherO   ; assert 2 == otherO
+    _ro^  = 3         ; assert 3 == otherO
+    rro^^ = 4         ; assert 4 == otherO
 
     /*
-    __o   += otherO;
-    _ro^  += otherO;
-    rro^^ += otherO;
-    
-    __o.normalize();
+    __o   += otherO
+    _ro^  += otherO
+    rro^^ += otherO
+
+    __o.normalize()
     _ro.normalize();  // syntactic sugar
-    _ro^.normalize();
+    _ro^.normalize()
     rro^.normalize();  // syntactic sugar
-    rro^^.normalize();
+    rro^^.normalize()
     */
 
-    val := __o + _ro^ + rro^^;
-    assert val == 12;
-}
+    val := __o + _ro^ + rro^^
+    assert val == 12
 
-type MyType : {
-    field : Int;
+
+type MyType :
+    field : Int
     get_field()->Int : { return self.field; }
-}
 
-ref_sugar_syntax() : {
-    __o : ~ Int = 3;
 
-    #experr: _ro1 : ~ & ~ Int = __o;
-    _ro2 : ~ & ~ Int = &__o;
-    _ro3 : ~ & Int = __o;
+ref_sugar_syntax() :
+    __o : ~ Int = 3
 
-    #experr: rro1 : ~ & ~ & ~ Int = _ro2;
-    rro2 : ~ & ~ & ~ Int = &_ro2;
-    rro3 : ~ & & ~ Int = _ro2;
-    #experr: rro4 : ~ & ~ & ~ Int = __o;
+    #experr: _ro1 : ~ & ~ Int = __o
+    _ro2 : ~ & ~ Int = &__o
+    _ro3 : ~ & Int = __o
 
-    val : ~Int = 0;
-    val = __o;    assert val == 3;
+    #experr: rro1 : ~ & ~ & ~ Int = _ro2
+    rro2 : ~ & ~ & ~ Int = &_ro2
+    rro3 : ~ & & ~ Int = _ro2
+    #experr: rro4 : ~ & ~ & ~ Int = __o
+
+    val : ~Int = 0
+    val = __o;    assert val == 3
     val = _ro2;   assert val == 3;  ## implicit '^'
     val = _ro3;   assert val == 3;  ## implicit '^'
     val = rro2^;  assert val == 3;  ## implicit '^'
@@ -89,46 +87,46 @@ ref_sugar_syntax() : {
     #experr: val = rro2;  ## can't add more than one implicit '^'
     #experr: val = rro3;  ## can't add more than one implicit '^'
 
-    stackObj := MyType(5);
-    val = stackObj.field;        assert val == 5;
-    val = stackObj.get_field();  assert val == 5;
-    #experr: val = stackObj^.field;        assert val == 5;
-    #experr: val = stackObj^.get_field();  assert val == 5;
+    stackObj := MyType(5)
+    val = stackObj.field;        assert val == 5
+    val = stackObj.get_field();  assert val == 5
+    #experr: val = stackObj^.field;        assert val == 5
+    #experr: val = stackObj^.get_field();  assert val == 5
 
-    stackRef := &stackObj;
-    val = stackRef.field;         assert val == 5;
-    val = stackRef.get_field();   assert val == 5;
-    val = stackRef^.field;        assert val == 5;
-    val = stackRef^.get_field();  assert val == 5;
+    stackRef := &stackObj
+    val = stackRef.field;         assert val == 5
+    val = stackRef.get_field();   assert val == 5
+    val = stackRef^.field;        assert val == 5
+    val = stackRef^.get_field();  assert val == 5
 
-    heapRef := new MyType(7);
-    val = heapRef.field;         assert val == 7;
-    val = heapRef.get_field();   assert val == 7;
-    val = heapRef^.field;        assert val == 7;
-    val = heapRef^.get_field();  assert val == 7;
+    heapRef := new MyType(7)
+    val = heapRef.field;         assert val == 7
+    val = heapRef.get_field();   assert val == 7
+    val = heapRef^.field;        assert val == 7
+    val = heapRef^.get_field();  assert val == 7
 
-    heapRefRef := &heapRef;
-    #experr: val = heapRefRef.field;         assert val == 7;
-    #experr: val = heapRefRef.get_field();   assert val == 7;
-    val = heapRefRef^.field;        assert val == 7;
-    val = heapRefRef^.get_field();  assert val == 7;
-    val = heapRefRef^^.field;        assert val == 7;
-    val = heapRefRef^^.get_field();  assert val == 7;
-}
+    heapRefRef := &heapRef
+    #experr: val = heapRefRef.field;         assert val == 7
+    #experr: val = heapRefRef.get_field();   assert val == 7
+    val = heapRefRef^.field;        assert val == 7
+    val = heapRefRef^.get_field();  assert val == 7
+    val = heapRefRef^^.field;        assert val == 7
+    val = heapRefRef^^.get_field();  assert val == 7
+
 
 /*
-heap_test()->Int : {
-    heapVar : &~Int = new ~Int();
-    heapRef : &~&~Int = new ~&~Int();
-    heapVar^ = 2;
-    heapRef^ = heapVar;
-    heapArr := new Array{Int,100}();
-    return heapRef^^;
-}
+heap_test()->Int :
+    heapVar : &~Int = new ~Int()
+    heapRef : &~&~Int = new ~&~Int()
+    heapVar^ = 2
+    heapRef^ = heapVar
+    heapArr := new Array{Int,100}()
+    return heapRef^^
+
 */
 
-main() : {
-    basic_ref_syntax();
-    ref_sugar_syntax();
-    ##ret := heap_test();
-}
+main() :
+    basic_ref_syntax()
+    ref_sugar_syntax()
+    ##ret := heap_test()
+

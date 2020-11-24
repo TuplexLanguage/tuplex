@@ -1,4 +1,13 @@
-test_while_syntax() : {
+test_while_syntax() :
+    while FALSE: ;
+
+    while FALSE:
+        ;
+
+    #experr 1: while FALSE  ## newline before the colon
+        :
+        ;
+
     while FALSE: { }
 
     while FALSE : {
@@ -6,94 +15,87 @@ test_while_syntax() : {
 
     while FALSE:
 
-    {
 
-    }
+        assert FALSE
 
-    while TRUE: break;
-    
+
+    while TRUE: break
+
     while TRUE: { break; }
 
-    while TRUE : {
-        break;
-    }
+    while TRUE :
+        break
+
+    else assert FALSE
 
     while TRUE:
-
-    {
+        {
         break;
-    }
+        }
+    else assert FALSE
 
-    while TRUE: break;
-    else assert FALSE;
-    
+    while TRUE: break
+    else assert FALSE
+
     while TRUE: { break; }
-    else assert FALSE;
+    else assert FALSE
 
-    while TRUE: break; else assert FALSE;
-    
-    while TRUE: { break; } else assert FALSE;
+    while TRUE: break; else assert FALSE
 
-    i := ~ 0;
+    while TRUE: { break; } else assert FALSE
 
-    while FALSE: break;
-    else i = i + 1;
-    
+    i := ~ 0
+
+    while FALSE: break
+    else i = i + 1
+
     while FALSE: { break; }
-    else i = i + 1;
+    else i = i + 1
 
-    assert i == 2;
-}
+    assert i == 2
 
-test_while_logic() : {
-    while FALSE : {
-        assert FALSE;
-    }
 
-    {    
-        e := ~ FALSE;
-        while FALSE : {
-            assert FALSE;
-        }
-        else : {
-            e = TRUE;
-        }
-        assert e;
-    }
+test_while_logic() :
+    while FALSE :
+        assert FALSE
 
-    {
-        i : ~Int = 0;
-        iterations : ~Int = 0;
-        while i < 9 : {
-            if i == 5 : break;
-            i = i + 1;
+        e := ~ FALSE
+        while FALSE :
+            assert FALSE
+
+        else :
+            e = TRUE
+
+        assert e
+
+        i : ~Int = 0
+        iterations : ~Int = 0
+        while i < 9 :
+            if i == 5 : break
+            i = i + 1
             if i == 2 : { continue; }
-            iterations = iterations + 1;
-        } else : {
-            assert FALSE;
-        }
-        assert i == 5;
-        assert iterations == 4;
-    }
+            iterations = iterations + 1
+        else :
+            assert FALSE
 
-    {
-        i : ~Int = 0;
-        iterations : ~Int = 0;
-        e := ~ FALSE;
-        while i < 9 : {
-            i = i + 1;
-            if i == 2: continue;
-            iterations = iterations + 1;
-        } else : {
-            e = TRUE;
-        }
-        assert i == 9;
-        assert iterations == 8;
-        assert e;
-    }
-}
+        assert i == 5
+        assert iterations == 4
 
-main() : {
-    test_while_syntax();
-    test_while_logic();
-}
+        i : ~Int = 0
+        iterations : ~Int = 0
+        e := ~ FALSE
+        while i < 9 :
+            i = i + 1
+            if i == 2: continue
+            iterations = iterations + 1
+        else :
+            e = TRUE
+
+        assert i == 9
+        assert iterations == 8
+        assert e
+
+
+main() :
+    test_while_syntax()
+    test_while_logic()

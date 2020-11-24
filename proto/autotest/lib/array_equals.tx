@@ -1,102 +1,97 @@
-## specific array tests 
+## specific array tests
 ## TODO: remove this test file when equality_test.tx can implement more complex arrays-of-arrays (requires type system improvements)
 
-interface Face : { }
+interface Face
 
-type Body <: Tuple, Face : {
-    member : Int;
-    
-    override equals( o : &Any )->Bool : {
+type Body <: Tuple, Face :
+    member : Int
+
+    override equals( o : &Any )->Bool :
         if o is b : &Body :
-            return self.member == b.member;
+            return self.member == b.member
         else:
-            return FALSE;
-    }
-}
+            return FALSE
 
-comp_arr( a1 : &Array, a2 : &Array ) -> Bool : {
-    return a1^ == a2^;
-}
+
+comp_arr( a1 : &Array, a2 : &Array ) -> Bool :
+    return a1^ == a2^
+
 
 /** test arrays of arrays */
-comp_nested( v : Int ) -> Int : {
-    {
-        a1 := [ v, 1, 2, 3, 0 ];
-        a2 := [ v, 2, 3, 4, 0 ];
-        aa2 := [ a1, a2 ];
-        aa3 := [ a1, [ v, 2, 3, 4, 0 ] ];
-    
-        assert (&a1)^ == (&a1)^;
-        assert (&a1)^ != (&a2)^;
-        assert (&aa2)^ == (&aa2)^;
-        assert (&aa2)^ == (&aa3)^;
-        assert (&aa2) == (&aa2);
-        assert (&aa2) != (&aa3);
-    }
+comp_nested( v : Int ) -> Int :
+    do:
+        a1 := [ v, 1, 2, 3, 0 ]
+        a2 := [ v, 2, 3, 4, 0 ]
+        aa2 := [ a1, a2 ]
+        aa3 := [ a1, [ v, 2, 3, 4, 0 ] ]
 
-    {
-        a1 := [ 1, 2, 3 ];
-        a2 := [ 2, 3, 4 ];
-        a3 := [ 3, 4, 5 ];
-        aa1 := \[ a1 ];
-        aa2 := [ a1, a2 ];
-        aa3 := [ a1, [ 2, 3, 4 ] ];
-        aa4 := [ a1, a3 ];
-    
-        assert comp_arr( aa1, aa1 );
-        assert comp_arr( aa2, aa2 );
-        assert comp_arr( aa2, aa3 );
-        assert !comp_arr( aa1, aa4 );
-        assert !comp_arr( aa2, aa4 );
-    }
+        assert (&a1)^ == (&a1)^
+        assert (&a1)^ != (&a2)^
+        assert (&aa2)^ == (&aa2)^
+        assert (&aa2)^ == (&aa3)^
+        assert (&aa2) == (&aa2)
+        assert (&aa2) != (&aa3)
 
-    {
-        b1 := [ &Byte(1), &Byte(2), &Byte(3) ];
-        b2 := [ &Byte(1), &Byte(2), &Byte(3) ];
-        b3 := [ &Byte(2), &Byte(2), &Byte(3) ];
-        b4 := [ b1[0], b1[1], b1[2] ];
-    
-        assert b1 == b1;
-        assert b1 != b2;
-        assert b1 != b3;
-        assert b1 == b4;
-        assert comp_arr( b1, b1 );
-        assert !comp_arr( b1, b2 );
-        assert !comp_arr( b1, b3 );
-        assert comp_arr( b1, b4 );
-    }
+    do:
+        a1 := [ 1, 2, 3 ]
+        a2 := [ 2, 3, 4 ]
+        a3 := [ 3, 4, 5 ]
+        aa1 := \[ a1 ]
+        aa2 := [ a1, a2 ]
+        aa3 := [ a1, [ 2, 3, 4 ] ]
+        aa4 := [ a1, a3 ]
 
-    {
-        b1 := [ Body(1), Body(2), Body(3) ];
-        b2 := [ Body(1), Body(2), Body(3) ];
-        b3 := [ Body(2), Body(2), Body(3) ];
+        assert comp_arr( aa1, aa1 )
+        assert comp_arr( aa2, aa2 )
+        assert comp_arr( aa2, aa3 )
+        assert !comp_arr( aa1, aa4 )
+        assert !comp_arr( aa2, aa4 )
 
-        assert b1 == b1;
-        assert b1 == b2;
-        assert b1 != b3;
-        assert comp_arr( b1, b1 );
-        assert comp_arr( b1, b2 );
-        assert !comp_arr( b1, b3 );
-    }
-    {
-        b1 := [ &Body(1), &Body(2), &Body(3) ];
-        b2 := [ &Body(1), &Body(2), &Body(3) ];
-        b3 := [ &Body(2), &Body(2), &Body(3) ];
-        b4 := [ b1[0], b1[1], b1[2] ];
+    do:
+        b1 := [ &Byte(1), &Byte(2), &Byte(3) ]
+        b2 := [ &Byte(1), &Byte(2), &Byte(3) ]
+        b3 := [ &Byte(2), &Byte(2), &Byte(3) ]
+        b4 := [ b1[0], b1[1], b1[2] ]
 
-        assert b1 == b1;
-        assert b1 != b2;
-        assert b1 != b3;
-        assert b1 == b4;
-        assert comp_arr( b1, b1 );
-        assert !comp_arr( b1, b2 );
-        assert !comp_arr( b1, b3 );
-        assert comp_arr( b1, b4 );
-    }
-    return 0;
-}
+        assert b1 == b1
+        assert b1 != b2
+        assert b1 != b3
+        assert b1 == b4
+        assert comp_arr( b1, b1 )
+        assert !comp_arr( b1, b2 )
+        assert !comp_arr( b1, b3 )
+        assert comp_arr( b1, b4 )
 
-main() -> Int : {
-    comp_nested( 1 );
-    return 0;
-}
+    do:
+        b1 := [ Body(1), Body(2), Body(3) ]
+        b2 := [ Body(1), Body(2), Body(3) ]
+        b3 := [ Body(2), Body(2), Body(3) ]
+
+        assert b1 == b1
+        assert b1 == b2
+        assert b1 != b3
+        assert comp_arr( b1, b1 )
+        assert comp_arr( b1, b2 )
+        assert !comp_arr( b1, b3 )
+
+    do:
+        b1 := [ &Body(1), &Body(2), &Body(3) ]
+        b2 := [ &Body(1), &Body(2), &Body(3) ]
+        b3 := [ &Body(2), &Body(2), &Body(3) ]
+        b4 := [ b1[0], b1[1], b1[2] ]
+
+        assert b1 == b1
+        assert b1 != b2
+        assert b1 != b3
+        assert b1 == b4
+        assert comp_arr( b1, b1 )
+        assert !comp_arr( b1, b2 )
+        assert !comp_arr( b1, b3 )
+        assert comp_arr( b1, b4 )
+
+    return 0
+
+
+main() -> Int :
+    comp_nested( 1 )
+    return 0
