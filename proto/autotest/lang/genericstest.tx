@@ -4,33 +4,31 @@ module my
 
 ##import tx.proto.print.*
 
-type MARef{T} <: &T;
+type MARef{T} <: &T
 
-type MBRef{T} <: Ref{T};
+type MBRef{T} <: Ref{T}
 
-type MCRef{T} <: Ref{T} : {
-}
+type MCRef{T} <: Ref{T} : { }
 
-type MDRef{T derives Any} <: Ref{T};
+type MDRef{T derives Any} <: Ref{T}
 
-type MERef{T derives Any} <: Ref{T} : {
-}
+type MERef{T derives Any} <: Ref{T} : { }
 
-type MFRef{Q} <: Ref{Q};
-type MGRef{T} <: MFRef{T};
+type MFRef{Q} <: Ref{Q}
+type MGRef{T} <: MFRef{T}
 
 
 ## reverse order array type parameter binding:
 
-type NAArray{E} <: [10]E;
-type NAArrayInt <: NAArray{Int};
+type NAArray{E} <: [10]E
+type NAArrayInt <: NAArray{Int}
 
-type NBArray{E} <: Array{E,10};
-type NBArrayInt <: NBArray{Int};
+type NBArray{E} <: Array{E,10}
+type NBArrayInt <: NBArray{Int}
 
-type NCArray{E} <: Array{E,10} : {
-}
-type NCArrayInt <: NCArray{Int};
+type NCArray{E} <: Array{E,10} : { }
+
+type NCArrayInt <: NCArray{Int}
 
 /* as of this writing, the above causes such a type hierarchy:
     tx.Array            {E,C}
@@ -42,94 +40,94 @@ type NCArrayInt <: NCArray{Int};
 
 
 
-type Type{E,F} <: Tuple : {
-    var : &E;
-}
+type Type{E,F} <: Tuple :
+    var : &E
 
-type SType{E,G} <: Type{E,G};
 
-generics_test()->Int : {
-    type LocalTypeX <: SType{~Float,~Double};
-    type LocalTypeY <: SType{~Int,~Long};
-    type LocalTypeZ <: SType{~Int,~Long};
-    f : ~Float = 3.14;
-    i : ~Int = 42;
-    x := LocalTypeX( &f );
-    y := LocalTypeY( &i );
+type SType{E,G} <: Type{E,G}
 
-    xe1 : x.E           = 1.0;
-    xe2 : x.my#SType#E  = 2.0;
-    xe3 : x.my#Type#E   = 4.0;
-    xg1 : x.G           = 8.0;
-    xg2 : x.my#SType#G  = 16.0;
-    xg3 : x.my#Type#F   = 32.0;
+generics_test()->Int :
+    type LocalTypeX <: SType{~Float,~Double}
+    type LocalTypeY <: SType{~Int,~Long}
+    type LocalTypeZ <: SType{~Int,~Long}
+    f : ~Float = 3.14
+    i : ~Int = 42
+    x := LocalTypeX( &f )
+    y := LocalTypeY( &i )
 
-    ye1 : y.E           = 1;
-    ye2 : y.my#SType#E  = 2;
-    ye3 : y.my#Type#E   = 4;
-    yg1 : y.G           = 8;
-    yg2 : y.my#SType#G  = 16;
-    yg3 : y.my#Type#F   = 32;
+    xe1 : x.E           = 1.0
+    xe2 : x.my#SType#E  = 2.0
+    xe3 : x.my#Type#E   = 4.0
+    xg1 : x.G           = 8.0
+    xg2 : x.my#SType#G  = 16.0
+    xg3 : x.my#Type#F   = 32.0
 
-    assert xe1 == 1.0;
-    assert xe2 == 2.0;
-    assert xe3 == 4.0;
-    assert xg1 == 8.0;
-    assert xg2 == 16.0;
-    assert xg3 == 32.0;
+    ye1 : y.E           = 1
+    ye2 : y.my#SType#E  = 2
+    ye3 : y.my#Type#E   = 4
+    yg1 : y.G           = 8
+    yg2 : y.my#SType#G  = 16
+    yg3 : y.my#Type#F   = 32
 
-    assert ye1 == 1;
-    assert ye2 == 2;
-    assert ye3 == 4;
-    assert yg1 == 8;
-    assert yg2 == 16;
-    assert yg3 == 32;
+    assert xe1 == 1.0
+    assert xe2 == 2.0
+    assert xe3 == 4.0
+    assert xg1 == 8.0
+    assert xg2 == 16.0
+    assert xg3 == 32.0
 
-    return 0;
-}
+    assert ye1 == 1
+    assert ye2 == 2
+    assert ye3 == 4
+    assert yg1 == 8
+    assert yg2 == 16
+    assert yg3 == 32
+
+    return 0
+
 
 /*
-dynamic_generics_test(len : UInt)->Int : {
-    type DynamicType <: SType<Float,(len)>;
-    a : DynamicType;
-    return Int(a.K);
-}
+dynamic_generics_test(len : UInt)->Int :
+    type DynamicType <: SType<Float,(len)>
+    a : DynamicType
+    return Int(a.K)
+
 */
 
-main()->Int : {
-    var : Float = 13.2;
-    varr := &var;
-    varr2 : MGRef{Float} = varr;
-    assert varr2^ == 13.2;
+main()->Int :
+    var : Float = 13.2
+    varr := &var
+    varr2 : MGRef{Float} = varr
+    assert varr2^ == 13.2
 
-    generics_test();
-    
-    return 0;
-}
+    generics_test()
+
+    return 0
+
 
 
 /*
 
-Array{E,L} : {
-    generic type E;
-    generic L Int;
-}
+Array{E,L} :
+    generic type E
+    generic L Int
 
-Subtype{F,K} derives Array<Ref{F},(K+1)> : {
-    generic type F;
-    generic K Int;
+
+Subtype{F,K} derives Array<Ref{F},(K+1)> :
+    generic type F
+    generic K Int
 
     ## reinterpretation in usage scope via alias:
-    type tx#Array#E is Ref<Subtype.F>;
+    type tx#Array#E is Ref<Subtype.F>
 
     ## reinterpretation in usage scope via reentrant expr?
     ## that still only supports virtual values though
-    tx#Array#L is Subtype.K+1;
-}
+    tx#Array#L is Subtype.K+1
 
-ConcreteType derives Subtype{Int, 2} : {
-    type Subtype#F Int;
-    Subtype#K := 2;
-}
+
+ConcreteType derives Subtype{Int, 2} :
+    type Subtype#F Int
+    Subtype#K := 2
+
 
 */

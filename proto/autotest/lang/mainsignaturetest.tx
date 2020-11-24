@@ -36,10 +36,10 @@
 
 ## correct signature:
 
-main( args : &[]&[]UByte ) -> Int : {
-    assert args.L == 0;
-    return 0;
-}
+main( args : &[]&[]UByte ) -> Int :
+    assert args.L == 0
+    return 0
+
 
 
 /* Note: these are also correct signatures but implicitly tested in the other tests:

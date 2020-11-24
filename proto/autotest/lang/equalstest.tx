@@ -1,270 +1,269 @@
 ## simple equality operator tests
 
-test_ref_eq_operator() -> Int : {
-    ubyteA : UByte = 0;
-    ubyteB : UByte = 0;
+test_ref_eq_operator() -> Int :
+    ubyteA : UByte = 0
+    ubyteB : UByte = 0
 
-    r1 := &ubyteA;
-    r2 := &ubyteA;
-    assert r1 === r1;
-    assert r2 === r2;
-    assert r1 === r2;
-    assert r2 === r1;
+    r1 := &ubyteA
+    r2 := &ubyteA
+    assert r1 === r1
+    assert r2 === r2
+    assert r1 === r2
+    assert r2 === r1
 
-    r3 := &ubyteB;
-    assert r3 === r3;
-    assert r1 !== r3;
-    assert r2 !== r3;
-    
-    #experr 2: be : Bool = 42 === 42;
-    #experr 2: be : Bool = ubyteA === ubyteA;
-    #experr 1: be : Bool = ubyteA === r1;
-    #experr 1: be : Bool = r1 === ubyteA;
+    r3 := &ubyteB
+    assert r3 === r3
+    assert r1 !== r3
+    assert r2 !== r3
 
-    p1 : &Any = r1;
-    p2 : &Any = r1;
-    assert p1^ == p2^;
-    #experr 1: assert p1^ == p2;
-    #experr 1: assert p1 == p2^;
+    #experr 2: be : Bool = 42 === 42
+    #experr 2: be : Bool = ubyteA === ubyteA
+    #experr 1: be : Bool = ubyteA === r1
+    #experr 1: be : Bool = r1 === ubyteA
 
-    return 0;
-}
+    p1 : &Any = r1
+    p2 : &Any = r1
+    assert p1^ == p2^
+    #experr 1: assert p1^ == p2
+    #experr 1: assert p1 == p2^
 
-test_ref_equals() -> Int : {
-    ubyteA : UByte = 0;
-    ubyteB : UByte = 0;
+    return 0
 
-    r1 := &ubyteA;
-    r2 := &ubyteA;
-    assert r1.equals( r1 );
-    assert r2.equals( r2 );
-    assert r1.equals( r2 );
-    assert r2.equals( r1 );
 
-    r3 := &ubyteB;
-    assert r3.equals( r3 );
-    assert ! r1.equals( r3 );
-    assert ! r2.equals( r3 );
-    
-    return 0;
-}
+test_ref_equals() -> Int :
+    ubyteA : UByte = 0
+    ubyteB : UByte = 0
+
+    r1 := &ubyteA
+    r2 := &ubyteA
+    assert r1.equals( r1 )
+    assert r2.equals( r2 )
+    assert r1.equals( r2 )
+    assert r2.equals( r1 )
+
+    r3 := &ubyteB
+    assert r3.equals( r3 )
+    assert ! r1.equals( r3 )
+    assert ! r2.equals( r3 )
+
+    return 0
+
 
 ## TODO: implement and test value equals(), e.g:  42.equals( 42 )
 
-test_elem_eq( one : UByte ) : {
-    {
-        assert 0 == 0;
-        assert 1 == 1;
-        assert 0 != 1;
-    
-        ub1 := 1 * one;
-        ub2 := 42 * one;
-    
-        assert ub1 == one;
-        assert ub1 != ub2;
-    
-        i1 := 1I * one;
-        i2 := 42I * one;
-    
-        assert ub1 == i1;
-        assert ub1 != i2;
-        assert i1 == ub1;
-        assert i2 != ub1;
-    
-        f1 := 1.0F * Float(one);
-        f2 := 42.0F * Float(one);
-    
-        #experr 1: assert ub1 == f1;
-        #experr 1: assert f1 == ub1;
-    
-        d1 := 1.0D * Float(one);
-        d2 := 42.0D * Float(one);
-    
-        assert f1 == f1;
-        assert f1 != f2;
-        assert f1 == d1;
-        assert d1 == f1;
-        assert d1 == d1;
-        assert d1 != d2;
-    
-        flag : Bool = one == 1;
-        assert TRUE == flag;
-        assert flag == TRUE;
-        assert FALSE != flag;
-        assert flag != FALSE;
-        #experr 1: assert ub1 == flag;
-        #experr 1: assert flag == ub1;
-    }
+test_elem_eq( one : UByte ) :
 
-    { ## via reference dereferencing
-        ubyteA : UByte = 1 * one;
-        ubyteB : UByte = 42 * one;
-        intA : Int = 1 * one;
-        intB : Int = 42 * one;
+        assert 0 == 0
+        assert 1 == 1
+        assert 0 != 1
 
-        rb1 := &ubyteA;
-        rb2 := &ubyteB;
-        assert rb1^ == rb1^;
-        assert rb1^ != rb2^;
-        assert rb2^ != rb1^;
+        ub1 := 1 * one
+        ub2 := 42 * one
 
-        ri1 := &intA;
-        ri2 := &intB;
-        assert ri1^ == ri1^;
-        assert ri1^ != ri2^;
-        assert ri2^ != ri1^;
+        assert ub1 == one
+        assert ub1 != ub2
 
-        assert ri1^ == rb1^;
-        assert rb1^ == ri1^;
-        assert rb1^ != ri2^;
-        assert rb2^ != ri1^;
+        i1 := 1I * one
+        i2 := 42I * one
 
-        assert ri1 == ri1;
-        #experr 1: assert ri1 == ri1^;
-        #experr 1: assert ri1^ == ri1;
-    }
-}
+        assert ub1 == i1
+        assert ub1 != i2
+        assert i1 == ub1
+        assert i2 != ub1
 
-test_func_eq() : {
+        f1 := 1.0F * Float(one)
+        f2 := 42.0F * Float(one)
+
+        #experr 1: assert ub1 == f1
+        #experr 1: assert f1 == ub1
+
+        d1 := 1.0D * Float(one)
+        d2 := 42.0D * Float(one)
+
+        assert f1 == f1
+        assert f1 != f2
+        assert f1 == d1
+        assert d1 == f1
+        assert d1 == d1
+        assert d1 != d2
+
+        flag : Bool = one == 1
+        assert TRUE == flag
+        assert flag == TRUE
+        assert FALSE != flag
+        assert flag != FALSE
+        #experr 1: assert ub1 == flag
+        #experr 1: assert flag == ub1
+
+    ## via reference dereferencing
+        ubyteA : UByte = 1 * one
+        ubyteB : UByte = 42 * one
+        intA : Int = 1 * one
+        intB : Int = 42 * one
+
+        rb1 := &ubyteA
+        rb2 := &ubyteB
+        assert rb1^ == rb1^
+        assert rb1^ != rb2^
+        assert rb2^ != rb1^
+
+        ri1 := &intA
+        ri2 := &intB
+        assert ri1^ == ri1^
+        assert ri1^ != ri2^
+        assert ri2^ != ri1^
+
+        assert ri1^ == rb1^
+        assert rb1^ == ri1^
+        assert rb1^ != ri2^
+        assert rb2^ != ri1^
+
+        assert ri1 == ri1
+        #experr 1: assert ri1 == ri1^
+        #experr 1: assert ri1^ == ri1
+
+
+
+test_func_eq() :
+    ;
 /*
-    type FuncType <: ( a : Int )->Int;
+    type FuncType <: ( a : Int )->Int
 
-    square( a : Int )->Int { return a * a; };
+    square( a : Int )->Int { return a * a; }
 
-    aFunction : ( a : Int )->Int = square;
-    bFunction : FuncType         = square;
-    cFunction                   := square;
-    
-    dFunc := ( a : Int )->Int { return a * 2; };
-    
-    assert square == aFunction;
+    aFunction : ( a : Int )->Int = square
+    bFunction : FuncType         = square
+    cFunction                   := square
+
+    dFunc := ( a : Int )->Int { return a * 2; }
+
+    assert square == aFunction
 */
-}
+
 
 
 interface Face : { }
 
-type Body <: Tuple, Face : {
-    member : Int;
-    
-    override equals( o : &Any )->Bool : {
+type Body <: Tuple, Face :
+    member : Int
+
+    override equals( o : &Any )->Bool :
         if o is b : &Body :
-            return self.member == b.member;
+            return self.member == b.member
         else:
-            return FALSE;
-    }
-}
+            return FALSE
 
-test_obj_eq( one : UByte ) : {
-    bod1 := Body( 1*one );
-    bod2 := Body( 42*one );
 
-    assert bod1 == bod1;
-    assert bod1 != bod2;
-    
-    fac1 : &Face = &bod1;
-    fac2 : &Face = &bod2;
-    
-    assert fac1 == fac1;
-    ##experr 1: assert fac1^ == fac1^;
-    ##experr 1: assert fac1^ != fac2^;
+
+test_obj_eq( one : UByte ) :
+    bod1 := Body( 1*one )
+    bod2 := Body( 42*one )
+
+    assert bod1 == bod1
+    assert bod1 != bod2
+
+    fac1 : &Face = &bod1
+    fac2 : &Face = &bod2
+
+    assert fac1 == fac1
+    ##experr 1: assert fac1^ == fac1^
+    ##experr 1: assert fac1^ != fac2^
 
     ## Test value-equals:
-    bod3 := Body( 1*one );
-    fac3 : &Face = &bod3;
-    assert bod1 == bod3;
-    assert bod1.equals( bod3 );
+    bod3 := Body( 1*one )
+    fac3 : &Face = &bod3
+    assert bod1 == bod3
+    assert bod1.equals( bod3 )
     ## TODO: Support type casting of interfaces / interface adapters:
-    ##assert fac1^ == fac3^;
-    ##assert fac1^.equals( fac3^ );
-}
+    ##assert fac1^ == fac3^
+    ##assert fac1^.equals( fac3^ )
 
 
-comp_ref( a1 : &Array, a2 : &Array ) -> Bool : {
-    return a1 === a2;
-}
 
-comp_arr( a1 : &Array, a2 : &Array ) -> Bool : {
-    return a1^ == a2^;
-}
-
-test_array_eq( v : Int ) -> Int : {
-    assert \[ 1 ]  == \[ 1 ];
-    #experr 1: e : Bool = \[ 1UI ] != \[ 1I ];
-
-    assert [0]Int()    == [0]Int();
-    assert [1]Int( 0 ) != [0]Int();
-    assert [0]Int()    != [1]Int( 0 );
-    assert [1]Int( 0 ) == [1]Int( 0 );
-    #experr 1: e : Bool = [0]Int() == [0]UInt();
-    #experr 1: e : Bool = [0]Short() == [0]Int();
+comp_ref( a1 : &Array, a2 : &Array ) -> Bool :
+    return a1 === a2
 
 
-    assert [ 1, 2 ]    == [ 1, 2 ];
-    assert [ 1, 2, 3 ] != [ 1, 2 ];
-    assert [ 1, 2 ]    != [ 1, 2, 3 ];
-    assert [ 1.1, 2.2, 3.3 ] == [ 1.1, 2.2, 3.3 ];
-
-    assert \[ TRUE  ] == \[ TRUE ];
-    assert \[ FALSE ] == \[ FALSE ];
-    assert \[ TRUE  ] != \[ FALSE ];
-    assert \[ FALSE ] != \[ TRUE ];
-    assert \[ FALSE, TRUE  ] == \[ FALSE, TRUE ];
-    assert \[ TRUE,  FALSE ] != \[ FALSE, TRUE ];
-
-    b1 := [ TRUE, TRUE,  TRUE ];
-    b2 := [ TRUE, FALSE, TRUE ];
-    assert b1 == b1;
-    assert b1 != b2;
-    assert comp_ref( b1, b1 );
-    assert !comp_ref( b1, b2 );
-    assert comp_arr( b1, b1 );
-    assert !comp_arr( b1, b2 );
+comp_arr( a1 : &Array, a2 : &Array ) -> Bool :
+    return a1^ == a2^
 
 
-    a1 := [ 1I*v, 2,   3 ];
-    a2 := [ 1I,   2*v, 3 ];
-    a3 := [ 1I,   3*v, 3 ];
-    a4 := [ 1I,   2,   3*v, 4 ];
-    assert a1 == a1;
-    assert a1 == a2;
-    assert a1 != a3;
-    assert a1 != a4;
+test_array_eq( v : Int ) -> Int :
+    assert \[ 1 ]  == \[ 1 ]
+    #experr 1: e : Bool = \[ 1UI ] != \[ 1I ]
 
-    assert comp_ref( a1, a1 );
-    assert !comp_ref( a1, a2 );
-    assert comp_arr( a1, a1 );
-    assert comp_arr( a1, a2 );
-    assert !comp_arr( a1, a3 );
-    assert !comp_arr( a1, a4 );
+    assert [0]Int()    == [0]Int()
+    assert [1]Int( 0 ) != [0]Int()
+    assert [0]Int()    != [1]Int( 0 )
+    assert [1]Int( 0 ) == [1]Int( 0 )
+    #experr 1: e : Bool = [0]Int() == [0]UInt()
+    #experr 1: e : Bool = [0]Short() == [0]Int()
 
-    return 0;
-}
 
-test_cstring_eq() : {
-    empty  := c"";
-    empty2 := c"";
-    foo    := c"foo";
-    foo2   := c"foo";
-    foobar := c"foobar";
+    assert [ 1, 2 ]    == [ 1, 2 ]
+    assert [ 1, 2, 3 ] != [ 1, 2 ]
+    assert [ 1, 2 ]    != [ 1, 2, 3 ]
+    assert [ 1.1, 2.2, 3.3 ] == [ 1.1, 2.2, 3.3 ]
 
-    assert c"" == c"";
-    assert empty == empty;
-    assert empty == empty2;
-    assert empty != foo;
-    assert foo == foo;
-    assert foo == foo2;
-    assert foo != foobar;
-    assert foobar == foobar;
-    assert foobar != foo;
-}
+    assert \[ TRUE  ] == \[ TRUE ]
+    assert \[ FALSE ] == \[ FALSE ]
+    assert \[ TRUE  ] != \[ FALSE ]
+    assert \[ FALSE ] != \[ TRUE ]
+    assert \[ FALSE, TRUE  ] == \[ FALSE, TRUE ]
+    assert \[ TRUE,  FALSE ] != \[ FALSE, TRUE ]
 
-main() -> Int : {
-    test_ref_eq_operator();
-    test_ref_equals();
-    test_elem_eq( 1 );
-    test_obj_eq( 1 );
-    test_array_eq( 1 );
-    test_cstring_eq();
-    return 0;
-}
+    b1 := [ TRUE, TRUE,  TRUE ]
+    b2 := [ TRUE, FALSE, TRUE ]
+    assert b1 == b1
+    assert b1 != b2
+    assert comp_ref( b1, b1 )
+    assert !comp_ref( b1, b2 )
+    assert comp_arr( b1, b1 )
+    assert !comp_arr( b1, b2 )
+
+
+    a1 := [ 1I*v, 2,   3 ]
+    a2 := [ 1I,   2*v, 3 ]
+    a3 := [ 1I,   3*v, 3 ]
+    a4 := [ 1I,   2,   3*v, 4 ]
+    assert a1 == a1
+    assert a1 == a2
+    assert a1 != a3
+    assert a1 != a4
+
+    assert comp_ref( a1, a1 )
+    assert !comp_ref( a1, a2 )
+    assert comp_arr( a1, a1 )
+    assert comp_arr( a1, a2 )
+    assert !comp_arr( a1, a3 )
+    assert !comp_arr( a1, a4 )
+
+    return 0
+
+
+test_cstring_eq() :
+    empty  := c""
+    empty2 := c""
+    foo    := c"foo"
+    foo2   := c"foo"
+    foobar := c"foobar"
+
+    assert c"" == c""
+    assert empty == empty
+    assert empty == empty2
+    assert empty != foo
+    assert foo == foo
+    assert foo == foo2
+    assert foo != foobar
+    assert foobar == foobar
+    assert foobar != foo
+
+
+main() -> Int :
+    test_ref_eq_operator()
+    test_ref_equals()
+    test_elem_eq( 1 )
+    test_obj_eq( 1 )
+    test_array_eq( 1 )
+    test_cstring_eq()
+    return 0

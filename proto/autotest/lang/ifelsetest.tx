@@ -1,28 +1,27 @@
 first() : {
-    v := ~ 0UL
+    v := ~ 0UL;
 
     if TRUE : {
-        v = v + 1
+        v = v + 1;
     }
 
-    ## LBRACE not on same line as COLON
-    #experr 1: if TRUE :
+    #experr 1: if TRUE :  ## missing semicolon in brace block
     {
         v = v + 2
     }
     else
-        v = v + 8
+        v = v + 8;
 
     if TRUE : {
-        v = v + 4
+        v = v + 4;
     }
     else : {
-        v = v + 8
+        v = v + 8;
     }
     if FALSE : {
-        v = v + 16
+        v = v + 16;
     } else : {
-        v = v + 32
+        v = v + 32;
     }
 
     if TRUE: { v = v + 64; }
@@ -41,11 +40,11 @@ first() : {
 
     if TRUE: {} else {}
 
-    expected : ULong = 1+2+4+32+64+256+512
-    assert v == expected
+    expected : ULong = 1+4+32+64+256+512;
+    assert v == expected;
 }
 
-second() : {
+second() :
     v := ~ 0UL
 
     if TRUE:
@@ -71,7 +70,7 @@ second() : {
 
     expected : ULong = 1+2+8+32+256
     assert v == expected
-}
+
 
 third() :
     v := ~ 0UL
@@ -119,12 +118,11 @@ third() :
 
     #experr: if TRUE: else ;
 
-    {
-        #experr 1: if TRUE:
-        v = v + 8192  ## missing indent
-        else:
-        v = v + 16384
-    }
+    #experr 1: if TRUE:
+    v = v + 8192;  ## missing indent
+    else:
+        v = v + 16384;
+
     v = v + 32768
 
     if FALSE: #experr 3:

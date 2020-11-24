@@ -1,148 +1,143 @@
 ## Tests modifiability in combination with Tuple member fields and methods
 
-type ImmutableType : {
-    ifield : Int;
+type ImmutableType :
+    ifield : Int
     #experr 1: ffield : ~Float;  ## can't declare modifiable member on immutable type
 
-    get_i()->Int : {
+    get_i()->Int :
         #experr 1: self.ifield = 5;  ## method is not modifying; field is not modifiable
-        return self.ifield;
-    }
+        return self.ifield
 
     #experr 2: set_i( i : Int ) ~ {  ## can't declare modifying method on immutable type
         #experr 1: self.ifield = i;    ## field is not modifiable
     }
-}
 
-#experr 1: type ~ BadSyntax  : ~ImmutableType;
+
+#experr 1: type ~ BadSyntax  : ~ImmutableType
 #experr 1: type ~ BadMutType : ImmutableType;  ## can't derive mutable type from immutable base type
 
-type ~ AType : {  ## mutable type
-    ifield : Int;
-    ffield : ~Float;
+type ~ AType :  ## mutable type
+    ifield : Int
+    ffield : ~Float
 
-    get_i()->Int : {
+    get_i()->Int :
         #experr 1: self.ifield = 5;  ## method is not modifying
-        return self.ifield;
-    }
+        return self.ifield
 
-    get_f()->Float : {
+
+    get_f()->Float :
         #experr 1: self.ffield = 6.3;  ## method is not modifying
-        return self.ffield;
-    }
+        return self.ffield
 
-    set_i( i : Int ) ~ : {
+
+    set_i( i : Int ) ~ :
         #experr 1: self.ifield = i;  ## field is not modifiable
-    }
 
-    set_f( f : Float ) ~ : {
-        self.ffield = f;
-    }
-}
+
+    set_f( f : Float ) ~ :
+        self.ffield = f
+
 
 /*
-type ~ OptRef{T} : {
-    virtual NULL : UByte = 0;
-    _r : Ref{Any};
+type ~ OptRef{T} :
+    virtual NULL : UByte = 0
+    _r : Ref{Any}
 
-    self() : {
-        #init( &NULL );
-    }
+    self() :
+        #init( &NULL )
 
-    self( r : Ref{T} ) : {
-        #init( r );
-    }
 
-    is_null()->Bool : {
-        return self._r == &NULL;
-    }
+    self( r : Ref{T} ) :
+        #init( r )
 
-    get()->Ref{T} : {
+
+    is_null()->Bool :
+        return self._r == &NULL
+
+
+    get()->Ref{T} :
         if self._r is r : Ref{T}:
-            return r;
-        panic( c"Opt reference is null" );
-    }
-}
+            return r
+        panic( c"Opt reference is null" )
+
+
 */
 
-type ~ Node : {  ## mutable type
-    hiNode : ~&Node;
-    loNode : &~Node;
+type ~ Node :  ## mutable type
+    hiNode : ~&Node
+    loNode : &~Node
 
-    self() : {
-        #init: hiNode( self ), loNode( self );
-    }
-    self( h : &Node, l : &~Node ) : {
-        #init: hiNode( h ), loNode( l );
-    }
-}
+    self() :
+        #init: hiNode( self ), loNode( self )
 
-test_transitivity() : {
-    n0 := ~ Node();
-    n1 := ~ Node( &n0, &n0 );
-    n2a := Node( &n1, &n1 );
-    n2b := ~ Node( &n1, &n1 );
-    n3 := ~ Node( &n2a, &n2b );
-
-               n1.hiNode = &n0;
-    #experr 1: n1.loNode = &n0;
-
-    #experr 1: n2a.hiNode = &n1;
-    #experr 1: n2a.loNode = &n1;
-    #experr 1: n2a.hiNode.hiNode = &n0;
-    #experr 1: n2a.hiNode.loNode = &n0;
-    #experr 1: n2a.loNode.hiNode = &n0;
-    #experr 1: n2a.loNode.loNode = &n0;
-
-               n2b.hiNode = &n1;
-    #experr 1: n2b.loNode = &n1;
-    #experr 1: n2b.hiNode.hiNode = &n0;
-    #experr 1: n2b.hiNode.loNode = &n0;
-               n2b.loNode.hiNode = &n0;
-    #experr 1: n2b.loNode.loNode = &n0;
-
-               n3.hiNode = &n2a;
-    #experr 1: n3.loNode = &n2b;
-    #experr 1: n3.hiNode.hiNode = &n1;
-    #experr 1: n3.hiNode.loNode = &n1;
-               n3.loNode.hiNode = &n1;
-    #experr 1: n3.loNode.loNode = &n1;
-
-    #experr 1: n3.hiNode.hiNode.hiNode = &n0;
-    #experr 1: n3.hiNode.hiNode.loNode = &n0;
-    #experr 1: n3.hiNode.loNode.hiNode = &n0;
-    #experr 1: n3.hiNode.loNode.loNode = &n0;
-    #experr 1: n3.loNode.hiNode.hiNode = &n0;
-    #experr 1: n3.loNode.hiNode.loNode = &n0;
-               n3.loNode.loNode.hiNode = &n0;
-    #experr 1: n3.loNode.loNode.loNode = &n0;
-}
+    self( h : &Node, l : &~Node ) :
+        #init: hiNode( h ), loNode( l )
 
 
-main()->Int : {
-    nonmodA := AType( 2, 3.14 );
-    nonmodA.get_i();
-    nonmodA.get_f();
-    #experr 1: nonmodA.set_i( 5 );
-    #experr 1: nonmodA.set_f( 2.72 );
+test_transitivity() :
+    n0 := ~ Node()
+    n1 := ~ Node( &n0, &n0 )
+    n2a := Node( &n1, &n1 )
+    n2b := ~ Node( &n1, &n1 )
+    n3 := ~ Node( &n2a, &n2b )
 
-    modA := ~ AType( 2, 3.14 );
-    modA.get_i();
-    modA.get_f();
+    n1.hiNode = &n0
+    #experr 1: n1.loNode = &n0
+
+    #experr 1: n2a.hiNode = &n1
+    #experr 1: n2a.loNode = &n1
+    #experr 1: n2a.hiNode.hiNode = &n0
+    #experr 1: n2a.hiNode.loNode = &n0
+    #experr 1: n2a.loNode.hiNode = &n0
+    #experr 1: n2a.loNode.loNode = &n0
+
+    n2b.hiNode = &n1
+    #experr 1: n2b.loNode = &n1
+    #experr 1: n2b.hiNode.hiNode = &n0
+    #experr 1: n2b.hiNode.loNode = &n0
+    n2b.loNode.hiNode = &n0
+    #experr 1: n2b.loNode.loNode = &n0
+
+    n3.hiNode = &n2a
+    #experr 1: n3.loNode = &n2b
+    #experr 1: n3.hiNode.hiNode = &n1
+    #experr 1: n3.hiNode.loNode = &n1
+    n3.loNode.hiNode = &n1
+    #experr 1: n3.loNode.loNode = &n1
+
+    #experr 1: n3.hiNode.hiNode.hiNode = &n0
+    #experr 1: n3.hiNode.hiNode.loNode = &n0
+    #experr 1: n3.hiNode.loNode.hiNode = &n0
+    #experr 1: n3.hiNode.loNode.loNode = &n0
+    #experr 1: n3.loNode.hiNode.hiNode = &n0
+    #experr 1: n3.loNode.hiNode.loNode = &n0
+    n3.loNode.loNode.hiNode = &n0
+    #experr 1: n3.loNode.loNode.loNode = &n0
+
+
+main()->Int :
+    nonmodA := AType( 2, 3.14 )
+    nonmodA.get_i()
+    nonmodA.get_f()
+    #experr 1: nonmodA.set_i( 5 )
+    #experr 1: nonmodA.set_f( 2.72 )
+
+    modA := ~ AType( 2, 3.14 )
+    modA.get_i()
+    modA.get_f()
     modA.set_i( 5 );  ## error is in the function body, not in this call
-    modA.set_f( 2.72 );
+    modA.set_f( 2.72 )
 
     #experr 1: type ErrTypeA : ~AType;  ## wrong placed ~
-    type ~MutTypeA <: AType;
-    modA := ~ MutTypeA( 2, 3.14 );
-    modA.get_i();
-    modA.get_f();
+    type ~MutTypeA <: AType
+    modA := ~ MutTypeA( 2, 3.14 )
+    modA.get_i()
+    modA.get_f()
     modA.set_i( 5 );  ## error is in the function body, not in this call
-    modA.set_f( 2.72 );
+    modA.set_f( 2.72 )
 
-    type ImmTypeA <: AType;
-    ok := ImmTypeA( 2, 3.14 );
-    #experr 1: ~bad := ImmTypeA( 2, 3.14 );
+    type ImmTypeA <: AType
+    ok := ImmTypeA( 2, 3.14 )
+    #experr 1: ~bad := ImmTypeA( 2, 3.14 )
 
-    return 0;
-}
+    return 0

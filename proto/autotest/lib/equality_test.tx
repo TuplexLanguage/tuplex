@@ -70,7 +70,7 @@ type GenTest{L,R} :
 
 main() -> Int :
 ## elementary types:
-    {
+    do:
         type UByteTest <: GenTest{UByte,UByte}
         UByteTest.test_eq( &100UB, &100UB, &200UB )
 
@@ -103,41 +103,36 @@ main() -> Int :
 
         type BoolTest <: GenTest{Bool,Bool}
         BoolTest.test_eq( &TRUE, &TRUE, &FALSE )
-    }
 
 ## functions:
-    {
+    do:
         type FuncType <: ( a : Int )->Int
         type FuncTest <: GenTest{FuncType,FuncType}
         square2 := ( a : Int )->Int : { return a * a; };
         sameFunc : ( a : Int )->Int = square
         FuncTest.test_eq( &square, &sameFunc, &square2 )
-    }
 
 ## references:
-    {
+    do:
         type RefTest <: GenTest{&Int,&Int}
         r1 := &100I;  r2 := r1;  r3 := &100I
         RefTest.test_eq( &r1, &r2, &r3 )
-    }
 
 ## arrays:
-    {
+    do:
         type ArrayTest <: GenTest{[4]Int,[4]Int}
         a1 := [ 100I, 200I, 300I, 400I ]
         a2 := a1
         a3 := [ 200I, 200I, 300I, 400I ]
         ArrayTest.test_eq( &a1, &a2, &a3 )
-    }
 
 ## tuples:
-    {
+    do:
         type TupleTest <: GenTest{Body,Body}
         TupleTest.test_eq( Body(100), Body(100), Body(200) )
-    }
 
 ## interfaces & interface adapters:
-    {
+    do:
         type InterfaceTest <: GenTest{&Face,&Face}
         left : &Face = new Body(100);  same : &Face = new Body(100);  diff : &Face = new Body(200)
         assert left.equals( left )
@@ -145,6 +140,5 @@ main() -> Int :
         assert diff.equals( diff )
         assert left.equals( same )
         assert !left.equals( diff )
-    }
 
     return 0

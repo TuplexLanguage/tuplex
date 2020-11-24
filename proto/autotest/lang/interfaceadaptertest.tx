@@ -1,55 +1,55 @@
 ## interface adapter tests (including interface adapter modifiability)
 
-interface IntfA : {
-    abstract get_value()->Int;
+interface IntfA :
+    abstract get_value()->Int
 
     ## "mixin" or default-implementation interface methods:
     mixin_method_1()->Int : { return 1; }
     mixin_method_2()->Int : { return 2; }
-}
-
-interface IntfB : {
-    abstract set_value( v : Int ) ~;
-}
-
-type ~ Type <: Tuple, IntfA, IntfB : {
-    fld : ~Int;
-
-    override get_value()->Int : {
-        return self.fld;
-    }
-
-    override set_value( v : Int ) ~ : {
-        self.fld = v;
-    }
-
-    override mixin_method_2()->Int : {
-        return 3;
-    }
-}
 
 
-mixin_tests() : {
-    t := ~ Type(42);
-    r : &IntfA = &t;
-    s : &~IntfB = &t;
-    assert t.get_value() == 42;
-    assert r.get_value() == 42;
-    t.set_value(112);
-    assert t.get_value() == 112;
-    assert r.get_value() == 112;
-    s.set_value(117);
-    assert t.get_value() == 117;
-    assert r.get_value() == 117;
-
-    assert r.mixin_method_1() == 1;
-    assert t.mixin_method_1() == 1;
-    assert r.mixin_method_2() == 3;
-    assert t.mixin_method_2() == 3;
-}
+interface IntfB :
+    abstract set_value( v : Int ) ~
 
 
-main()->Int : {
-    mixin_tests();
-    return 0;
-}
+type ~ Type <: Tuple, IntfA, IntfB :
+    fld : ~Int
+
+    override get_value()->Int :
+        return self.fld
+
+
+    override set_value( v : Int ) ~ :
+        self.fld = v
+
+
+    override mixin_method_2()->Int :
+        return 3
+
+
+
+
+mixin_tests() :
+    t := ~ Type(42)
+    r : &IntfA = &t
+    s : &~IntfB = &t
+    assert t.get_value() == 42
+    assert r.get_value() == 42
+    t.set_value(112)
+    assert t.get_value() == 112
+    assert r.get_value() == 112
+    s.set_value(117)
+    assert t.get_value() == 117
+    assert r.get_value() == 117
+
+    assert r.mixin_method_1() == 1
+    assert t.mixin_method_1() == 1
+    assert r.mixin_method_2() == 3
+    assert t.mixin_method_2() == 3
+
+
+
+main()->Int :
+    mixin_tests()
+    return 0
+

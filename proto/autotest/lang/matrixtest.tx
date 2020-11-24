@@ -3,79 +3,74 @@
 ## Although the compiler doesn't currently support aggregate types containing dynamically sized elements,
 ## it does support defining them statically.
 
-type ~ Matrix{E, R : UInt, C : UInt} : {
-    type ~ Row derives Array{~E, (C)};
+type ~ Matrix{E, R : UInt, C : UInt} :
+    type ~ Row derives Array{~E, (C)}
 
-    rows : ~Array{ ~Row, (R) };
+    rows : ~Array{ ~Row, (R) }
 
-    self( other : &Self ) : {
-        #init: rows( other.rows );
-    }
+    self( other : &Self ) :
+        #init: rows( other.rows )
 
-    self() : {
-        #init: rows();
-    }
-}
+    self() :
+        #init: rows()
 
 
-main()->Int : {
-    rows : UInt = 2;
-    cols : UInt = 3;
+main()->Int :
+    rows : UInt = 2
+    cols : UInt = 3
 
-    m23a := Matrix{Int, (rows), (cols)}();
-    m23b := Matrix{Int, (2*rows/2), (2*cols/2)}( m23a );
+    m23a := Matrix{Int, (rows), (cols)}()
+    m23b := Matrix{Int, (2*rows/2), (2*cols/2)}( m23a )
 
-    type ~ Matrix23 derives Matrix{Int, (1+rows-1), (1+cols-1)};
-    m23c : ~Matrix23 = Matrix23( m23a );
-    m23d := Matrix23( m23a );
-    m23c = m23d;
+    type ~ Matrix23 derives Matrix{Int, (1+rows-1), (1+cols-1)}
+    m23c : ~Matrix23 = Matrix23( m23a )
+    m23d := Matrix23( m23a )
+    m23c = m23d
 
     ## can't auto-convert to explicitly named type:
-    #experr 1: badcopy0 : Matrix23 = m23a;
+    #experr 1: badcopy0 : Matrix23 = m23a
 
     ## can't auto-convert between mutabile and immutable specializations:
-    #experr 1: badcopy1 : Matrix{Int, (rows), (cols)} = m23c;
-    #experr 1: badcopy2 : ~Matrix{Int, (rows), (cols)} = m23d;
+    #experr 1: badcopy1 : Matrix{Int, (rows), (cols)} = m23c
+    #experr 1: badcopy2 : ~Matrix{Int, (rows), (cols)} = m23d
     #experr 1: badcopy3 : Matrix{Int, (rows), (cols)} = m23d;  ## Matrix23's instance base type is mutable
 
-    copy1 : ~Matrix{Int, (rows), (cols)} = m23c;
+    copy1 : ~Matrix{Int, (rows), (cols)} = m23c
 
-    ##experr 1: mismatch := Matrix{Int, (rows+1), (cols)}( m23a );
-    ##experr 1: mismatch := Matrix{Int, (rows), (cols-1)}( m23a );
-    #experr 1: mismatch := Matrix{Long, (rows), (cols)}( m23a );
+    ##experr 1: mismatch := Matrix{Int, (rows+1), (cols)}( m23a )
+    ##experr 1: mismatch := Matrix{Int, (rows), (cols-1)}( m23a )
+    #experr 1: mismatch := Matrix{Long, (rows), (cols)}( m23a )
 
-    return 0;
-}
+    return 0
 
 
 /* not supported by current compiler implementation (LLVM limitation)
-make_matrix( rows : UInt, cols : UInt ) -> &Matrix{~Int} : {
-    m := new ~Matrix{~Int, (rows), (cols)}();
+make_matrix( rows : UInt, cols : UInt ) -> &Matrix{~Int} :
+    m := new ~Matrix{~Int, (rows), (cols)}()
 
-    ci : ~UInt = 0;
-    while ci < cols : {
-        m.rows[0][ci] = Int(ci);
-        ci = ci + 1;
-    }
+    ci : ~UInt = 0
+    while ci < cols :
+        m.rows[0][ci] = Int(ci)
+        ci = ci + 1
 
-    return m;
-}
 
-dynamic_test()->Int : {
-    rows : UInt = 2;
-    cols : UInt = 3;
+    return m
 
-    m := make_matrix( rows, cols );
-    sum : ~Int = 0;
-    ci : ~UInt = 0;
-    while ci < cols : {
-        sum = sum + m.rows[0][ci];
-        ci = ci + 1;
-    }
 
-    stackcopy := Matrix{Int, (rows), (cols)}( m );
-    heapcopy := new Matrix{Int, (rows), (cols)}( m );
+dynamic_test()->Int :
+    rows : UInt = 2
+    cols : UInt = 3
 
-    return sum;
-}
+    m := make_matrix( rows, cols )
+    sum : ~Int = 0
+    ci : ~UInt = 0
+    while ci < cols :
+        sum = sum + m.rows[0][ci]
+        ci = ci + 1
+
+
+    stackcopy := Matrix{Int, (rows), (cols)}( m )
+    heapcopy := new Matrix{Int, (rows), (cols)}( m )
+
+    return sum
 */

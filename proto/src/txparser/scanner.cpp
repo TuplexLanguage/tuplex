@@ -601,9 +601,6 @@ void TxStringFormatScanner::scan_token( TxSourceScan& scanState ) const {
             return;
         }
     }
-//    if ( sparserCtx->driver().get_options().debug_scanner && parserCtx->is_user_source()) {
-//        std::cerr << "Exiting scanner stringFormatScanner" << std::endl;
-//    }
     scanState.scannerStack.pop();
 }
 
@@ -625,7 +622,8 @@ void TxTopScanner::scan_token( TxSourceScan& scanState ) const {
     // and if not in a brace / bracket / paren block,
     // and last non-empty line did not end with a COMMA.
     if ( scanState.current_cursor().column == 1
-         && scanState.scopeStacks.back().closingToken == TxTokenId::END
+         && ( scanState.scopeStack.back().closingToken == TxTokenId::END
+              || scanState.scopeStack.back().closingToken == TxTokenId::DEDENT )
          && scanState.last_non_empty_token_id() != TxTokenId::COMMA ) {
         uint32_t indentLen;
         bool emptyLine;
@@ -668,40 +666,42 @@ void TxTopScanner::scan_token( TxSourceScan& scanState ) const {
         }
 
         if ( !emptyLine ) {
-            size_t prevIndent = ( scanState.scopeStacks.back().indentStack.empty() ? 0 : scanState.scopeStacks.back().indentStack.top());
+            // when outer block is not an indentation block, do not generate further DEDENTs
+            auto prevIndent = scanState.scopeStack.back().indentLength;
             if ( indentLen < prevIndent ) {
-                scanState.add_token( TxTokenId::DEDENT, indentLen );
-                do {
-                    scanState.scopeStacks.back().indentStack.pop();
+                if ( scanState.scopeStack.back().closingToken == TxTokenId::DEDENT ) {
+                    auto tokenLen = indentLen;
+                    while ( true ) {
+                        scanState.add_token( TxTokenId::DEDENT, tokenLen );
+                        scanState.scopeStack.pop_back();
+//                        std::cerr << "<---  poping scope stack at line " << scanState.current_cursor().line
+//                                  << " to depth " << scanState.scopeStack.size()
+//                                  << " with indentLen " << indentLen << std::endl;
 
-                    if ( scanState.scopeStacks.back().indentStack.empty() && scanState.scopeStacks.size() > 1 ) {
-//                        std::cerr << "<---  poping indent stack at line " << scanState.current_cursor().line
-//                                  << " with indendLen " << indentLen << std::endl;
-                        scanState.scopeStacks.pop_back();  // end of an unenclosed block
-                        if ( scanState.scopeStacks.back().closingToken != TxTokenId::END ) {
-                            break;  // outer block is not an unenclosed block, do not generate further DEDENTs
+                        prevIndent = scanState.scopeStack.back().indentLength;
+                        if ( indentLen >= prevIndent ) {
+                            // check consistency with previous indentation levels (it should match one of the previous lengths exactly):
+                            if ( indentLen > prevIndent ) {
+                                auto& cursor = scanState.current_cursor();
+                                TxLocation loc( scanState.parser_context().current_input_filepath(),
+                                                cursor.line, cursor.column, &scanState.parser_context());
+                                std::ostringstream ostr;
+                                ostr << "Inconsistent indentation at line=" << cursor.line << ",col="
+                                     << cursor.column << ", " << indentLen << " > " << prevIndent;
+                                scanState.parser_context().cerror( loc, ostr.str());
+                            }
+                            break;
                         }
+                        tokenLen = 0;
                     }
-                    prevIndent = ( scanState.scopeStacks.back().indentStack.empty() ? 0 : scanState.scopeStacks.back().indentStack.top());
-                    if ( indentLen >= prevIndent ) {
-                        // check consistency with previous indentation levels (it should match one of the previous lengths exactly):
-                        if ( indentLen > prevIndent ) {
-                            auto& cursor = scanState.current_cursor();
-                            TxLocation loc( scanState.parser_context().current_input_filepath(),
-                                            cursor.line, cursor.column, &scanState.parser_context());
-                            std::ostringstream ostr;
-                            ostr << "Inconsistent indentation at line=" << cursor.line << ",col="
-                                 << cursor.column << ", " << indentLen << " > " << prevIndent;
-                            scanState.parser_context().cerror( loc, ostr.str());
-                        }
-                        break;
-                    }
-                    scanState.add_token( TxTokenId::DEDENT, 0 );
-                } while ( true );
-                return;
+                    return;
+                }
             }
             else if ( indentLen > prevIndent ) {
-                scanState.scopeStacks.back().indentStack.push( indentLen );
+                scanState.scopeStack.emplace_back( indentLen, TxTokenId::DEDENT );
+//                std::cerr << "---> pushing scope stack at line " << scanState.current_cursor().line
+//                          << " to depth " << scanState.scopeStack.size()
+//                          << " with indentLen " << indentLen << std::endl;
                 scanState.add_token( TxTokenId::INDENT, indentLen );
                 return;
             }
@@ -716,53 +716,36 @@ void TxTopScanner::scan_token( TxSourceScan& scanState ) const {
     // match token:
     TxTokenMatch match = match_token( scanState );
 
-    if ( match.length ) {
-        // a token matched
+    if ( match.length ) {  // a token matched
         switch ( match.id ) {
             case TxTokenId::PERCENT:
-//            if ( sparserCtx->driver().get_options().debug_scanner && parserCtx->is_user_source() ) {
-//                std::cerr << "Entering scanner stringFormatScanner" << std::endl;
-//            }
                 scanState.scannerStack.push( &stringFormatScanner );
                 break;
 
-            case TxTokenId::NEWLINE:
-                // if a line ends with colon, start an unenclosed block
-                if ( scanState.last_non_empty_token_id() == TxTokenId::COLON ) {
-                    scanState.scopeStacks.emplace_back( TxTokenId::END );
-//                    std::cerr << "---> pushing indent stack at line " << scanState.current_cursor().line
-//                              << " with " << match.id << std::endl;
-                }
-                break;
-
-            // FUTURE: sequences COLON NEWLINE (possible INDENT) LBRACE and COLON (possible INDENT) LBRACE
-            //         should be treated equivalent, but too complicated to implement here
             case TxTokenId::LBRACE:
-                scanState.scopeStacks.emplace_back( TxTokenId::RBRACE );
+                scanState.scopeStack.emplace_back( 0, TxTokenId::RBRACE );
                 break;
             case TxTokenId::LBRACKET:
-                scanState.scopeStacks.emplace_back( TxTokenId::RBRACKET );
+                scanState.scopeStack.emplace_back( 0, TxTokenId::RBRACKET );
                 break;
             case TxTokenId::LPAREN:
-                scanState.scopeStacks.emplace_back( TxTokenId::RPAREN );
+                scanState.scopeStack.emplace_back( 0, TxTokenId::RPAREN );
                 break;
 
             case TxTokenId::RBRACE:
-//                std::cerr << "<---  poping indent stack at line " << scanState.current_cursor().line
-//                          << " with " << match.id << std::endl;
             case TxTokenId::RBRACKET:
             case TxTokenId::RPAREN:
-                if ( match.id != scanState.scopeStacks.back().closingToken ) {
+                if ( match.id != scanState.scopeStack.back().closingToken ) {
                     TxLocation loc( scanState.parser_context().current_input_filepath(),
                                     scanState.current_cursor().line, scanState.current_cursor().column,
                                     &scanState.parser_context());
                     std::ostringstream ostr;
                     ostr << "Unexpected closing brace / paren / bracket, expected "
-                         << scanState.scopeStacks.back().closingToken << " but was " << match.id;
+                         << scanState.scopeStack.back().closingToken << " but was " << match.id;
                     scanState.parser_context().cerror( loc, ostr.str());
                     break;
                 }
-                scanState.scopeStacks.pop_back();
+                scanState.scopeStack.pop_back();
                 break;
 
             default:
@@ -881,6 +864,8 @@ const std::vector<TxTokenDef> TxTopScanner::topTokenDefinitions =
                 TOKDEF( TxTokenId::KW_CONST, new TxFixedMatcher( "const" )),
                 TOKDEF( TxTokenId::KW_EXTENDS, new TxFixedMatcher( "extends" )),
                 TOKDEF( TxTokenId::KW_IMPLEMENTS, new TxFixedMatcher( "implements" )),
+                TOKDEF( TxTokenId::KW_DO, new TxFixedMatcher( "do" )),
+                TOKDEF( TxTokenId::KW_SCOPE, new TxFixedMatcher( "scope" )),
                 TOKDEF( TxTokenId::KW_SWITCH, new TxFixedMatcher( "switch" )),
                 TOKDEF( TxTokenId::KW_CASE, new TxFixedMatcher( "case" )),
                 TOKDEF( TxTokenId::KW_WITH, new TxFixedMatcher( "with" )),
@@ -914,22 +899,6 @@ const std::vector<TxTokenDef> TxTopScanner::topTokenDefinitions =
                 TOKDEF( TxTokenId::NAME, new TxFixedMatcher( "#" )),
                 TOKDEF( TxTokenId::HASHINIT, new TxFixedMatcher( "#init" )),
                 TOKDEF( TxTokenId::HASHSELF, new TxFixedMatcher( "#self" )),
-
-//                /* precedence operators, not actually lexically produced */
-//                TOKDEF( TxTokenId::STMT, new TxNeverMatcher()),
-//                TOKDEF( TxTokenId::TYPE, new TxNeverMatcher()),
-//                TOKDEF( TxTokenId::EXPR, new TxNeverMatcher()),
-//                TOKDEF( TxTokenId::NOT, new TxNeverMatcher()),
-//                TOKDEF( TxTokenId::NEG, new TxNeverMatcher()),
-//                TOKDEF( TxTokenId::ADDR, new TxNeverMatcher()),
-//
-//                /* for symbol lookup completeness, matched separately */
-//                TOKDEF( TxTokenId::INDENT, new TxNeverMatcher()),
-//                TOKDEF( TxTokenId::DEDENT, new TxNeverMatcher()),
-//
-//                /* for symbol lookup completeness, not actually lexically produced */
-//                TOKDEF( TxTokenId::ERROR, new TxNeverMatcher()),
-//                TOKDEF( TxTokenId::END, new TxNeverMatcher()),
         };
 
 const std::vector<TxTokenDef> TxStringFormatScanner::tokenDefinitions =
@@ -951,8 +920,8 @@ static TxTopScanner topLevelScanner;
 
 
 TxSourceScan::TxSourceScan( TxParserContext& parserContext, const TxSourceBuffer& buffer )
-        : parserContext( parserContext ), buffer( buffer ), nextToken( 0 ), scannerStack( { &topLevelScanner } ) {
-    scopeStacks.emplace_back( TxTokenId::END );
+        : parserContext( parserContext ), buffer( buffer ), nextToken( 0 ),
+          scannerStack( { &topLevelScanner } ), scopeStack( { TxScopeLevel( 0, TxTokenId::END ) } ) {
 }
 
 /** moves the head cursor forwards, updating the line index as proper */
@@ -975,6 +944,7 @@ TxTokenId TxSourceScan::last_non_empty_token_id() const {
     for ( auto it = tokens.crbegin(); it != tokens.crend(); it++ ) {
         switch ( it->id ) {
             case TxTokenId::NEWLINE:
+            case TxTokenId::WHITESPACE:
             case TxTokenId::COMMENT:
                 break;
             default:
@@ -993,13 +963,11 @@ void TxSourceScan::add_token( TxTokenId id, uint32_t len ) {
 
 std::string TxSourceScan::indent_str() const {
     std::ostringstream ostr;
-    for ( auto it = this->scopeStacks.cbegin(); it != this->scopeStacks.cend(); ++it ) {
-        if ( it != this->scopeStacks.cbegin())
+    for ( auto it = this->scopeStack.cbegin(); it != this->scopeStack.cend(); ++it ) {
+        if ( it != this->scopeStack.cbegin())
             ostr << "|";
-        if ( !it->indentStack.empty()) {
-            for ( unsigned i = 0; i < it->indentStack.top(); i++ ) {
-                ostr << " ";
-            }
+        for ( unsigned i = 0; i < it->indentLength; i++ ) {
+            ostr << " ";
         }
     }
     return ostr.str();
@@ -1015,9 +983,9 @@ const TxToken& TxSourceScan::next_token() {
     // check end of buffer
     if ( !buffer.source[cursor.index] ) {
         // end of buffer
-        for ( auto it = scopeStacks.crbegin(); it != scopeStacks.crend(); it++ ) {
+        for ( auto it = scopeStack.crbegin(); it != scopeStack.crend() - 1; it++ ) {
             // produce implicit DEDENTs
-            if ( it->closingToken != TxTokenId::END ) {
+            if ( it->closingToken != TxTokenId::DEDENT ) {
                 TxLocation loc( parser_context().current_input_filepath(),
                                 current_cursor().line, current_cursor().column,
                                 &parser_context());
@@ -1025,8 +993,7 @@ const TxToken& TxSourceScan::next_token() {
                 ostr << "Missing closing brace / paren / bracket: " << it->closingToken;
                 parser_context().cerror( loc, ostr.str());
             }
-            for ( unsigned i = 0; i < it->indentStack.size(); i++ )
-                tokens.emplace_back( buffer, cursor, cursor, TxTokenId::DEDENT );
+            tokens.emplace_back( buffer, cursor, cursor, TxTokenId::DEDENT );
         }
         tokens.emplace_back( buffer, cursor, cursor, TxTokenId::END );
         return tokens.at( nextToken++ );

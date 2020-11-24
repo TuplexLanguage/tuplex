@@ -1,36 +1,36 @@
-test_bool_ops() : {
-    assert TRUE;
-    assert !FALSE;
-    t := TRUE;
-    f := FALSE;
-    assert t;
-    assert !f;
-    assert t != f;
+test_bool_ops() :
+    assert TRUE
+    assert !FALSE
+    t := TRUE
+    f := FALSE
+    assert t
+    assert !f
+    assert t != f
 
-    b : ~Bool = FALSE;
+    b : ~Bool = FALSE
 
-    b = t & t  ; assert b;
-    b = t & f  ; assert !b;
-    b = f & t  ; assert !b;
-    b = f & f  ; assert !b;
+    b = t & t  ; assert b
+    b = t & f  ; assert !b
+    b = f & t  ; assert !b
+    b = f & f  ; assert !b
 
-    b = t | t  ; assert b;
-    b = t | f  ; assert b;
-    b = f | t  ; assert b;
-    b = f | f  ; assert !b;
+    b = t | t  ; assert b
+    b = t | f  ; assert b
+    b = f | t  ; assert b
+    b = f | f  ; assert !b
 
-    b = t != t  ; assert !b;
-    b = t != f  ; assert b;
-    b = f != t  ; assert b;
-    b = f != f  ; assert !b;
+    b = t != t  ; assert !b
+    b = t != f  ; assert b
+    b = f != t  ; assert b
+    b = f != f  ; assert !b
 
   ## scalars aren't auto-converted to Bool:
-    #experr 1: b = 0;
-    #experr 1: b = 1;
-    #experr 1: b = -1;
-    #experr 1: b = 0.0;
-    #experr 1: b = 1.0;
-    #experr 1: b = -1.0;
+    #experr 1: b = 0
+    #experr 1: b = 1
+    #experr 1: b = -1
+    #experr 1: b = 0.0
+    #experr 1: b = 1.0
+    #experr 1: b = -1.0
 
     { #experr 1: e := TRUE & 1; }
     { #experr 1: e := TRUE & 0; }
@@ -40,147 +40,147 @@ test_bool_ops() : {
     { #experr 1: e := FALSE == 0; }
     { #experr 1: e := FALSE != 1; }
     { #experr 1: e := FALSE != 0; }
-}
 
-test_bool_op_prios() : {
+
+test_bool_op_prios() :
     ## AND precedes OR:
-    assert   ( (FALSE &  FALSE) | TRUE  );
-    assert ! (  FALSE & (FALSE  | TRUE) );
-    assert   (  FALSE &  FALSE  | TRUE  );
+    assert   ( (FALSE &  FALSE) | TRUE  )
+    assert ! (  FALSE & (FALSE  | TRUE) )
+    assert   (  FALSE &  FALSE  | TRUE  )
 
-    assert   (  TRUE | (FALSE  & FALSE) );
-    assert ! ( (TRUE |  FALSE) & FALSE  );
-    assert   (  TRUE |  FALSE  & FALSE  );
+    assert   (  TRUE | (FALSE  & FALSE) )
+    assert ! ( (TRUE |  FALSE) & FALSE  )
+    assert   (  TRUE |  FALSE  & FALSE  )
 
 
     ## NE precedes AND:
-    assert   ( (FALSE &  TRUE) != TRUE  );
-    assert ! (  FALSE & (TRUE  != TRUE) );
-    assert ! (  FALSE &  TRUE  != TRUE  );
+    assert   ( (FALSE &  TRUE) != TRUE  )
+    assert ! (  FALSE & (TRUE  != TRUE) )
+    assert ! (  FALSE &  TRUE  != TRUE  )
 
-    assert   (  TRUE != (TRUE  & FALSE) );
-    assert ! ( (TRUE !=  TRUE) & FALSE  );
-    assert ! (  TRUE !=  TRUE  & FALSE  );
+    assert   (  TRUE != (TRUE  & FALSE) )
+    assert ! ( (TRUE !=  TRUE) & FALSE  )
+    assert ! (  TRUE !=  TRUE  & FALSE  )
 
 
     ## EQ precedes OR:
-    assert ! ( (TRUE |  FALSE) == FALSE  );
-    assert   (  TRUE | (FALSE  == FALSE) );
-    assert   (  TRUE |  FALSE  == FALSE  );
+    assert ! ( (TRUE |  FALSE) == FALSE  )
+    assert   (  TRUE | (FALSE  == FALSE) )
+    assert   (  TRUE |  FALSE  == FALSE  )
 
-    assert ! (  FALSE == (FALSE  | TRUE) );
-    assert   ( (FALSE ==  FALSE) | TRUE  );
-    assert   (  FALSE ==  FALSE  | TRUE  );
-}
+    assert ! (  FALSE == (FALSE  | TRUE) )
+    assert   ( (FALSE ==  FALSE) | TRUE  )
+    assert   (  FALSE ==  FALSE  | TRUE  )
 
-test_scalar_to_bool_conversion() : {
+
+test_scalar_to_bool_conversion() :
     ## integer -> bool
-    assert !Bool(0);
-    assert !Bool(-0);
-    assert Bool(1);
-    assert Bool(-1);
-    assert Bool(2);
-    assert Bool(-2);
-    assert !Bool(0B);
-    assert !Bool(-0B);
-    assert Bool(1B);
-    assert Bool(-1B);
-    assert Bool(2B);
-    assert Bool(-2B);
-    assert !Bool(0L);
-    assert Bool(1L);
-    assert Bool(-1L);
-    assert Bool(2L);
-    assert Bool(-2L);
-    assert !Bool(0UL);
-    assert Bool(1UL);
-    assert Bool(2UL);
+    assert !Bool(0)
+    assert !Bool(-0)
+    assert Bool(1)
+    assert Bool(-1)
+    assert Bool(2)
+    assert Bool(-2)
+    assert !Bool(0B)
+    assert !Bool(-0B)
+    assert Bool(1B)
+    assert Bool(-1B)
+    assert Bool(2B)
+    assert Bool(-2B)
+    assert !Bool(0L)
+    assert Bool(1L)
+    assert Bool(-1L)
+    assert Bool(2L)
+    assert Bool(-2L)
+    assert !Bool(0UL)
+    assert Bool(1UL)
+    assert Bool(2UL)
 
     ## floating point -> bool
-    assert !Bool(0.0);
-    assert !Bool(.0);
-    assert !Bool(-0.0);
-    assert !Bool(-.0);
-    assert Bool(.0000001);
-    assert Bool(-.0000001);
-    assert Bool(1.0);
-    assert Bool(-1.0);
-    assert Bool(2.0);
-    assert Bool(-2.0);
+    assert !Bool(0.0)
+    assert !Bool(.0)
+    assert !Bool(-0.0)
+    assert !Bool(-.0)
+    assert Bool(.0000001)
+    assert Bool(-.0000001)
+    assert Bool(1.0)
+    assert Bool(-1.0)
+    assert Bool(2.0)
+    assert Bool(-2.0)
     ## (1e37 and 1e-37 are according to c std always representable with a float/double/longdouble)
-    assert Bool(1e37);
-    assert Bool(-1e37);
-    assert Bool(1e-37);
-    assert Bool(-1e-37);
-}
+    assert Bool(1e37)
+    assert Bool(-1e37)
+    assert Bool(1e-37)
+    assert Bool(-1e-37)
 
 
-test_and( lval : UByte, rval : UByte, expres : UByte ) : {
-    assert ( lval & rval ) == expres;
-}
 
-test_or( lval : UByte, rval : UByte, expres : UByte ) : {
-    assert ( lval | rval ) == expres;
-}
+test_and( lval : UByte, rval : UByte, expres : UByte ) :
+    assert ( lval & rval ) == expres
 
-test_xor( lval : UByte, rval : UByte, expres : UByte ) : {
-    assert ( lval xor rval ) == expres;
-}
 
-test_lshift( lval : UByte, rval : UByte, expres : UByte ) : {
-    assert ( lval << rval ) == expres;
-}
+test_or( lval : UByte, rval : UByte, expres : UByte ) :
+    assert ( lval | rval ) == expres
 
-test_rshift( lval : UByte, rval : UByte, expres : UByte ) : {
-    assert ( lval >> rval ) == expres;
-}
 
-test_arith_rshift( lval : UByte, rval : UByte, expres : UByte ) : {
-    assert ( lval >>> rval ) == expres;
-}
+test_xor( lval : UByte, rval : UByte, expres : UByte ) :
+    assert ( lval xor rval ) == expres
 
-test_bitfield_ops( one : UByte ) : {
-    assert ( 2#0000_0001 & 2#0000_0000 ) == 0;
-    assert ( 2#0000_0000 & 2#0000_0001 ) == 0;
-    assert ( 2#1000_0000 & 2#0000_0000 ) == 0;
-    assert ( 2#0000_0000 & 2#1000_0000 ) == 0;
-    assert ( 2#1010_1010 & 2#0000_1111 ) == 2#0000_1010;
-    assert ( 2#0000_1111 & 2#1010_1010 ) == 2#0000_1010;
 
-    assert ( 2#0000_0001 | 2#0000_0000 ) == 2#0000_0001;
-    assert ( 2#0000_0000 | 2#0000_0001 ) == 2#0000_0001;
-    assert ( 2#1000_0000 | 2#0000_0000 ) == 2#1000_0000;
-    assert ( 2#0000_0000 | 2#1000_0000 ) == 2#1000_0000;
-    assert ( 2#1010_1010 | 2#0000_1111 ) == 2#1010_1111;
-    assert ( 2#0000_1111 | 2#1010_1010 ) == 2#1010_1111;
+test_lshift( lval : UByte, rval : UByte, expres : UByte ) :
+    assert ( lval << rval ) == expres
 
-    assert ( 2#0000_0001 xor 2#0000_0000 ) == 2#0000_0001;
-    assert ( 2#0000_0000 xor 2#0000_0001 ) == 2#0000_0001;
-    assert ( 2#1000_0000 xor 2#0000_0000 ) == 2#1000_0000;
-    assert ( 2#0000_0000 xor 2#1000_0000 ) == 2#1000_0000;
-    assert ( 2#1010_1010 xor 2#0000_1111 ) == 2#1010_0101;
-    assert ( 2#0000_1111 xor 2#1010_1010 ) == 2#1010_0101;
 
-    test_and( 2#0000_0001, 2#0000_0000, 0 );
-    test_and( 2#0000_0000, 2#0000_0001, 0 );
-    test_and( 2#1000_0000, 2#0000_0000, 0 );
-    test_and( 2#0000_0000, 2#1000_0000, 0 );
-    test_and( 2#1010_1010, 2#0000_1111, 2#0000_1010 );
-    test_and( 2#0000_1111, 2#1010_1010, 2#0000_1010 );
+test_rshift( lval : UByte, rval : UByte, expres : UByte ) :
+    assert ( lval >> rval ) == expres
 
-    test_or( 2#0000_0001, 2#0000_0000, 2#0000_0001 );
-    test_or( 2#0000_0000, 2#0000_0001, 2#0000_0001 );
-    test_or( 2#1000_0000, 2#0000_0000, 2#1000_0000 );
-    test_or( 2#0000_0000, 2#1000_0000, 2#1000_0000 );
-    test_or( 2#1010_1010, 2#0000_1111, 2#1010_1111 );
-    test_or( 2#0000_1111, 2#1010_1010, 2#1010_1111 );
 
-    test_xor( 2#0000_0001, 2#0000_0000, 2#0000_0001 );
-    test_xor( 2#0000_0000, 2#0000_0001, 2#0000_0001 );
-    test_xor( 2#1000_0000, 2#0000_0000, 2#1000_0000 );
-    test_xor( 2#0000_0000, 2#1000_0000, 2#1000_0000 );
-    test_xor( 2#1010_1010, 2#0000_1111, 2#1010_0101 );
-    test_xor( 2#0000_1111, 2#1010_1010, 2#1010_0101 );
+test_arith_rshift( lval : UByte, rval : UByte, expres : UByte ) :
+    assert ( lval >>> rval ) == expres
+
+
+test_bitfield_ops( one : UByte ) :
+    assert ( 2#0000_0001 & 2#0000_0000 ) == 0
+    assert ( 2#0000_0000 & 2#0000_0001 ) == 0
+    assert ( 2#1000_0000 & 2#0000_0000 ) == 0
+    assert ( 2#0000_0000 & 2#1000_0000 ) == 0
+    assert ( 2#1010_1010 & 2#0000_1111 ) == 2#0000_1010
+    assert ( 2#0000_1111 & 2#1010_1010 ) == 2#0000_1010
+
+    assert ( 2#0000_0001 | 2#0000_0000 ) == 2#0000_0001
+    assert ( 2#0000_0000 | 2#0000_0001 ) == 2#0000_0001
+    assert ( 2#1000_0000 | 2#0000_0000 ) == 2#1000_0000
+    assert ( 2#0000_0000 | 2#1000_0000 ) == 2#1000_0000
+    assert ( 2#1010_1010 | 2#0000_1111 ) == 2#1010_1111
+    assert ( 2#0000_1111 | 2#1010_1010 ) == 2#1010_1111
+
+    assert ( 2#0000_0001 xor 2#0000_0000 ) == 2#0000_0001
+    assert ( 2#0000_0000 xor 2#0000_0001 ) == 2#0000_0001
+    assert ( 2#1000_0000 xor 2#0000_0000 ) == 2#1000_0000
+    assert ( 2#0000_0000 xor 2#1000_0000 ) == 2#1000_0000
+    assert ( 2#1010_1010 xor 2#0000_1111 ) == 2#1010_0101
+    assert ( 2#0000_1111 xor 2#1010_1010 ) == 2#1010_0101
+
+    test_and( 2#0000_0001, 2#0000_0000, 0 )
+    test_and( 2#0000_0000, 2#0000_0001, 0 )
+    test_and( 2#1000_0000, 2#0000_0000, 0 )
+    test_and( 2#0000_0000, 2#1000_0000, 0 )
+    test_and( 2#1010_1010, 2#0000_1111, 2#0000_1010 )
+    test_and( 2#0000_1111, 2#1010_1010, 2#0000_1010 )
+
+    test_or( 2#0000_0001, 2#0000_0000, 2#0000_0001 )
+    test_or( 2#0000_0000, 2#0000_0001, 2#0000_0001 )
+    test_or( 2#1000_0000, 2#0000_0000, 2#1000_0000 )
+    test_or( 2#0000_0000, 2#1000_0000, 2#1000_0000 )
+    test_or( 2#1010_1010, 2#0000_1111, 2#1010_1111 )
+    test_or( 2#0000_1111, 2#1010_1010, 2#1010_1111 )
+
+    test_xor( 2#0000_0001, 2#0000_0000, 2#0000_0001 )
+    test_xor( 2#0000_0000, 2#0000_0001, 2#0000_0001 )
+    test_xor( 2#1000_0000, 2#0000_0000, 2#1000_0000 )
+    test_xor( 2#0000_0000, 2#1000_0000, 2#1000_0000 )
+    test_xor( 2#1010_1010, 2#0000_1111, 2#1010_0101 )
+    test_xor( 2#0000_1111, 2#1010_1010, 2#1010_0101 )
 
     { #experr 1: e := 3 & TRUE; }
     { #experr 1: e := FALSE & 3; }
@@ -192,88 +192,88 @@ test_bitfield_ops( one : UByte ) : {
 
     ## Note: In LLVM and in common CPUs, for an integer type of N bits, the result of shifting by >= N is undefined.
 
-    assert 2#0000_1111 << 0 == 2#0000_1111;
-    assert 2#0000_1111 << 1 == 2#0001_1110;
-    assert 2#0000_1111 << 4 == 2#1111_0000;
-    assert 2#0000_1111 << 5 == 2#1110_0000;
-    assert 2#0000_1111 << 7 == 2#1000_0000;
+    assert 2#0000_1111 << 0 == 2#0000_1111
+    assert 2#0000_1111 << 1 == 2#0001_1110
+    assert 2#0000_1111 << 4 == 2#1111_0000
+    assert 2#0000_1111 << 5 == 2#1110_0000
+    assert 2#0000_1111 << 7 == 2#1000_0000
 
-    assert 2#1111_0000 >> 0 == 2#1111_0000;
-    assert 2#1111_0000 >> 1 == 2#0111_1000;
-    assert 2#1111_0000 >> 4 == 2#0000_1111;
-    assert 2#1111_0000 >> 5 == 2#0000_0111;
-    assert 2#1111_0000 >> 7 == 2#0000_0001;
+    assert 2#1111_0000 >> 0 == 2#1111_0000
+    assert 2#1111_0000 >> 1 == 2#0111_1000
+    assert 2#1111_0000 >> 4 == 2#0000_1111
+    assert 2#1111_0000 >> 5 == 2#0000_0111
+    assert 2#1111_0000 >> 7 == 2#0000_0001
 
-    assert 2#1111_0000 >>> 0 == 2#1111_0000;
-    assert 2#1111_0000 >>> 1 == 2#1111_1000;
-    assert 2#1111_0000 >>> 4 == 2#1111_1111;
-    assert 2#1111_0000 >>> 5 == 2#1111_1111;
-    assert 2#1111_0000 >>> 7 == 2#1111_1111;
+    assert 2#1111_0000 >>> 0 == 2#1111_0000
+    assert 2#1111_0000 >>> 1 == 2#1111_1000
+    assert 2#1111_0000 >>> 4 == 2#1111_1111
+    assert 2#1111_0000 >>> 5 == 2#1111_1111
+    assert 2#1111_0000 >>> 7 == 2#1111_1111
 
     { #experr 1: e := 2#0000_1111 << -1; }
     { #experr 1: e := 2#0000_1111 >> -1; }
     { #experr 1: e := 2#0000_1111 >>> -1; }
 
-    assert Byte( 2#0000_1111 ) << 0 == Byte( 2#0000_1111 );
-    assert Byte( 2#0000_1111 ) << 1 == Byte( 2#0001_1110 );
-    assert Byte( 2#0000_1111 ) << 4 == Byte( 2#1111_0000 );
-    assert Byte( 2#0000_1111 ) << 5 == Byte( 2#1110_0000 );
-    assert Byte( 2#0000_1111 ) << 7 == Byte( 2#1000_0000 );
+    assert Byte( 2#0000_1111 ) << 0 == Byte( 2#0000_1111 )
+    assert Byte( 2#0000_1111 ) << 1 == Byte( 2#0001_1110 )
+    assert Byte( 2#0000_1111 ) << 4 == Byte( 2#1111_0000 )
+    assert Byte( 2#0000_1111 ) << 5 == Byte( 2#1110_0000 )
+    assert Byte( 2#0000_1111 ) << 7 == Byte( 2#1000_0000 )
 
-    assert Byte( 2#1111_0000 ) >> 0 == Byte( 2#1111_0000 );
-    assert Byte( 2#1111_0000 ) >> 1 == Byte( 2#0111_1000 );
-    assert Byte( 2#1111_0000 ) >> 4 == Byte( 2#0000_1111 );
-    assert Byte( 2#1111_0000 ) >> 5 == Byte( 2#0000_0111 );
-    assert Byte( 2#1111_0000 ) >> 7 == Byte( 2#0000_0001 );
+    assert Byte( 2#1111_0000 ) >> 0 == Byte( 2#1111_0000 )
+    assert Byte( 2#1111_0000 ) >> 1 == Byte( 2#0111_1000 )
+    assert Byte( 2#1111_0000 ) >> 4 == Byte( 2#0000_1111 )
+    assert Byte( 2#1111_0000 ) >> 5 == Byte( 2#0000_0111 )
+    assert Byte( 2#1111_0000 ) >> 7 == Byte( 2#0000_0001 )
 
-    assert Byte( 2#1111_0000 ) >>> 0 == Byte( 2#1111_0000 );
-    assert Byte( 2#1111_0000 ) >>> 1 == Byte( 2#1111_1000 );
-    assert Byte( 2#1111_0000 ) >>> 4 == Byte( 2#1111_1111 );
-    assert Byte( 2#1111_0000 ) >>> 5 == Byte( 2#1111_1111 );
-    assert Byte( 2#1111_0000 ) >>> 7 == Byte( 2#1111_1111 );
+    assert Byte( 2#1111_0000 ) >>> 0 == Byte( 2#1111_0000 )
+    assert Byte( 2#1111_0000 ) >>> 1 == Byte( 2#1111_1000 )
+    assert Byte( 2#1111_0000 ) >>> 4 == Byte( 2#1111_1111 )
+    assert Byte( 2#1111_0000 ) >>> 5 == Byte( 2#1111_1111 )
+    assert Byte( 2#1111_0000 ) >>> 7 == Byte( 2#1111_1111 )
 
 
-    test_lshift( 2#0000_1111, 0, 2#0000_1111 );
-    test_lshift( 2#0000_1111, 1, 2#0001_1110 );
-    test_lshift( 2#0000_1111, 4, 2#1111_0000 );
-    test_lshift( 2#0000_1111, 5, 2#1110_0000 );
-    test_lshift( 2#0000_1111, 7, 2#1000_0000 );
+    test_lshift( 2#0000_1111, 0, 2#0000_1111 )
+    test_lshift( 2#0000_1111, 1, 2#0001_1110 )
+    test_lshift( 2#0000_1111, 4, 2#1111_0000 )
+    test_lshift( 2#0000_1111, 5, 2#1110_0000 )
+    test_lshift( 2#0000_1111, 7, 2#1000_0000 )
 
-    test_rshift( 2#1111_0000, 0, 2#1111_0000 );
-    test_rshift( 2#1111_0000, 1, 2#0111_1000 );
-    test_rshift( 2#1111_0000, 4, 2#0000_1111 );
-    test_rshift( 2#1111_0000, 5, 2#0000_0111 );
-    test_rshift( 2#1111_0000, 7, 2#0000_0001 );
+    test_rshift( 2#1111_0000, 0, 2#1111_0000 )
+    test_rshift( 2#1111_0000, 1, 2#0111_1000 )
+    test_rshift( 2#1111_0000, 4, 2#0000_1111 )
+    test_rshift( 2#1111_0000, 5, 2#0000_0111 )
+    test_rshift( 2#1111_0000, 7, 2#0000_0001 )
 
-    test_arith_rshift( 2#1111_0000, 0, 2#1111_0000 );
-    test_arith_rshift( 2#1111_0000, 1, 2#1111_1000 );
-    test_arith_rshift( 2#1111_0000, 4, 2#1111_1111 );
-    test_arith_rshift( 2#1111_0000, 5, 2#1111_1111 );
-    test_arith_rshift( 2#1111_0000, 7, 2#1111_1111 );
+    test_arith_rshift( 2#1111_0000, 0, 2#1111_0000 )
+    test_arith_rshift( 2#1111_0000, 1, 2#1111_1000 )
+    test_arith_rshift( 2#1111_0000, 4, 2#1111_1111 )
+    test_arith_rshift( 2#1111_0000, 5, 2#1111_1111 )
+    test_arith_rshift( 2#1111_0000, 7, 2#1111_1111 )
 
     ## basic test with other integer types:
-    assert 1UB >> 1*one == 0;
-    assert 1US >> 1*one == 0;
-    assert 1UI >> 1*one == 0;
-    assert 1UL >> 1*one == 0;
-    assert 4UB >> 2*one == 1;
-    assert 4US >> 2*one == 1;
-    assert 4UI >> 2*one == 1;
-    assert 4UL >> 2*one == 1;
+    assert 1UB >> 1*one == 0
+    assert 1US >> 1*one == 0
+    assert 1UI >> 1*one == 0
+    assert 1UL >> 1*one == 0
+    assert 4UB >> 2*one == 1
+    assert 4US >> 2*one == 1
+    assert 4UI >> 2*one == 1
+    assert 4UL >> 2*one == 1
 
-    ##assert -1B >> 1*one == 16#7F;
-    assert -1S >> 1*one == 16#7FFF;
-    assert -1I >> 1*one == 16#7FFFFFFF;
-    assert -1L >> 1*one == 16#7FFFFFFFFFFFFFFF;
-    ##assert -4B >> 2*one == 16#3F;
-    assert -4S >> 2*one == 16#3FFF;
-    assert -4I >> 2*one == 16#3FFFFFFF;
-    assert -4L >> 2*one == 16#3FFFFFFFFFFFFFFF;
-}
+    ##assert -1B >> 1*one == 16#7F
+    assert -1S >> 1*one == 16#7FFF
+    assert -1I >> 1*one == 16#7FFFFFFF
+    assert -1L >> 1*one == 16#7FFFFFFFFFFFFFFF
+    ##assert -4B >> 2*one == 16#3F
+    assert -4S >> 2*one == 16#3FFF
+    assert -4I >> 2*one == 16#3FFFFFFF
+    assert -4L >> 2*one == 16#3FFFFFFFFFFFFFFF
 
-main() : {
-    test_bool_ops();
-    test_scalar_to_bool_conversion();
-    test_bool_op_prios();
-    test_bitfield_ops( 1 );
-}
+
+main() :
+    test_bool_ops()
+    test_scalar_to_bool_conversion()
+    test_bool_op_prios()
+    test_bitfield_ops( 1 )
+

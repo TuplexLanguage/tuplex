@@ -60,16 +60,24 @@ public:
 
 
 class TxScanner;
+class TxTopScanner;
 
-struct TxScopeBlock {
-    explicit TxScopeBlock( TxTokenId closingToken ) : closingToken( closingToken ) { }
-    std::stack<uint32_t> indentStack;
+struct TxScopeLevel {
+    explicit TxScopeLevel( uint32_t indentLength, TxTokenId closingToken )
+        : indentLength( indentLength), closingToken( closingToken ) { }
+    uint32_t indentLength;
     TxTokenId closingToken;
 };
 
 /** Represents the scanning of a parsing unit. */
 class TxSourceScan {
+    friend TxTopScanner;
+
     TxParserContext& parserContext;
+
+    /// Returns the Id of the last parsed non-empty token (may be zero or more steps ahead of current token).
+    /// Returns ERROR if there are no parsed tokens.
+    TxTokenId last_non_empty_token_id() const;
 
     void advance_head( size_t length );
 
@@ -79,7 +87,6 @@ class TxSourceScan {
     // current state
     TxSourcePosition cursor;
     size_t nextToken;
-    bool nlAfterRbrace = false;
 
     // outputs
     TxLineIndex lineIndex;
@@ -89,13 +96,6 @@ public:
     // external interface
     explicit TxSourceScan( TxParserContext& parserContext, const TxSourceBuffer& buffer );
 
-    void nl_after_rbrace( bool flag ) {
-        this->nlAfterRbrace = flag;
-    }
-    bool nl_after_rbrace() const {
-        return this->nlAfterRbrace;
-    }
-
     const TxToken& next_token();
 
     TxParserContext& parser_context() const {
@@ -104,7 +104,7 @@ public:
 
     // internal interface; encapsulate?
     std::stack<const TxScanner*> scannerStack;
-    std::deque<TxScopeBlock> scopeStacks;
+    std::vector<TxScopeLevel> scopeStack;
     char firstUsedIndentChar = 0;
 
     inline const TxSourcePosition& current_cursor() const {
@@ -114,10 +114,6 @@ public:
     inline const char* input_buffer() const {
         return &buffer.source[cursor.index];
     }
-
-    /** Returns the Id of the last parsed non-empty token (may be zero or more steps ahead of current token).
-     * Returns ERROR if there are no parsed tokens. */
-    TxTokenId last_non_empty_token_id() const;
 
     void add_token( TxTokenId id, uint32_t len );
 

@@ -27,15 +27,14 @@ const char* CORE_TX_SOURCE_STR =
 module tx;
 
 /** Returns TRUE if v has tid among its supertypes / -interfaces. */
-isa( valueRef : &Any, tid : UInt )->Bool : {
+isa( valueRef : &Any, tid : UInt )->Bool :
     return isa( _typeid( valueRef ), tid );
-}
 
-isa( valueTid : UInt, tid : UInt )->Bool : {
+isa( valueTid : UInt, tid : UInt )->Bool :
     supers : &Array{UInt} = _supertypes( valueTid );
     lower := ~ 0UI;
     upper := ~ supers.L;
-    while lower != upper : {
+    while lower != upper :
         pos := ( lower + upper ) / 2;
         st := supers[pos];
         if st == tid:
@@ -44,18 +43,14 @@ isa( valueTid : UInt, tid : UInt )->Bool : {
             upper = pos;
         else:
             lower = pos + 1;
-    }
     return FALSE;
-}
 
-builtin type Function derives Any : {
-    override equals( other : &Any ) -> Bool : {
+builtin type Function derives Any :
+    override equals( other : &Any ) -> Bool :
         if other is o : &Self :
             return self^ == o^;
         return FALSE;
-    }
-}
-    )=====";
+)=====";
 
 
 static TxSourceBuffer load_file( const std::string& filePath );

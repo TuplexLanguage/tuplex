@@ -1,106 +1,106 @@
 ## Test global fields
 
-CONSTANT : tx.Int = 17;
+CONSTANT : tx.Int = 17
 
-CONSTANT_EXPR : tx.Int = -3+4;
+CONSTANT_EXPR : tx.Int = -3+4
 
-CONSTANT_EXPR2 : tx.Int = CONSTANT + 5;
+CONSTANT_EXPR2 : tx.Int = CONSTANT + 5
 
-CONSTANT_EXPR3 : tx.Int = CONSTANT_EXPR2 + 5;
+CONSTANT_EXPR3 : tx.Int = CONSTANT_EXPR2 + 5
 
-COPY := CONSTANT;
+COPY := CONSTANT
 
-#experr 1: NONINITED : Int;
+#experr 1: NONINITED : Int
 
 
 ## globals may not be modifiable:
-#experr 1: ~NONCONSTA := 8;
+#experr 1: ~NONCONSTA := 8
 #experr 1: ~NONCONSTB : Int = 8;  ## (syntax error)
-#experr 1: NONCONSTC : ~Int = 8;
+#experr 1: NONCONSTC : ~Int = 8
 
 
-#experr 1: virtual  TOO_VIRTUAL   : Int = 5;
-#experr 1: override TOO_OVERRIDE : Int = 5;
-#experr 1: final    TOO_FINAL    : Int = 5;
-#experr 1: abstract TOO_ABSTRACT;
-#experr 2: abstract TOO_ABSTRACT_INIT := 5;
+#experr 1: virtual  TOO_VIRTUAL   : Int = 5
+#experr 1: override TOO_OVERRIDE : Int = 5
+#experr 1: final    TOO_FINAL    : Int = 5
+#experr 1: abstract TOO_ABSTRACT
+#experr 2: abstract TOO_ABSTRACT_INIT := 5
 
 
 ## evaluation dependency in reverse lexical order:
-FIELDA := FIELDB;
-FIELDB := CONSTANT;
+FIELDA := FIELDB
+FIELDB := CONSTANT
 
-FIELDC := FIELDD;
-FIELDD := CONSTANT + 2;
+FIELDC := FIELDD
+FIELDD := CONSTANT + 2
 
 ## currently function calls (including pure ones) are regarded as non-statically-constant:
-#experr: FIELDSQ := square( 3 );
+#experr: FIELDSQ := square( 3 )
 
-square( a : Int )->Int : {
-    return a * a;
-}
+square( a : Int )->Int :
+    return a * a
+
 
 
 ## constant references to globals:
-CONST_REF := &CONSTANT;
+CONST_REF := &CONSTANT
 
 
 ## constant arrays:
-CONST_ARRAY := [ CONSTANT, CONSTANT_EXPR, CONSTANT_EXPR3 ];
-CONST_ELEM := CONST_ARRAY[1];
-CONST_ELEM_REF := &CONST_ARRAY[1];
-CONST_CAP := CONST_ARRAY.C;
-CONST_LEN := CONST_ARRAY.L;
+CONST_ARRAY := [ CONSTANT, CONSTANT_EXPR, CONSTANT_EXPR3 ]
+CONST_ELEM := CONST_ARRAY[1]
+CONST_ELEM_REF := &CONST_ARRAY[1]
+CONST_CAP := CONST_ARRAY.C
+CONST_LEN := CONST_ARRAY.L
 
 ## constant arrays bounds checking (errors are not actually emitted until code gen):
-#experr 0: BAD_ELEM1 := CONST_ARRAY[3];
-#experr 0: BAD_ELEM2 := CONST_ARRAY[4];
-#experr 0: BAD_ELEM_REF := &CONST_ARRAY[3];
+#experr 0: BAD_ELEM1 := CONST_ARRAY[3]
+#experr 0: BAD_ELEM2 := CONST_ARRAY[4]
+#experr 0: BAD_ELEM_REF := &CONST_ARRAY[3]
 
 ## check controlled error message upon recursive definition
 ## note - only one of the recursing definitions typically produce an error message
 
 ## type resolution recursion:
-#experr 1: REC1 := REC2;
-#experr 0: REC2 := REC1;
+#experr 1: REC1 := REC2
+#experr 0: REC2 := REC1
 
 ## initializer recursion:
-#experr 1: REC3 : Int = REC4;
-#experr 0: REC4 : Int = REC3;
+#experr 1: REC3 : Int = REC4
+#experr 0: REC4 : Int = REC3
 
-#experr 1: REC5 := REC6;
-#experr 0: REC6 : Int = REC5;
+#experr 1: REC5 := REC6
+#experr 0: REC6 : Int = REC5
 
-#experr 1: REC7 : Int = REC8;
-#experr 0: REC8 := REC7;
+#experr 1: REC7 : Int = REC8
+#experr 0: REC8 := REC7
 
 
 ## corresponding test for virtual type members:
-type Compound : {
-    virtual OK : Int = 4;
+type Compound :
+    virtual OK : Int = 4
 
-    #experr 1: virtual RECA := RECB;
-    #experr 0: virtual RECB := RECA;
+    #experr 1: virtual RECA := RECB
+    #experr 0: virtual RECB := RECA
 
-    #experr 1: virtual RECC : Int = RECD;
-    #experr 0: virtual RECD : Int = RECC;
+    #experr 1: virtual RECC : Int = RECD
+    #experr 0: virtual RECD : Int = RECC
 
-    #experr 1: virtual RECE := RECF;
-    #experr 0: virtual RECF : Int = RECE;
+    #experr 1: virtual RECE := RECF
+    #experr 0: virtual RECF : Int = RECE
 
-    #experr 1: virtual RECG : Int = RECH;
-    #experr 0: virtual RECH := RECG;
-}
+    #experr 1: virtual RECG : Int = RECH
+    #experr 0: virtual RECH := RECG
 
 
-main() : {
-    assert CONSTANT + CONSTANT_EXPR == 18;
-    assert CONSTANT_EXPR2 == 22;
-    assert CONSTANT_EXPR3 == 27;
-    assert COPY == 17;
-    assert FIELDA == 17;
-    assert FIELDB == 17;
-    assert FIELDC == 19;
-    assert FIELDD == 19;
-    assert Compound.OK == 4;
-}
+
+main() :
+    assert CONSTANT + CONSTANT_EXPR == 18
+    assert CONSTANT_EXPR2 == 22
+    assert CONSTANT_EXPR3 == 27
+    assert COPY == 17
+    assert FIELDA == 17
+    assert FIELDB == 17
+    assert FIELDC == 19
+    assert FIELDD == 19
+    assert Compound.OK == 4
+

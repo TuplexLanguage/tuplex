@@ -1,92 +1,87 @@
 
-interface IntfA : {
-    abstract get_value()->Int;
+interface IntfA :
+    abstract get_value()->Int
 
     ## "mixin" or default-implementation interface methods:
     mixin_method_1()->Int : { return 1; }
     mixin_method_2()->Int : { return 2; }
-}
-
-interface IntfB <: IntfA : {         ## extends the interface IntfA
-    abstract set_value( v : Int )~;
-}
-
-type ~ MyType <: Tuple, IntfB : {    ## a Tuple type that implements IntfB
-    field : ~Int;
-
-    override get_value()->Int : {
-        return self.field;
-    }
-
-    override set_value( v : Int ) ~ : {
-        self.field = v;
-    }
-
-    override mixin_method_2()->Int : {
-        return 3;
-    }
-}
 
 
-func( r : &Any )->Int : {
+interface IntfB <: IntfA :    ## extends the interface IntfA
+    abstract set_value( v : Int )~
+
+
+type ~ MyType <: Tuple, IntfB :   ## a Tuple type that implements IntfB
+    field : ~Int
+
+    override get_value()->Int :
+        return self.field
+
+    override set_value( v : Int ) ~ :
+        self.field = v
+
+    override mixin_method_2()->Int :
+        return 3
+
+
+func( r : &Any )->Int :
     if r is i : &Int :
-        return i;
+        return i
 
     if r is f : &Float :
-        return -Int(f);
+        return -Int(f)
 
     #experr 2: if r^ is i : Int :  return i;  ## cast of non-reference
 
     ##experr 1: if r is a : &IntfA :  return a.get_value();  ## TODO: support cast to interface ref
 
-    return 0;
-}
+    return 0
 
-type_isa() : {
-    assert isa( _typeid{Elementary}, _typeid{Any} );
-    assert isa( _typeid{Integer}, _typeid{Elementary} );
-    assert isa( _typeid{Signed}, _typeid{Integer} );
-    assert isa( _typeid{Int}, _typeid{Signed} );
-    assert isa( _typeid{Int}, _typeid{Int} );
-    assert isa( _typeid{Int}, _typeid{Integer} );
-    assert isa( _typeid{Int}, _typeid{Elementary} );
-    assert isa( _typeid{Int}, _typeid{Any} );
-    assert isa( _typeid{Floatingpoint}, _typeid{Elementary} );
-    assert isa( _typeid{Float}, _typeid{Floatingpoint} );
-    assert isa( _typeid{Double}, _typeid{Floatingpoint} );
-    assert isa( _typeid{Bool}, _typeid{Elementary} );
-    assert isa( _typeid{Bool}, _typeid{Any} );
 
-    assert isa( _typeid{Ref}, _typeid{Any} );
-    assert isa( _typeid{&Int}, _typeid{Any} );
-    assert isa( _typeid{&Int}, _typeid{Ref} );
+type_isa() :
+    assert isa( _typeid{Elementary}, _typeid{Any} )
+    assert isa( _typeid{Integer}, _typeid{Elementary} )
+    assert isa( _typeid{Signed}, _typeid{Integer} )
+    assert isa( _typeid{Int}, _typeid{Signed} )
+    assert isa( _typeid{Int}, _typeid{Int} )
+    assert isa( _typeid{Int}, _typeid{Integer} )
+    assert isa( _typeid{Int}, _typeid{Elementary} )
+    assert isa( _typeid{Int}, _typeid{Any} )
+    assert isa( _typeid{Floatingpoint}, _typeid{Elementary} )
+    assert isa( _typeid{Float}, _typeid{Floatingpoint} )
+    assert isa( _typeid{Double}, _typeid{Floatingpoint} )
+    assert isa( _typeid{Bool}, _typeid{Elementary} )
+    assert isa( _typeid{Bool}, _typeid{Any} )
+
+    assert isa( _typeid{Ref}, _typeid{Any} )
+    assert isa( _typeid{&Int}, _typeid{Any} )
+    assert isa( _typeid{&Int}, _typeid{Ref} )
 
 /* TODO - support one way or other
-    assert isa( _typeid{&Int}, _typeid{&Signed} );
-    assert isa( _typeid{&Int}, _typeid{&Integer} );
-    assert isa( _typeid{&Int}, _typeid{&Elementary} );
-    assert isa( _typeid{&Int}, _typeid{&Any} );
+    assert isa( _typeid{&Int}, _typeid{&Signed} )
+    assert isa( _typeid{&Int}, _typeid{&Integer} )
+    assert isa( _typeid{&Int}, _typeid{&Elementary} )
+    assert isa( _typeid{&Int}, _typeid{&Any} )
 */
 
-    assert isa( _typeid{[0]Int}, _typeid{[]Int} );
-    assert isa( _typeid{[3]Int}, _typeid{[]Int} );
-    assert isa( _typeid{[3]Int}, _typeid{[3]Int} );
-    assert !isa( _typeid{[3]Int}, _typeid{[4]Int} );
-    assert !isa( _typeid{[]Int}, _typeid{[3]Int} );
+    assert isa( _typeid{[0]Int}, _typeid{[]Int} )
+    assert isa( _typeid{[3]Int}, _typeid{[]Int} )
+    assert isa( _typeid{[3]Int}, _typeid{[3]Int} )
+    assert !isa( _typeid{[3]Int}, _typeid{[4]Int} )
+    assert !isa( _typeid{[]Int}, _typeid{[3]Int} )
 
-    assert isa( _typeid{[3]~Int}, _typeid{[3]~Int} );
+    assert isa( _typeid{[3]~Int}, _typeid{[3]~Int} )
     assert !isa( _typeid{[3]Int}, _typeid{[3]~Int} );  ## immutable array can't pose as mutable
     assert !isa( _typeid{[3]~Int}, _typeid{[3]Int} );  ## FUTURE: support mutable spec posing as immutable
 
-    assert isa( _typeid{[3]&Int}, _typeid{[]&Int} );
-    assert isa( _typeid{[3]&Int}, _typeid{[3]&Int} );
-    
-    assert !isa( _typeid{[3]&Int}, _typeid{[3]&Integer} );  ## FUTURE: Support this, at least for immutable arrays?
-}
+    assert isa( _typeid{[3]&Int}, _typeid{[]&Int} )
+    assert isa( _typeid{[3]&Int}, _typeid{[3]&Int} )
 
-main()->Int : {
-    type_isa();
-    i : Int = 42;
-    f : Float = 3.14;
-    return func( f );
-}
+    assert !isa( _typeid{[3]&Int}, _typeid{[3]&Integer} );  ## FUTURE: Support this, at least for immutable arrays?
+
+
+main()->Int :
+    type_isa()
+    i : Int = 42
+    f : Float = 3.14
+    return func( f )

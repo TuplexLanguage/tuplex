@@ -3,222 +3,204 @@
 #########################################
 ## Basic case, single TYPE parameter:
 
-type Single{A} : {
-    amemb : A;
-}
+type Single{A} :
+    amemb : A
+
 
 ## test redeclarations:
 
-#experr 1: type SAliasE1 <: Single;
-#experr 1: type SAliasE2{A} <: Single;
+#experr 1: type SAliasE1 <: Single
+#experr 1: type SAliasE2{A} <: Single
 
-type SAlias{A} <: Single{A};
+type SAlias{A} <: Single{A}
 
-type SExt{A} <: Single{A} : {
-    foo : Float;
-}
+type SExt{A} <: Single{A} :
+    foo : Float
 
-type SAliasInt <: Single{Int};
 
-type SExtInt <: Single{Int} : {
-    foo : Float;
-}
+type SAliasInt <: Single{Int}
 
-test_single() : {
-    inst1 := Single{Int}( 42 );
-    inst2 := SAlias{Int}( 42 );
-    inst3 := SExt{Int}( 42, 3.14 );
+type SExtInt <: Single{Int} :
+    foo : Float
 
-    inst4 := SAliasInt( 42 );
-    inst5 := SExtInt( 42, 3.14 );
 
-    {
-        genref1 : &Single = &inst1;
-        genref2 : &Single = &inst2;
-        genref3 : &Single = &inst3;
-        genref4 : &Single = &inst4;
-        genref5 : &Single = &inst5;
-    }
+test_single() :
+    inst1 := Single{Int}( 42 )
+    inst2 := SAlias{Int}( 42 )
+    inst3 := SExt{Int}( 42, 3.14 )
 
-    {
-        iref1 : &Single{Int} = &inst1;
-        iref2 : &Single{Int} = &inst2;
-        iref3 : &Single{Int} = &inst3;
-        iref4 : &Single{Int} = &inst4;
-        iref5 : &Single{Int} = &inst5;
-    }
-}
+    inst4 := SAliasInt( 42 )
+    inst5 := SExtInt( 42, 3.14 )
+
+    genref1 : &Single = &inst1
+    genref2 : &Single = &inst2
+    genref3 : &Single = &inst3
+    genref4 : &Single = &inst4
+    genref5 : &Single = &inst5
+
+    iref1 : &Single{Int} = &inst1
+    iref2 : &Single{Int} = &inst2
+    iref3 : &Single{Int} = &inst3
+    iref4 : &Single{Int} = &inst4
+    iref5 : &Single{Int} = &inst5
 
 
 #########################################
 ## Two TYPE parameters:
 
-type ~ Duo{A,B} : {
-    amemb : A;
-    bmemb : B;
-}
+type ~ Duo{A,B} :
+    amemb : A
+    bmemb : B
+
 
 ## test redeclarations:
 
-#experr 2: type DAliasE1      <: Duo;
-#experr 2: type DAliasE2{A}   <: Duo;
-#experr 2: type DAliasE3{A,B} <: Duo;
-#experr 2: type DAliasE4{A}   <: Duo{A};
-#experr 2: type DAliasE5{A,B} <: Duo{A};
-#experr 1: type DAliasE6{A}   <: Duo{A,B};
+#experr 2: type DAliasE1      <: Duo
+#experr 2: type DAliasE2{A}   <: Duo
+#experr 2: type DAliasE3{A,B} <: Duo
+#experr 2: type DAliasE4{A}   <: Duo{A}
+#experr 2: type DAliasE5{A,B} <: Duo{A}
+#experr 1: type DAliasE6{A}   <: Duo{A,B}
 
-type DAlias{A,B} <: Duo{A,B};
+type DAlias{A,B} <: Duo{A,B}
 
-type DExt{A,B} <: Duo{A,B} : {
-    foo : Float;
-}
-
-type DAliasIF <: Duo{Int,Float};
-
-type DExtIF <: Duo{Int,Float} : {
-    foo : Float;
-}
-
-type DPart{A} <: Duo{A,Float};
-
-type DPExt{A} <: Duo{A,Float} : {
-    foo : Float;
-}
-
-type DPAliasIF <: DPart{Int};
-
-type DPExtIF <: DPExt{Int} : {
-    foo : Float;
-}
+type DExt{A,B} <: Duo{A,B} :
+    foo : Float
 
 
-test_duo() : {
-    inst1 := Duo{Int,Float}( 0, 0.0 );
-    inst2 := DAlias{Int,Float}( 0, 0.0 );
-    inst3 := DExt{Int,Float}( 0, 0.0, 0.0 );
+type DAliasIF <: Duo{Int,Float}
 
-    inst4 := DAliasIF( 0, 0.0 );
-    inst5 := DExtIF( 0, 0.0, 0.0 );
+type DExtIF <: Duo{Int,Float} :
+    foo : Float
 
-    inst6 := DPart{Int}( 0, 0.0 );
-    inst7 := DPExt{Int}( 0, 0.0, 0.0 );
-    inst8 := DPAliasIF( 0, 0.0 );
-    inst9 := DPExtIF( 0, 0.0, 0.0, 0.0 );
 
-    {
-        genref1 : &Duo = &inst1;
-        genref2 : &Duo = &inst2;
-        genref3 : &Duo = &inst3;
-        genref4 : &Duo = &inst4;
-        genref5 : &Duo = &inst5;
-        genref6 : &Duo = &inst6;
-        genref7 : &Duo = &inst7;
-        genref8 : &Duo = &inst8;
-        genref9 : &Duo = &inst9;
-    }
+type DPart{A} <: Duo{A,Float}
 
-    {
-        iref1 : &Duo{Int,Float} = &inst1;
-        iref2 : &Duo{Int,Float} = &inst2;
-        iref3 : &Duo{Int,Float} = &inst3;
-        iref4 : &Duo{Int,Float} = &inst4;
-        iref5 : &Duo{Int,Float} = &inst5;
-        iref6 : &Duo{Int,Float} = &inst6;
-        iref7 : &Duo{Int,Float} = &inst7;
-        iref8 : &Duo{Int,Float} = &inst8;
-        iref9 : &Duo{Int,Float} = &inst9;
-    }
-}
+type DPExt{A} <: Duo{A,Float} :
+    foo : Float
+
+
+type DPAliasIF <: DPart{Int}
+
+type DPExtIF <: DPExt{Int} :
+    foo : Float
+
+
+test_duo() :
+    inst1 := Duo{Int,Float}( 0, 0.0 )
+    inst2 := DAlias{Int,Float}( 0, 0.0 )
+    inst3 := DExt{Int,Float}( 0, 0.0, 0.0 )
+
+    inst4 := DAliasIF( 0, 0.0 )
+    inst5 := DExtIF( 0, 0.0, 0.0 )
+
+    inst6 := DPart{Int}( 0, 0.0 )
+    inst7 := DPExt{Int}( 0, 0.0, 0.0 )
+    inst8 := DPAliasIF( 0, 0.0 )
+    inst9 := DPExtIF( 0, 0.0, 0.0, 0.0 )
+
+    genref1 : &Duo = &inst1
+    genref2 : &Duo = &inst2
+    genref3 : &Duo = &inst3
+    genref4 : &Duo = &inst4
+    genref5 : &Duo = &inst5
+    genref6 : &Duo = &inst6
+    genref7 : &Duo = &inst7
+    genref8 : &Duo = &inst8
+    genref9 : &Duo = &inst9
+
+    iref1 : &Duo{Int,Float} = &inst1
+    iref2 : &Duo{Int,Float} = &inst2
+    iref3 : &Duo{Int,Float} = &inst3
+    iref4 : &Duo{Int,Float} = &inst4
+    iref5 : &Duo{Int,Float} = &inst5
+    iref6 : &Duo{Int,Float} = &inst6
+    iref7 : &Duo{Int,Float} = &inst7
+    iref8 : &Duo{Int,Float} = &inst8
+    iref9 : &Duo{Int,Float} = &inst9
 
 
 #########################################
 ## Multiple levels of TYPE parameters, immutable and mutable:
 
-type ImmFirst{ A, B, C } : {
-    amemb : A;
-    bmemb : B;
-    cmemb : C;
-}
-
-type ImmSecnd{B,C} <: ImmFirst{Int,B,C} : {
-}
-
-type ImmThird{C} <: ImmSecnd{UInt,C} : {
-}
-
-type ImmFourth <: ImmThird{Float} : {
-}
-
-test_immfourth() : {
-    inst := ImmFourth( 0, 0, 0.0 );
-    av : inst.A = -14000000I;
-    bv : inst.B = 3000000000UI;
-    cv : inst.C = 3.14;
-}
+type ImmFirst{ A, B, C } :
+    amemb : A
+    bmemb : B
+    cmemb : C
 
 
-type ~ First{ A, B, C } : {
-    amemb : A;
-    bmemb : B;
-    cmemb : C;
+type ImmSecnd{B,C} <: ImmFirst{Int,B,C} : { }
+
+type ImmThird{C} <: ImmSecnd{UInt,C} : { }
+
+type ImmFourth <: ImmThird{Float} : { }
+
+
+test_immfourth() :
+    inst := ImmFourth( 0, 0, 0.0 )
+    av : inst.A = -14000000I
+    bv : inst.B = 3000000000UI
+    cv : inst.C = 3.14
+
+
+type ~ First{ A, B, C } :
+    amemb : A
+    bmemb : B
+    cmemb : C
 
     method()->Int : { return 2; }
-}
 
-type ~ Secnd{B,C} <: First{~Int,B,C} : {
-    foo : Float;
-}
 
-type ~ Third{C} <: Secnd{~UInt,C} : {
-    foo : Float;
-}
+type ~ Secnd{B,C} <: First{~Int,B,C} :
+    foo : Float
 
-type ~ Fourth <: Third{~Float} : {
-    foo : Float;
-}
 
-test_fourth() : {
-    inst := ~Fourth( 0, 0, 0.0, 0.0, 0.0, 0.0 );
-    inst.amemb = -14000000I;
-    inst.bmemb = 3000000000UI;
-    inst.cmemb = 3.14;
-}
+type ~ Third{C} <: Secnd{~UInt,C} :
+    foo : Float
+
+
+type ~ Fourth <: Third{~Float} :
+    foo : Float
+
+
+test_fourth() :
+    inst := ~Fourth( 0, 0, 0.0, 0.0, 0.0, 0.0 )
+    inst.amemb = -14000000I
+    inst.bmemb = 3000000000UI
+    inst.cmemb = 3.14
 
 
 #########################################
 ## Redeclaration and recombining TYPE parameters:
 
-interface AnIf{C,D} : {
-    abstract get_c() -> C;
-    abstract get_d() -> D;
-}
+interface AnIf{C,D} :
+    abstract get_c() -> C
+    abstract get_d() -> D
 
-type ~ Combo{X,Y} <: Duo{X,Y}, AnIf{X,Y} : {
-    xmemb : X;
-    ymemb : Y;
+
+type ~ Combo{X,Y} <: Duo{X,Y}, AnIf{X,Y} :
+    xmemb : X
+    ymemb : Y
 
     override get_c() -> X : { return self.xmemb; }
     override get_d() -> Y : { return self.ymemb; }
-}
-
-test_combo( v : Int ) : {
-    mycombo := ~Combo{~Float,~Long}( 2.72, 17, 0.0, 0 );
-    mycombo.xmemb = 3.14 * Float(v);
-    mycombo.ymemb = 42 * v;
-    assert mycombo.amemb == 2.72;
-    assert mycombo.bmemb == 17;
-    assert mycombo.get_c() == 3.14;
-    assert mycombo.get_d() == 42;
-}
 
 
+test_combo( v : Int ) :
+    mycombo := ~Combo{~Float,~Long}( 2.72, 17, 0.0, 0 )
+    mycombo.xmemb = 3.14 * Float(v)
+    mycombo.ymemb = 42 * v
+    assert mycombo.amemb == 2.72
+    assert mycombo.bmemb == 17
+    assert mycombo.get_c() == 3.14
+    assert mycombo.get_d() == 42
 
-main() -> Int : {
-    test_single();
-    test_duo();
-    test_immfourth();
-    test_fourth();
-    test_combo( 1 );
 
-    return 0;
-}
+main() -> Int :
+    test_single()
+    test_duo()
+    test_immfourth()
+    test_fourth()
+    test_combo( 1 )
+
+    return 0

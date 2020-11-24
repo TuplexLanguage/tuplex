@@ -37,28 +37,18 @@ static TxToken inner_yylex( yy::TxParser::semantic_type* yylval,
 
             case TxTokenId::NEWLINE:
                 yylloc->lines( token.getSourceText().length());
-                // Any sequence of WHITESPACE, COMMENT mixed with at least one NEWLINE shall return a single NEWLINE.
-                // These NEWLINE tokens are then filtered based on context and only passed on if:
-                //   not in a bracket / paren block
+                // NEWLINE, INDENT, and DEDENT represent significant whitespace tokens.
+                // These tokens are only passed on if:
+                //   not in a paren / bracket / brace block
                 //   not on the same line as certain other non-whitespace tokens
-                if ( parserCtx->scanCtx->scopeStacks.back().closingToken != TxTokenId::RPAREN
-                     && parserCtx->scanCtx->scopeStacks.back().closingToken != TxTokenId::RBRACKET ) {
+                if ( parserCtx->scanCtx->scopeStack.back().closingToken != TxTokenId::RPAREN
+                     && parserCtx->scanCtx->scopeStack.back().closingToken != TxTokenId::RBRACKET
+                     && parserCtx->scanCtx->scopeStack.back().closingToken != TxTokenId::RBRACE ) {
                     if ( lastTokenLine == token.begin.line ) {
                         switch ( lastTokenId ) {
-                            case TxTokenId::LBRACE:
-                            case TxTokenId::LBRACKET:
-                            case TxTokenId::LPAREN:
-                            case TxTokenId::COLON:
                             case TxTokenId::COMMA:
                             case TxTokenId::SEMICOLON:
-                            case TxTokenId::WHITESPACE:
-                            case TxTokenId::KW_ELSE:  // since colon after else is optional
                                 break;
-                            case TxTokenId::RBRACE:
-                                if ( parserCtx->scanCtx->nl_after_rbrace() )
-                                    parserCtx->scanCtx->nl_after_rbrace( false );
-                                else
-                                    break;
                             default:
                                 lastTokenId = token.id;  // NEWLINE
                                 return token;
@@ -67,7 +57,7 @@ static TxToken inner_yylex( yy::TxParser::semantic_type* yylval,
                 }
                 break;
 
-            default:
+            default:  // non-empty token
                 yylloc->columns( token.getSourceText().length());
                 yylval->emplace<std::string>( token.getSourceText());
                 lastTokenId = token.id;
@@ -79,7 +69,7 @@ static TxToken inner_yylex( yy::TxParser::semantic_type* yylval,
 
 yy::TxParser::token_type yylex( yy::TxParser::semantic_type* yylval, yy::TxParser::location_type* yylloc, TxParserContext* parserCtx ) {
     auto token = inner_yylex( yylval, yylloc, parserCtx );
-    if ( parserCtx->driver().get_options().debug_scanner /* && parserCtx->is_user_source() */ ) {
+    if ( parserCtx->driver().get_options().debug_scanner && parserCtx->is_user_source() ) {
         std::cerr << "Returned token: " << token.str().c_str() << std::endl;
         switch ( token.id ) {
             case TxTokenId::LBRACE:

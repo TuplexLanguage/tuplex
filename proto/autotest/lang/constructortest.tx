@@ -1,41 +1,41 @@
 ## Tests constructors in user-defined types
 
-type EmptyTypeA derives Tuple;
+type EmptyTypeA derives Tuple
 
 type EmptyTypeB derives Tuple : { }
 
-type EmptyTypeC derives Tuple : {
-    self() : {
-        #experr 1: #init();
-        #init;
-    }
-}
+type EmptyTypeC derives Tuple :
+    self() :
+        #experr 1: #init()
+        #init
 
-type EmptyTypeD derives Tuple : {
-    self() : {
-        #init: super();
-    }
-    self( dummy : Bool ) : {
-        ##experr 1: #self;
-        #self();
-    }
-}
 
-type ~Upper : {
-    virtual FOO : Int = 14;
-    _e : ~Float = 345.67;
-    _f : Int;
-}
 
-type ~Lower derives Upper : {
+type EmptyTypeD derives Tuple :
+    self() :
+        #init: super()
+
+    self( dummy : Bool ) :
+        ##experr 1: #self
+        #self()
+
+
+
+type ~Upper :
+    virtual FOO : Int = 14
+    _e : ~Float = 345.67
+    _f : Int
+
+
+type ~Lower derives Upper :
     #experr 1: virtual ERR : Int;  ## missing initializer
-    virtual BAR : Int = 19;
+    virtual BAR : Int = 19
     _f : ~Int;  ## modifiable _f that shadows parent non-mod _f
-    _g : Int;
-    _h : Int = 4;
+    _g : Int
+    _h : Int = 4
 
-    self( i : Int, j : Int, k : Int ) : {
-        #init: super(i), _f(j), _g(k);
+    self( i : Int, j : Int, k : Int ) :
+        #init: super(i), _f(j), _g(k)
         #experr 2: #init: _f(j), _g(k);  ## missing super(Int)
         #experr 2: #init: super(i), _f(j);  ## missing member init
         #experr 2: #init: super(i), _g(j);  ## missing member init
@@ -45,122 +45,122 @@ type ~Lower derives Upper : {
         #experr 2: #init: super(i), _f(j), _g(k), _h(i);  ## can't initialize _h which has direct initializer
         #experr 3: #init: super(i), _f(j), _g(k), foobar(i);  ## unknown field
         #experr 1: #self: super(i), _f(j), _g(k);  ## wrong keyword
-    }
-    self( i : Int ) : {
-        #init: self( i, i, i);
+
+    self( i : Int ) :
+        #init: self( i, i, i)
         ## can't combine self() and other initializers:
-        #experr 2: #init: self( i, i, i), super(i);
-        #experr 2: #init: self( i, i, i), _f(i);
-        #experr 2: #init: self( i, i, i), super(i), _f(i), _g(i);
-        #experr 4: #init: super(i), self( i, i, i);
-        #experr 4: #init: super(i), _f(j), _g(k), self( i, i, i);
-    }
-    self( b : Bool ) : {
-        #init: super(1), _f(1), _g(1);
+        #experr 2: #init: self( i, i, i), super(i)
+        #experr 2: #init: self( i, i, i), _f(i)
+        #experr 2: #init: self( i, i, i), super(i), _f(i), _g(i)
+        #experr 4: #init: super(i), self( i, i, i)
+        #experr 4: #init: super(i), _f(j), _g(k), self( i, i, i)
+
+    self( b : Bool ) :
+        #init: super(1), _f(1), _g(1)
         #experr 2: #init: super(b), _f(1), _g(1);     ## wrong arguments to super()
         #experr 2: #init: super(1, 1), _f(1), _g(1);  ## wrong arguments to super()
         #experr 2: #init: super(), _f(1), _g(1);      ## wrong arguments to super()
-    }
 
-    get_f() -> Int : {
+
+    get_f() -> Int :
         #experr 1: #self( 17, 17, 17 );  ## can't invoke from regular method
         #experr 1: #init: self( 17, 17, 17 );  ## can't invoke from regular method
-        return self._f;
-    }
+        return self._f
 
-    set_f( f : Int) ~ : {
+
+    set_f( f : Int) ~ :
         #experr 1: #self( 17, 17, 17 );  ## can't invoke from regular method
         #experr 1: #init: self( 17, 17, 17 );  ## can't invoke from regular method
-        self._f = f;
-    }
-}
+        self._f = f
 
-type Bottom derives Lower : {
-    _i : Int = 5;
-    _j : Int;
 
-    self( j : Int ) : {
+
+type Bottom derives Lower :
+    _i : Int = 5
+    _j : Int
+
+    self( j : Int ) :
         #experr 1: assert self._j == j;   ## self not available before init
         #experr 1: assert super._g == j;  ## super not available before init
         #experr 1: assert $self._j == j;  ## $self inaccessible from source code
         #experr 1: assert $super._g == j; ## $super inaccessible from source code
-        #init: super( j, j, j), _j( j );
-        assert self._j == j;
-        assert super._g == j;
+        #init: super( j, j, j), _j( j )
+        assert self._j == j
+        assert super._g == j
         #experr 1: assert super._j == j;  ## own member not accessible via super
         #experr 1: #init: super( j, j, j), _j( j );  ## can't invoke more than once
-    }
 
-    self( f : Float ) : {
-        x := Int( f );
+
+    self( f : Float ) :
+        x := Int( f )
         #experr 1: assert self._j == x;   ## self not available before init
         #experr 1: assert super._g == x;  ## super not available before init
         #experr 1: assert $self._j == x;  ## $self inaccessible from source code
         #experr 1: assert $super._g == x; ## $super inaccessible from source code
-        #self( x );
-        assert self._j == x;
-        assert super._g == x;
+        #self( x )
+        assert self._j == x
+        assert super._g == x
         #experr 1: assert super._j == x;  ## own member not accessible via super
 
         #experr 1: #self( x );           ## can't invoke more than once
-    }
 
-    self( d : Double ) : {
-        x := Int( d );
-        #init: self( x );
+
+    self( d : Double ) :
+        x := Int( d )
+        #init: self( x )
         #experr 2: #init: super( x ), _i( x ), _j( x );  ## can't initialize _i which has direct initializer
-        assert self._j == x;
-        assert self._i == 5;
-        assert self._h == 4;
-        assert self._g == x;
-        assert self._f == x;
-        assert self._e == 345.67;
-    }
+        assert self._j == x
+        assert self._i == 5
+        assert self._h == 4
+        assert self._g == x
+        assert self._f == x
+        assert self._e == 345.67
+
 
     #experr 1: self( b : Bool ) : { }  ## missing invokation of other constructor/initializer
 
-    #experr 1: self( b1 : Bool, b2 : Bool ) : {
+    #experr 1: self( b1 : Bool, b2 : Bool ) :
         ## non-guaranteed invokation of other constructor:
-        if b1 : {
+        if b1 :
             if b2:
-                #self( 1 );
-        }
+                #self( 1 )
+
         else
-            #self( 2 );
-    }
+            #self( 2 )
 
-    self( r : &Int ) : {
-        #init: super( r^, r^, r^), _j( r^ );
-    }
 
-    get_i() -> Int : {
+    self( r : &Int ) :
+        #init: super( r^, r^, r^), _j( r^ )
+
+
+    get_i() -> Int :
         #experr 1: #self( 17 );  ## can't invoke from regular method
-        return self._j;
-    }
-}
+        return self._j
 
-type EmptyUpper derives Upper;
+
+
+type EmptyUpper derives Upper
 
 ## test super invocation "via" an empty intermediate type:
-type SubEmptyUpper derives EmptyUpper : {
-    _k : Float;
-    self( k : Float ) : {
-        #init: super( Int(k) ), _k( k );
-    }
-}
+type SubEmptyUpper derives EmptyUpper :
+    _k : Float
+    self( k : Float ) :
+        #init: super( Int(k) ), _k( k )
+
+
 
 ## test implicit constructor generation incl. super invocation "via" an empty intermediate type:
-type ImplSubEmptyUpper derives EmptyUpper : {
-    _k : Float;
-}
+type ImplSubEmptyUpper derives EmptyUpper :
+    _k : Float
 
-test_tuples() : {
-    t := Tuple();
-    ta := EmptyTypeA();
-    tb := EmptyTypeB();
-    tc := EmptyTypeC();
-    td0 := EmptyTypeD();
-    td1 := EmptyTypeD(TRUE);
+
+test_tuples() :
+    t := Tuple()
+    ta := EmptyTypeA()
+    tb := EmptyTypeB()
+    tc := EmptyTypeC()
+    td0 := EmptyTypeD()
+    td1 := EmptyTypeD(TRUE)
 
     u := Upper( 1 );       ## user invokation of implicit constructor
     l := Lower( 1, 2, 3 ); ## user invokation of explicit constructor
@@ -173,163 +173,163 @@ test_tuples() : {
     #experr 1: be := Bottom( 1, 2, 3, 4 );  ## unavailable since user constructor is provided
 
     b2 := Bottom( 3.14 );  ## user invokation of explicit constructor
-    assert b2._j == 3;
-    assert b2._i == 5;
-    assert b2._h == 4;
-    assert b2._g == 3;
-    assert b2._f == 3;
-    assert b2._e == 345.67;
+    assert b2._j == 3
+    assert b2._i == 5
+    assert b2._h == 4
+    assert b2._g == 3
+    assert b2._f == 3
+    assert b2._e == 345.67
 
-    s := SubEmptyUpper( 2.72 );
-    assert s._k == 2.72;
-    assert s._f == 2;
+    s := SubEmptyUpper( 2.72 )
+    assert s._k == 2.72
+    assert s._f == 2
 
-    si := ImplSubEmptyUpper( 2, 2.72 );
-    assert si._k == 2.72;
-    assert si._f == 2;
-}
+    si := ImplSubEmptyUpper( 2, 2.72 )
+    assert si._k == 2.72
+    assert si._f == 2
 
 
-type CustomIntA derives Int;
+
+type CustomIntA derives Int
 
 type CustomIntB derives Int : { }
 
-type CustomIntC derives Int : {
-    self() : {
-        #init;
-    }
-    self( i : Int ) : {
-        #init: super( i );
-    }
-}
+type CustomIntC derives Int :
+    self() :
+        #init
 
-test_elementary() : {
-    ia0 := CustomIntA();
-    ib0 := CustomIntB();
-    ic0 := CustomIntC();
-    ia1 := CustomIntA(3);
-    ib1 := CustomIntB(3);
-    ic1 := CustomIntC(3);
-    assert ia0 == 0;
-    assert ib0 == 0;
-    assert ic0 == 0;
-    assert ia1 == 3;
-    assert ib1 == 3;
-    assert ic1 == 3;
-}
+    self( i : Int ) :
+        #init: super( i )
 
 
-type Triple{E} derives Array{E,3} : {
-    self( a : E, b : E, c : E ) : {
-        #init: super( a, b, c );
-    }
-    self() : {
-        #init: super();
-    }
-}
 
-test_arrays() : {
-    t0 := Triple{Int}();
-    assert t0.C == 3;
-    assert t0.L == 0;
-    assert t0 == [0]Int();
+test_elementary() :
+    ia0 := CustomIntA()
+    ib0 := CustomIntB()
+    ic0 := CustomIntC()
+    ia1 := CustomIntA(3)
+    ib1 := CustomIntB(3)
+    ic1 := CustomIntC(3)
+    assert ia0 == 0
+    assert ib0 == 0
+    assert ic0 == 0
+    assert ia1 == 3
+    assert ib1 == 3
+    assert ic1 == 3
 
-    t1 := Triple{Int}( 1, 2, 3 );
-    assert t1.C == 3;
-    assert t1.L == 3;
-    assert t1 == [ 1I, 2, 3 ];
-}
+
+
+type Triple{E} derives Array{E,3} :
+    self( a : E, b : E, c : E ) :
+        #init: super( a, b, c )
+
+    self() :
+        #init: super()
+
+
+
+test_arrays() :
+    t0 := Triple{Int}()
+    assert t0.C == 3
+    assert t0.L == 0
+    assert t0 == [0]Int()
+
+    t1 := Triple{Int}( 1, 2, 3 )
+    assert t1.C == 3
+    assert t1.L == 3
+    assert t1 == [ 1I, 2, 3 ]
+
 
 /** tests stack and heap construction of elemenatary values */
-elementary_construction()->Int : {
-    stackBool := Bool(FALSE);
-    heapBool := new Bool(TRUE);
-    assert stackBool == FALSE;
-    assert heapBool^ == TRUE;
+elementary_construction()->Int :
+    stackBool := Bool(FALSE)
+    heapBool := new Bool(TRUE)
+    assert stackBool == FALSE
+    assert heapBool^ == TRUE
 
-    stackInt := Int(-1);
-    heapInt := new Int(2);
-    assert stackInt == -1;
-    assert heapInt^ == 2;
+    stackInt := Int(-1)
+    heapInt := new Int(2)
+    assert stackInt == -1
+    assert heapInt^ == 2
 
-    stackDouble := Double(-123.456);
-    heapDouble := new Double(3.141592);
-    assert stackDouble == -123.456;
-    assert heapDouble^ == 3.141592;
+    stackDouble := Double(-123.456)
+    heapDouble := new Double(3.141592)
+    assert stackDouble == -123.456
+    assert heapDouble^ == 3.141592
 
-    heapVar : &~Int = new ~Int(0);
-    heapVar^ = 2;
-    assert heapVar^ == 2;
+    heapVar : &~Int = new ~Int(0)
+    heapVar^ = 2
+    assert heapVar^ == 2
 
-    stackVar := Float(2.71);
-    assert stackVar == 2.71;
+    stackVar := Float(2.71)
+    assert stackVar == 2.71
 
     ## default value initialization
-    stackB := Bool();
-    heapB := new Bool();
-    stackI := Int();
-    heapI := new Int();
-    stackD := Double();
-    heapD := new Double();
-    assert !stackB;
-    assert !heapB^;
-    assert stackI == 0;
-    assert heapI^ == 0;
-    assert stackD == 0.0;
-    assert heapD^ == 0.0;
-    return heapVar^;
-}
+    stackB := Bool()
+    heapB := new Bool()
+    stackI := Int()
+    heapI := new Int()
+    stackD := Double()
+    heapD := new Double()
+    assert !stackB
+    assert !heapB^
+    assert stackI == 0
+    assert heapI^ == 0
+    assert stackD == 0.0
+    assert heapD^ == 0.0
+    return heapVar^
+
 
 ## Note: We don't support user derivations of Ref:
-##type CustomRef{T} derives Ref{T};
-##type CustomIntRef derives Ref{Int};
+##type CustomRef{T} derives Ref{T}
+##type CustomIntRef derives Ref{Int}
 
-CONSTANT : Int = 311;
+CONSTANT : Int = 311
 
-interface Face : {
-    abstract get_int()->Int;
-}
+interface Face :
+    abstract get_int()->Int
 
-type Container derives Tuple, Face : {
-    ref0 : &Int = &CONSTANT;
-    ref1 : &Int;
-    ref2 : &Face;
 
-    self( ri : &Int ) : {
-        #init: ref1( ri ), ref2( self );
-    }
-    self( ri : &Int, rc : &Face ) : {
-        #init: ref1( ri ), ref2( rc );
-    }
+type Container derives Tuple, Face :
+    ref0 : &Int = &CONSTANT
+    ref1 : &Int
+    ref2 : &Face
 
-    override get_int()->Int : {
-        return self.ref1;
-    }
-}
+    self( ri : &Int ) :
+        #init: ref1( ri ), ref2( self )
 
-ref_construction() : {
-    ## Note: we curently don't support Ref constructor invokation via & operator:  r := &Int( &i );
-    i : Int = 42;
-    j : Int = 42;
-    r0 := &i;
-    r1 := Ref{Int}( i );
-    r2 := Ref{Int}( j );
-    assert r0 == r1;
-    assert r1 != r2;
-    #experr 1: re := Ref{Float}( i );
+    self( ri : &Int, rc : &Face ) :
+        #init: ref1( ri ), ref2( rc )
 
-    f : Float = 3.14;
-    c1 := Container( i );
-    c2 := Container( j, c1 );
-    #experr 1: ce := Container( f, c1 );
-    assert c2.ref2.get_int() == 42;
-}
 
-main() -> Int : {
-    test_tuples();
-    test_elementary();
-    test_arrays();
-    elementary_construction();
-    ref_construction();
-    return 0;
-}
+    override get_int()->Int :
+        return self.ref1
+
+
+
+ref_construction() :
+    ## Note: we curently don't support Ref constructor invokation via & operator:  r := &Int( &i )
+    i : Int = 42
+    j : Int = 42
+    r0 := &i
+    r1 := Ref{Int}( i )
+    r2 := Ref{Int}( j )
+    assert r0 == r1
+    assert r1 != r2
+    #experr 1: re := Ref{Float}( i )
+
+    f : Float = 3.14
+    c1 := Container( i )
+    c2 := Container( j, c1 )
+    #experr 1: ce := Container( f, c1 )
+    assert c2.ref2.get_int() == 42
+
+
+main() -> Int :
+    test_tuples()
+    test_elementary()
+    test_arrays()
+    elementary_construction()
+    ref_construction()
+    return 0
+

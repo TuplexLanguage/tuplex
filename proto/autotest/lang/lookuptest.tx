@@ -1,181 +1,181 @@
 ## Tests symbol name lookup semantics.
 
-module my;
+module my
 
-MULTI : Int = 10;
+MULTI : Int = 10
 
-type ~ MultiType : {
-    virtual INNER : Int = 640;
-    imember : ~Int;
-}
+type ~ MultiType :
+    virtual INNER : Int = 640
+    imember : ~Int
 
 
-type ~ BaseType : {
-    virtual MULTI : Int = 20;
 
-    type ~ MultiType : {
-        virtual INNER : Int = 80;
-        imember : ~Int;
-    }
+type ~ BaseType :
+    virtual MULTI : Int = 20
+
+    type ~ MultiType :
+        virtual INNER : Int = 80
+        imember : ~Int
+
     
-    type ~ InnerType : {
-        virtual INNER : Int = 160;
-    }
+    type ~ InnerType :
+        virtual INNER : Int = 160
+
     
-    bmember : Float;
-}
+    bmember : Float
 
-type ~ SubType derives BaseType : {
-    type ~ InnerType : {
-        virtual INNER : Int = 320;
-    }
+
+type ~ SubType derives BaseType :
+    type ~ InnerType :
+        virtual INNER : Int = 320
+
     
 
-    virtual override MULTI : Int = 40;
+    virtual override MULTI : Int = 40
 
-    virtual SUBMEMBER : Int = MULTI;
+    virtual SUBMEMBER : Int = MULTI
     
-    instmember : Int;
+    instmember : Int
 
-    tup : ~MultiType;
+    tup : ~MultiType
 
-    self( memb : Int ) : {
-        #init: super( 3.14 ), instmember( -1 ), tup( memb );
-    }
-
-    self( init : MultiType ) : {
-        #init: super( 3.14 ), instmember( -1 ), tup( init.imember );
-    }
-
-    self() : {
-        #init: super( 3.14 ), instmember( -1 ), tup( MULTI );
-    }
-
-    get_imember() -> Int : {
-        return self.tup.imember;
-    }
-
-    set_imember( memb : Int ) ~ : {
-        self.tup.imember = memb;
-    }
-
-    methodtest() : {
-        assert MULTI == 40;
-        assert self.MULTI == 40;
-        assert super.MULTI == 20;
-        assert SubType.MULTI == 40;
-        assert BaseType.MULTI == 20;
-        assert my.MULTI == 10;
-        assert #.MULTI == 10;
-        assert SubType.#.MULTI == 10;
-        assert BaseType.#.MULTI == 10;
-
-        assert SUBMEMBER == 40;
-        assert self.SUBMEMBER == 40;
-        assert SubType.SUBMEMBER == 40;
-        #experr 1: assert super.SUBMEMBER >= 0;
-        #experr 1: assert BaseType.SUBMEMBER >= 0;
-
-        #experr 1: assert instmember == -1;
-        assert self.instmember == -1;
-        #experr 1: assert super.instmember == -1;
-        #experr 1: assert SubType.instmember == -1;
-        #experr 1: assert SuperType.instmember == -1;
-
-        assert self.tup.imember >= 0;
-        assert self.tup.INNER == 80;
-        assert MultiType.INNER == 80;
-        assert SubType.MultiType.INNER == 80;
-        assert BaseType.MultiType.INNER == 80;
-        assert super.MultiType.INNER == 80;
-        assert my.MultiType.INNER == 640;
-
-        assert InnerType.INNER == 320;
-        assert self.InnerType.INNER == 320;
-        assert SubType.InnerType.INNER == 320;
-        assert super.InnerType.INNER == 160;
-        assert BaseType.InnerType.INNER == 160;
-    }
-
-    virtual innerfunctest() : {
-        assert MULTI == 40;
-        #experr 1: assert self.MULTI == 40;
-        #experr 1: assert super.MULTI == 20;
-        assert SubType.MULTI == 40;
-        assert BaseType.MULTI == 20;
-        assert my.MULTI == 10;
-
-        assert SUBMEMBER == 40;
-        #experr 1: assert self.SUBMEMBER == 40;
-        assert SubType.SUBMEMBER == 40;
-        #experr 1: assert super.SUBMEMBER >= 0;
-        #experr 1: assert BaseType.SUBMEMBER >= 0;
-
-        #experr 1: assert instmember == -1;
-        #experr 1: assert self.instmember == -1;
-        #experr 1: assert super.instmember == -1;
-        #experr 1: assert SubType.instmember == -1;
-        #experr 1: assert SuperType.instmember == -1;
-
-        #experr 1: assert self.tup.imember >= 0;
-        #experr 1: assert self.tup.INNER == 80;
-        assert MultiType.INNER == 80;
-        assert SubType.MultiType.INNER == 80;
-        assert BaseType.MultiType.INNER == 80;
-        #experr 1: assert super.MultiType.INNER == 80;
-        assert my.MultiType.INNER == 640;
-
-        assert InnerType.INNER == 320;
-        #experr 1: assert self.InnerType.INNER == 320;
-        assert SubType.InnerType.INNER == 320;
-        #experr 1: assert super.InnerType.INNER == 160;
-        assert BaseType.InnerType.INNER == 160;
-    }
-}
+    self( memb : Int ) :
+        #init: super( 3.14 ), instmember( -1 ), tup( memb )
 
 
-outerfunctest() : {
-    assert MULTI == 10;
-    #experr 1: assert self.MULTI == 40;
-    #experr 1: assert super.MULTI == 20;
-    assert SubType.MULTI == 40;
-    assert BaseType.MULTI == 20;
-    assert my.MULTI == 10;
+    self( init : MultiType ) :
+        #init: super( 3.14 ), instmember( -1 ), tup( init.imember )
 
-    #experr 1: assert SUBMEMBER == 40;
-    #experr 1: assert self.SUBMEMBER == 40;
-    assert SubType.SUBMEMBER == 40;
-    #experr 1: assert super.SUBMEMBER >= 0;
-    #experr 1: assert BaseType.SUBMEMBER >= 0;
 
-    #experr 1: assert instmember == -1;
-    #experr 1: assert self.instmember == -1;
-    #experr 1: assert super.instmember == -1;
-    #experr 1: assert SubType.instmember == -1;
-    #experr 1: assert SuperType.instmember == -1;
+    self() :
+        #init: super( 3.14 ), instmember( -1 ), tup( MULTI )
 
-    #experr 1: assert self.tup.imember >= 0;
-    #experr 1: assert self.tup.INNER == 80;
-    assert MultiType.INNER == 640;
-    assert SubType.MultiType.INNER == 80;
-    assert BaseType.MultiType.INNER == 80;
-    #experr 1: assert super.MultiType.INNER == 80;
-    assert my.MultiType.INNER == 640;
 
-    #experr 1: assert InnerType.INNER == 320;
-    #experr 1: assert self.InnerType.INNER == 320;
-    assert SubType.InnerType.INNER == 320;
-    #experr 1: assert super.InnerType.INNER == 160;
-    assert BaseType.InnerType.INNER == 160;
-}
+    get_imember() -> Int :
+        return self.tup.imember
 
-main()->Int : {
-    init := ~BaseType.MultiType( 0 );
-    init.imember = 3;
 
-    subvar := SubType();
-    subvar.innerfunctest();
-    outerfunctest();
+    set_imember( memb : Int ) ~ :
+        self.tup.imember = memb
 
-    return Int( subvar.get_imember() );
-}
+
+    methodtest() :
+        assert MULTI == 40
+        assert self.MULTI == 40
+        assert super.MULTI == 20
+        assert SubType.MULTI == 40
+        assert BaseType.MULTI == 20
+        assert my.MULTI == 10
+        assert #.MULTI == 10
+        assert SubType.#.MULTI == 10
+        assert BaseType.#.MULTI == 10
+
+        assert SUBMEMBER == 40
+        assert self.SUBMEMBER == 40
+        assert SubType.SUBMEMBER == 40
+        #experr 1: assert super.SUBMEMBER >= 0
+        #experr 1: assert BaseType.SUBMEMBER >= 0
+
+        #experr 1: assert instmember == -1
+        assert self.instmember == -1
+        #experr 1: assert super.instmember == -1
+        #experr 1: assert SubType.instmember == -1
+        #experr 1: assert SuperType.instmember == -1
+
+        assert self.tup.imember >= 0
+        assert self.tup.INNER == 80
+        assert MultiType.INNER == 80
+        assert SubType.MultiType.INNER == 80
+        assert BaseType.MultiType.INNER == 80
+        assert super.MultiType.INNER == 80
+        assert my.MultiType.INNER == 640
+
+        assert InnerType.INNER == 320
+        assert self.InnerType.INNER == 320
+        assert SubType.InnerType.INNER == 320
+        assert super.InnerType.INNER == 160
+        assert BaseType.InnerType.INNER == 160
+
+
+    virtual innerfunctest() :
+        assert MULTI == 40
+        #experr 1: assert self.MULTI == 40
+        #experr 1: assert super.MULTI == 20
+        assert SubType.MULTI == 40
+        assert BaseType.MULTI == 20
+        assert my.MULTI == 10
+
+        assert SUBMEMBER == 40
+        #experr 1: assert self.SUBMEMBER == 40
+        assert SubType.SUBMEMBER == 40
+        #experr 1: assert super.SUBMEMBER >= 0
+        #experr 1: assert BaseType.SUBMEMBER >= 0
+
+        #experr 1: assert instmember == -1
+        #experr 1: assert self.instmember == -1
+        #experr 1: assert super.instmember == -1
+        #experr 1: assert SubType.instmember == -1
+        #experr 1: assert SuperType.instmember == -1
+
+        #experr 1: assert self.tup.imember >= 0
+        #experr 1: assert self.tup.INNER == 80
+        assert MultiType.INNER == 80
+        assert SubType.MultiType.INNER == 80
+        assert BaseType.MultiType.INNER == 80
+        #experr 1: assert super.MultiType.INNER == 80
+        assert my.MultiType.INNER == 640
+
+        assert InnerType.INNER == 320
+        #experr 1: assert self.InnerType.INNER == 320
+        assert SubType.InnerType.INNER == 320
+        #experr 1: assert super.InnerType.INNER == 160
+        assert BaseType.InnerType.INNER == 160
+
+
+
+
+outerfunctest() :
+    assert MULTI == 10
+    #experr 1: assert self.MULTI == 40
+    #experr 1: assert super.MULTI == 20
+    assert SubType.MULTI == 40
+    assert BaseType.MULTI == 20
+    assert my.MULTI == 10
+
+    #experr 1: assert SUBMEMBER == 40
+    #experr 1: assert self.SUBMEMBER == 40
+    assert SubType.SUBMEMBER == 40
+    #experr 1: assert super.SUBMEMBER >= 0
+    #experr 1: assert BaseType.SUBMEMBER >= 0
+
+    #experr 1: assert instmember == -1
+    #experr 1: assert self.instmember == -1
+    #experr 1: assert super.instmember == -1
+    #experr 1: assert SubType.instmember == -1
+    #experr 1: assert SuperType.instmember == -1
+
+    #experr 1: assert self.tup.imember >= 0
+    #experr 1: assert self.tup.INNER == 80
+    assert MultiType.INNER == 640
+    assert SubType.MultiType.INNER == 80
+    assert BaseType.MultiType.INNER == 80
+    #experr 1: assert super.MultiType.INNER == 80
+    assert my.MultiType.INNER == 640
+
+    #experr 1: assert InnerType.INNER == 320
+    #experr 1: assert self.InnerType.INNER == 320
+    assert SubType.InnerType.INNER == 320
+    #experr 1: assert super.InnerType.INNER == 160
+    assert BaseType.InnerType.INNER == 160
+
+
+main()->Int :
+    init := ~BaseType.MultiType( 0 )
+    init.imember = 3
+
+    subvar := SubType()
+    subvar.innerfunctest()
+    outerfunctest()
+
+    return Int( subvar.get_imember() )
+

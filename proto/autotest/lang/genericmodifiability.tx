@@ -1,99 +1,88 @@
 ## Tests modifiability in combination with generic type parameters for user types
 
-type ImmutableType{M,N} : {
-    mfield : M;
-    nfield : N;
+type ImmutableType{M,N} :
+    mfield : M
+    nfield : N
     #experr 2: efield : ~M;  ## can't declare modifiable member on immutable type
 
-    self( m : M, n : N ) : {
-        #init: mfield( m ), nfield( n );
-    }
-    self( s : Self ) : {
-        #init: mfield( s.mfield ), nfield( s.nfield );
-    }
+    self( m : M, n : N ) :
+        #init: mfield( m ), nfield( n )
 
-    get_m()->M : {
+    self( s : Self ) :
+        #init: mfield( s.mfield ), nfield( s.nfield )
+
+    get_m()->M :
         #experr 1: self.efield = self.mfield;  ## method is not modifying; field is not modifiable
-        return self.mfield;
-    }
+        return self.mfield
 
-    #experr 2: set_n( n : N ) ~ : {  ## can't declare modifying method on immutable type
+    #experr 2: set_n( n : N ) ~ :  ## can't declare modifying method on immutable type
         #experr 0: self.nfield = n;    ## field is not modifiable
-    }
-}
 
-type StillImmType <: ImmutableType{~Int,~Float};  ## stays immutable although type bindings are mutable 
+
+
+type StillImmType <: ImmutableType{~Int,~Float};  ## stays immutable although type bindings are mutable
 
 ## can't derive mutable type from immutable base type:
-#experr 1: type ~ BadSyntax       derives ~ImmutableType{~Int,~Float};
-#experr 1: type ~ BadMutType1     derives ImmutableType{~Int,~Float};
-#experr 1: type ~ BadMutType2     derives ImmutableType{Int,Float};
-#experr 1: type ~ BadMutType3     derives StillImmType;
+#experr 1: type ~ BadSyntax       derives ~ImmutableType{~Int,~Float}
+#experr 1: type ~ BadMutType1     derives ImmutableType{~Int,~Float}
+#experr 1: type ~ BadMutType2     derives ImmutableType{Int,Float}
+#experr 1: type ~ BadMutType3     derives StillImmType
 #experr 1: type ~ AlsoBadSyntax   derives ~ImmutableType{~Float,~Int} : { }
 #experr 1: type ~ AlsoBadMutType1 derives ImmutableType{~Float,~Int} : { }
 #experr 1: type ~ AlsoBadMutType2 derives ImmutableType{Float,Int} : { }
 #experr 1: type ~ AlsoBadMutType3 derives StillImmType : { }
 
-type ~ GType{S,T,U} : {
-    sfield : S;
-    tfield : T;
-    ufield : U;
+type ~ GType{S,T,U} :
+    sfield : S
+    tfield : T
+    ufield : U
     ## TODO: add arrays of S and T
 
-    get_s()->S : {
-        #experr: self.sfield = 5;
-        return self.sfield;
-    }
+    get_s()->S :
+        #experr: self.sfield = 5
+        return self.sfield
 
-    get_t()->T : {
-        #experr: self.tfield = 6.3;
-        return self.tfield;
-    }
+    get_t()->T :
+        #experr: self.tfield = 6.3
+        return self.tfield
 
-    get_u()->U : {
-        #experr: self.ufield = TRUE;
-        return self.ufield;
-    }
+    get_u()->U :
+        #experr: self.ufield = TRUE
+        return self.ufield
 
-    set_s( s : S ) ~ : {
-        self.sfield = s;
-    }
+    set_s( s : S ) ~ :
+        self.sfield = s
 
-    set_t( t : T ) ~ : {
-        self.tfield = t;
-    }
-}
+    set_t( t : T ) ~ :
+        self.tfield = t
 
-main()->Int : {
-    type ImmSpec  <: GType{Int,Float,Bool};
-    type ~MutSpec <: GType{~Int,~Float,Bool};
+
+main()->Int :
+    type ImmSpec  <: GType{Int,Float,Bool}
+    type ~MutSpec <: GType{~Int,~Float,Bool}
     type ImmSpec2  <: GType{Float,Float,Bool} : { }
     type ~MutSpec2 <: GType{~Float,~Float,Bool} : { }
-    #experr 1: type BadSyntax <: ~GType{~Int,~Float,Bool};
-    #experr 2: type ~BadSpec <: GType{Int,Float,Bool};
+    #experr 1: type BadSyntax <: ~GType{~Int,~Float,Bool}
+    #experr 2: type ~BadSpec <: GType{Int,Float,Bool}
     #experr 1: type AlsoBadSyntax <: ~GType{~Float,~Int,Bool} : { }
     #experr 2: type ~AlsoBadSpec <: GType{Float,Int,Bool} : { }
 
-    {
-        nonmodI := GType{Int,Float,Bool}( 2, 3.14, TRUE );
-        smodI   := GType{~Int,Float,Bool}( 2, 3.14, TRUE );
-        tmodI   := GType{Int,~Float,Bool}( 2, 3.14, TRUE );
-        allmodI := GType{~Int,~Float,Bool}( 2, 3.14, TRUE );
-    }
+    do:
+        nonmodI := GType{Int,Float,Bool}( 2, 3.14, TRUE )
+        smodI   := GType{~Int,Float,Bool}( 2, 3.14, TRUE )
+        tmodI   := GType{Int,~Float,Bool}( 2, 3.14, TRUE )
+        allmodI := GType{~Int,~Float,Bool}( 2, 3.14, TRUE )
 
-    {
+    do:
         #experr 0: nonmodM := ~GType{Int,Float,Bool}( 2, 3.14, TRUE );  ## 0 errs since BadSpec above already created type spec
-        #experr 1: smodM   := ~GType{~Int,Float,Bool}( 2, 3.14, TRUE );
-        #experr 1: tmodM   := ~GType{Int,~Float,Bool}( 2, 3.14, TRUE );
-                   allmodM := ~GType{~Int,~Float,Bool}( 2, 3.14, TRUE );
-    }
+        #experr 1: smodM   := ~GType{~Int,Float,Bool}( 2, 3.14, TRUE )
+        #experr 1: tmodM   := ~GType{Int,~Float,Bool}( 2, 3.14, TRUE )
+        allmodM := ~GType{~Int,~Float,Bool}( 2, 3.14, TRUE )
 
     ## specialize a mutable generic type with immutable type bindings:
-    {
-        init := StillImmType( 17, 49.9 );
-        #experr 2: errmut := ~GType{ StillImmType, StillImmType, StillImmType }( init, init, init );
-        nonmut := GType{ StillImmType, StillImmType, StillImmType }( init, init, init );
-    }
+    do:
+        init := StillImmType( 17, 49.9 )
+        #experr 2: errmut := ~GType{ StillImmType, StillImmType, StillImmType }( init, init, init )
+        nonmut := GType{ StillImmType, StillImmType, StillImmType }( init, init, init )
 
-    return 0;
-}
+    return 0

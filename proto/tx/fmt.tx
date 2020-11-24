@@ -5,10 +5,8 @@ interface Stringer :
     abstract string( writer : &~tx.ByteWriter )
 
 
-
 interface Formatter :
     abstract format( writer : &~tx.ByteWriter, format : &StringFormat )
-
 
 
 /** Concatenates multiple Stringers. */
@@ -18,8 +16,6 @@ type MultiStringer <: Tuple, Stringer :
     override string( writer : &~tx.ByteWriter ) :
         for str in self._stringers:
             str.string( writer )
-
-
 
 
 type StringFormat :
@@ -37,15 +33,11 @@ type StringFormat :
     self( flags : UByte, width : UInt, precision : UInt, typeChar : UByte ) :
         #init: flags( flags ), width( width ), precision( precision ), typeChar( typeChar )
 
-
     self( typeChar : UByte ) :
         #init: flags( 0 ), width( 0 ), precision( 0 ), typeChar( typeChar )
 
-
     self( other : &StringFormat ) :
         #init: flags( other.flags ), width( other.width ), precision( other.precision ), typeChar( other.typeChar )
-
-
 
 
 /** Makes a Stringer of a Formatter by applying a given format to produce the string. */
@@ -56,15 +48,11 @@ type FormattedStringer <: Tuple, Stringer :
     self( format : &StringFormat, object : &Formatter ) :
         #init: format( format ), object( object )
 
-
     self( format : &StringFormat, object : &Stringer ) :
         #init: format( format ), object( new StringerFormatter( object ) );  ## FUTURE: redesign or free memory
 
-
     override string( writer : &~tx.ByteWriter ) :
         self.object.format( writer, self.format )
-
-
 
 
 /** Makes a Formatter of a Stringer by applying the format to the produced string.
@@ -75,9 +63,6 @@ type StringerFormatter <: Tuple, Formatter :
     override format( writer : &~tx.ByteWriter, format : &StringFormat ) :
         str := String( self.object )
         str.format( writer, format )
-
-
-
 
 
 /** Converts an integer to a string in conventional decimal format.
@@ -126,9 +111,8 @@ format_string( writer : &~tx.ByteWriter, format : &StringFormat, value : ULong, 
         prefix[0] = 'b'
         prefix[1] = '0'
 
-
     backward := ~[66]UByte()
-
+    do:
         prev : ~ULong = value
         val  : ~ULong = value / radix
         while prev >= radix :
@@ -137,7 +121,6 @@ format_string( writer : &~tx.ByteWriter, format : &StringFormat, value : ULong, 
             val = val / radix
 
         backward[backward.L] = RADIX_DIGITS[ UByte( prev - (val * radix) ) ]
-
 
     if neg:
         prefix[prefix.L] = '-'
@@ -169,7 +152,6 @@ format_string( writer : &~tx.ByteWriter, format : &StringFormat, value : ULong, 
         for i in 0..backward.L:
             forward[forward.L] = backward[backward.L-1-i]
 
-
     else :
         ## left-aligned, padding to the right
         for i in 0..prefix.L:
@@ -179,9 +161,7 @@ format_string( writer : &~tx.ByteWriter, format : &StringFormat, value : ULong, 
         for i in 0..padding:
             forward[forward.L] = ' '
 
-
     writer.write( forward )
-
 
 
 /** Converts an unsigned integer to a string in conventional decimal format. */
@@ -192,7 +172,6 @@ to_string( writer : &~tx.ByteWriter, value : ULong ) :
 /** Converts an unsigned integer to a string with the specified format. */
 format_string( writer : &~tx.ByteWriter, format : &StringFormat, value : ULong ) :
     format_string( writer, format, value, FALSE )
-
 
 
 /** Converts a signed integer to a string in conventional decimal format. */
@@ -209,8 +188,6 @@ format_string( writer : &~tx.ByteWriter, format : &StringFormat, value : Long ) 
         format_string( writer, format, ULong( -value ), TRUE )
     else
         format_string( writer, format, ULong( value ), FALSE )
-
-
 
 
 /** Converts floating point value to a string in conventional decimal format.
@@ -238,7 +215,6 @@ to_string( writer : &~tx.ByteWriter, value : Double, neg : Bool ) :
         "<scientific-notation-floats-not-yet-implemented>".string( writer )
 
 
-
 /** Converts a floating point value to a string in conventional decimal format. */
 to_string( writer : &~tx.ByteWriter, value : Double ) :
     if value < 0:
@@ -252,4 +228,3 @@ format_string( writer : &~tx.ByteWriter, format : &StringFormat, value : Double 
     ##print( "format_string( Double )" )
     ## TODO
     to_string( writer, value )
-
