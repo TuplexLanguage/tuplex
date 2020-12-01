@@ -11,7 +11,7 @@ project(Tuplex)
 
 # the version number
 set (Tuplex_VERSION_MAJOR 0)
-set (Tuplex_VERSION_MINOR 4)
+set (Tuplex_VERSION_MINOR 5)
 
 
 #set(CMAKE_VERBOSE_MAKEFILE on)

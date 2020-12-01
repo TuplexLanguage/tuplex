@@ -5,6 +5,26 @@ first() : {
         v = v + 1;
     }
 
+    ## braces supress indentation sensitivity
+    if TRUE: {
+    }
+    else: {
+    }
+
+    if TRUE:
+    {
+    }
+    else:
+    {
+    }
+
+    if TRUE:
+        {
+    }
+    else:
+        {
+    }
+
     #experr 1: if TRUE :  ## missing semicolon in brace block
     {
         v = v + 2
@@ -46,6 +66,10 @@ first() : {
 
 second() :
     v := ~ 0UL
+
+    #experr 1: if TRUE  ## colon must be on the same line as the head statement
+    :
+        ;
 
     if TRUE:
         v = v + 1
@@ -173,8 +197,21 @@ fourth() :
     assert v == expected
 
 
+fifth():
+    v := ~ 0UL
+
+    if FALSE: v = v + 1; else: if TRUE: { v = v + 2; v = v + 4; } else: v = v + 8
+
+    if TRUE: v = v + 16
+        ##experr 1: v = v + 32  ## unexcepted INDENT, but experr doesn't support INDENT checking
+
+    expected : ULong = 2+4+16
+    assert v == expected
+
+
 main() :
     first()
     second()
     third()
     fourth()
+    fifth()
