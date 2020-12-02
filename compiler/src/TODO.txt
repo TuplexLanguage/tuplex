@@ -175,6 +175,8 @@ Review array mutability vs element mutability handling - DONE
 Let nested array assignment statements support implicit initialization of assignee's outer array elements - DONE
     aaa : ~[4][4][4]UByte;  aaa[0][0][0] = 17;
 
+Document array behavior, rules, and syntax
+
 Array 'fill' constructor
 
 Array initialization from sequence; sequence expansion
@@ -265,7 +267,7 @@ Separate bitwise and logical operators, so that bitwise can have higher priority
   Bitwise: && || &| !
   Logical: & | != !
 
-max & min intrinsics
+basic math intrinsics: max min abs ...
 
 modulo & remainder intrinsics
 
@@ -300,6 +302,8 @@ Multi-valued function returns (i.e. return tuple)
 Miscellaneous
 -------------
 
+value equals in String
+
 Implement advanced debugging info
  - self, super fields in methods
  - non-local fields
@@ -325,5 +329,7 @@ Ideal concrete fields checking
  - methods may have function signature independent of generics, but contain code that is dependent on generic parameters
 
 Auto-generate default (zero arguments) constructor if base type and all members without inlined initializers allow default construction?
+
+Array-of-structs and Struct-of-arrays via keywords?
 
 Implement symbol visibility (private etc)?

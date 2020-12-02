@@ -158,6 +158,14 @@ array_stack_construction( i : UByte ) :
     assert a65.C == 3
     assert a65.L == 0
 
+  ## gradual array initialization:
+    arr := ~[5]UByte()
+    assert arr.L == 0
+    for i := ~0; i < arr.C; i = i + 1 :
+        arr[i] = i
+        assert arr.L == i+1
+    assert arr.L == arr.C
+
 ## TODO: initialization from non-array sequences
 
 
@@ -276,6 +284,14 @@ array_new_construction( i : UByte ) :
     assert a64.L == 1
     assert a65.C == 3
     assert a65.L == 0
+
+  ## gradual array initialization:
+    arr := new ~[5]UByte()
+    assert arr.L == 0
+    for i := ~0; i < arr.C; i = i + 1 :
+        arr[i] = i
+        assert arr.L == i+1
+    assert arr.L == arr.C
 
 ## TODO: initialization from non-array sequences
 

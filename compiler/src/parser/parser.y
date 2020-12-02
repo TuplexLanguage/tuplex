@@ -657,16 +657,16 @@ value_literal
 tuple_literal :        LPAREN min2_expr_list opt_comma RPAREN  { $$ = new TxTupleLitNode(@$, $2); }
               | BSLASH LPAREN min2_expr_list opt_comma RPAREN  { $$ = new TxTupleLitNode(@$, $3); }
               |        LPAREN gen_val_expr       COMMA RPAREN  { $$ = new TxTupleLitNode(@$, new std::vector<TxExpressionNode*>({$2})); }
-              | BSLASH LPAREN gen_val_expr             RPAREN  { $$ = new TxTupleLitNode(@$, new std::vector<TxExpressionNode*>({$3})); }
               | BSLASH LPAREN gen_val_expr       COMMA RPAREN  { $$ = new TxTupleLitNode(@$, new std::vector<TxExpressionNode*>({$3})); }
+              | BSLASH LPAREN gen_val_expr             RPAREN  { $$ = new TxTupleLitNode(@$, new std::vector<TxExpressionNode*>({$3})); }
               | BSLASH LPAREN                          RPAREN  { $$ = new TxTupleLitNode(@$, new std::vector<TxExpressionNode*>()); }
               ;
 */
 array_literal :        LBRACKET min2_expr_list opt_comma RBRACKET  { $$ = new TxFilledArrayLitNode(@$, $2); }
               | BSLASH LBRACKET min2_expr_list opt_comma RBRACKET  { $$ = new TxFilledArrayLitNode(@$, $3); }
               |        LBRACKET gen_val_expr       COMMA RBRACKET  { $$ = new TxFilledArrayLitNode(@$, new std::vector<TxExpressionNode*>({$2})); }
-              | BSLASH LBRACKET gen_val_expr             RBRACKET  { $$ = new TxFilledArrayLitNode(@$, new std::vector<TxExpressionNode*>({$3})); }
               | BSLASH LBRACKET gen_val_expr       COMMA RBRACKET  { $$ = new TxFilledArrayLitNode(@$, new std::vector<TxExpressionNode*>({$3})); }
+              | BSLASH LBRACKET gen_val_expr             RBRACKET  { $$ = new TxFilledArrayLitNode(@$, new std::vector<TxExpressionNode*>({$3})); }
               // BSLASH LBRACKET RBRACKET - empty, unqualified array literal "[]" illegal since element type can't be determined
               ;
 

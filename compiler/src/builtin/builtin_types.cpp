@@ -521,16 +521,13 @@ static TxFieldDeclNode* make_conversion_initializer( const TxLocation& loc, Buil
 static std::vector<TxDeclarationNode*> make_any_methods( TxParserContext* pctx ) {
 /*  Built-in definitions corresponding to the following Tuplex code for the Any root type:
 
-/ ** @return self by default * /
-key() -> &Any {
+### @return self by default
+key() -> &Any
     return self;
-}
 
-/ ** Compares key object keys' identity by default * /
-equals( other : &Any )->Bool {
+### Compares key object keys' identity by default
+equals( other : &Any )->Bool
     return self.key() == other.key();
-}
-
 */
     std::vector<TxDeclarationNode*> methods;
     { //  define key() -> &Any
@@ -590,7 +587,7 @@ static std::vector<TxDeclarationNode*> make_array_methods( TxParserContext* pctx
                                                                             lambdaExpr, false ),
                                                 true ) );  // method syntax since regular constructor
     }
-    { //  override clear() ~
+    { //  override clear() ~ (from Collection{E})
         auto clearStmt = new TxAssignStmtNode( PLOC(pctx),
                                                new TxArrayLenAssigneeNode( PLOC(pctx), new TxNamedFieldNode( PLOC(pctx), "self" ) ),
                                                new TxIntegerLitNode( PLOC(pctx), 0, false, TXBT_UINT ) );

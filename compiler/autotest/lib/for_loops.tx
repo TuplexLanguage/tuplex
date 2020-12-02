@@ -14,10 +14,29 @@ for_loops( var : UInt )->Int :
         tmp := [ strA[ix], ' ', strB[ix], 0 ]
         tx.c.puts( tmp )
 
+    tx.c.puts( c"0 - 9:" )
+    iter := (0..10).sequencer()
+    while iter.has_next():
+        tmp := [ iter.next() + '0', 0 ]
+        tx.c.puts( tmp )
+
+    tx.c.puts( c"9 - 1:" )
+    iter := (9..-1..0).sequencer()
+    while iter.has_next():
+        tmp := [ iter.next() + '0', 0 ]
+        tx.c.puts( tmp )
+
+    tx.c.puts( c"0 - 9" )
     for i in 0..10 :
         tmp := [ i + '0', 0 ]
         tx.c.puts( tmp )
 
+    tx.c.puts( c"9 - 1:" )
+    for i in 9..-1..0 :
+        tmp := [ i + '0', 0 ]
+        tx.c.puts( tmp )
+
+    tx.c.puts( c"parallell iteration, shortest of 1 - 19 and 9 - 1 with step 2:" )
     for i in 1..2..21,
         j in 9..-2..0 :
         tmp := [ i + '0', ' ', j + '0', 0 ]
