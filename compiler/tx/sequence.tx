@@ -1,11 +1,10 @@
 module tx
 
 
-
 /** A sequenceable object supports step-wise single direction traversal of its contained elements.
  */
 interface Sequenceable{ E } derives Interface :
-    
+
     abstract sequencer() -> Ref{ ~Sequencer{ E } }
 
 

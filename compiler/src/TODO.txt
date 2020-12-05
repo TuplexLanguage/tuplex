@@ -267,9 +267,7 @@ Separate bitwise and logical operators, so that bitwise can have higher priority
   Bitwise: && || &| !
   Logical: & | != !
 
-basic math intrinsics: max min abs ...
-
-modulo & remainder intrinsics
+basic math intrinsics: max min abs sign mod rem
 
 Basic Floatingpoint intrinsics:
  - floor & ceiling
