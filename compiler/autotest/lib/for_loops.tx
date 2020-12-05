@@ -1,34 +1,58 @@
 
 for_loops( var : UInt )->Int :
-    strA := c"foobar"
-    strB := c"macintosh"
+    strA := c"123456"
+    strB := c"abcdefghij"
 
+    expect : [20]UByte = c"1a2b3c4d5e6f\0g"
+    str := ~[20]UByte()
+    for ix := ~0; ix < strA.L; ix = ix + 1 :
+        str.add( strA[ix] )
+        str.add( strB[ix] )
+    str.add( 0 )
+    assert str.C == expect.C
+    assert str.L == expect.L
+    assert str == expect
+
+    expect : [20]UByte = c"1a2b3c4d5e6f\0g"
+    str := ~[20]UByte()
     for chA, iterA in strA,
         chB, iterB in strB :
-        tmp := [ chA, ' ', chB, 0 ]
-        tx.c.puts( tmp )
+        str.add( chA )
+        str.add( chB )
         if chA == 'b':
             iterA.next()
+    str.add( 0 )
+    assert str.C == expect.C
+    assert str.L == expect.L
+    assert str == expect
+##    tx.c.puts( str )
+##    tx.c.puts( expect )
+##    print( "str.L=" %d str.L %% "  expect.L=" %d expect.L )
+##    for ix := ~0; ix < str.L; ix = ix + 1 :
+##        print( "ix=" %d ix %% "  " %d str[ix] %% "  " %d expect[ix] )
+##        assert str[ix] == expect[ix]
 
-    for ix := ~0; ix < strA.L; ix = ix + 1 :
-        tmp := [ strA[ix], ' ', strB[ix], 0 ]
-        tx.c.puts( tmp )
+    ##tx.c.puts( c"0 - 9" )
+    expect := ~1I
+    for i in 1..11 :
+        assert i == expect
+        expect = expect + 1
 
-    tx.c.puts( c"0 - 9" )
-    for i in 0..10 :
-        tmp := [ i + '0', 0 ]
-        tx.c.puts( tmp )
-
-    tx.c.puts( c"9 - 1:" )
+    ##tx.c.puts( c"9 - 1:" )
+    expect = 9I
     for i in 9..-1..0 :
-        tmp := [ i + '0', 0 ]
-        tx.c.puts( tmp )
+        assert i == expect
+        expect = expect - 1
 
-    tx.c.puts( c"parallell iteration, shortest of 1 - 19 and 9 - 1 with step 2:" )
+    ##tx.c.puts( c"parallell iteration, shortest of 1 - 19 and 9 - 1 with step 2:" )
+    expectI := ~1I
+    expectJ := ~9I
     for i in 1..2..21,
         j in 9..-2..0 :
-        tmp := [ i + '0', ' ', j + '0', 0 ]
-        tx.c.puts( tmp )
+        assert i == expectI
+        assert j == expectJ
+        expectI = expectI + 2
+        expectJ = expectJ - 2
 
     return 0
 

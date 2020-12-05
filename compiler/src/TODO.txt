@@ -176,8 +176,11 @@ Let nested array assignment statements support implicit initialization of assign
     aaa : ~[4][4][4]UByte;  aaa[0][0][0] = 17;
 
 Document array behavior, rules, and syntax
+ - document nested arrays behavior
 
 Array 'fill' constructor
+
+Array 'unset' support (poping elements of the end)
 
 Array initialization from sequence; sequence expansion
  - requires custom modifiability handling

@@ -16,7 +16,7 @@ main()->Int :
     tmp := ~ Int( result );  ## explicit cast from floating-point to Int
     while tmp > 0 :
         puts( c"iteration!" )
-        tmp = tmp - 1
+        tmp = tmp - 3
 
     return 0
 

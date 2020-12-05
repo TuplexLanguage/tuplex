@@ -199,6 +199,10 @@ test_array_eq( v : Int ) -> Int :
     #experr 1: e : Bool = [0]Int() == [0]UInt()
     #experr 1: e : Bool = [0]Short() == [0]Int()
 
+    assert [2]Int( 1, 2 ) == [2]Int( 1, 2 )
+    assert [2]Int( 1, 2 ) == [3]Int( 1, 2 )
+    assert [3]Int( 1, 2 ) == [2]Int( 1, 2 )
+    assert [3]Int( 1, 2, 3 ) != [2]Int( 1, 2 )
 
     assert [ 1, 2 ]    == [ 1, 2 ]
     assert [ 1, 2, 3 ] != [ 1, 2 ]

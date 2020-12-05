@@ -10,7 +10,7 @@ std::string parse_string_literal( const std::string& source, unsigned startOffse
             ++it;
             switch ( *it ) {
             case '\n':
-                case '\r':
+            case '\r':
                 // skip EOL preceded by escape character
                 break;
             case 'n':
@@ -21,6 +21,9 @@ std::string parse_string_literal( const std::string& source, unsigned startOffse
                 break;
             case 't':
                 result.push_back( '\t' );
+                break;
+            case '0':
+                result.push_back( '\0' );
                 break;
             default:
                 // all other characters are included as-is
