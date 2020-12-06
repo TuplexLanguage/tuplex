@@ -696,6 +696,9 @@ bool TxActualType::inner_prepare_members() {
                 }
                 else
                     this->instanceFields.add_field( field );
+
+                if ( this->virtualFields.has_field( field->get_unique_name() ) )
+                    CERROR( field, "Field declared non-virtual but shadows virtual parent field: " << field );
                 break;
             case TXS_VIRTUAL:
             case TXS_INSTANCEMETHOD:
@@ -712,21 +715,28 @@ bool TxActualType::inner_prepare_members() {
                 if ( entitySym->is_overloaded() )
                     CERROR( field, "Overloading of virtual fields/methods not yet supported: " << field );
 
+                //std::cerr << "virtual/instancemethod: " << field->get_unique_name() << std::endl;
                 if ( this->virtualFields.has_field( field->get_unique_name() ) ) {
                     if ( !( fieldDecl->get_decl_flags() & TXD_OVERRIDE ) )
-                        CWARNING( field, "Field overrides but isn't declared 'override': " << field );
+                        CERROR( field, "Field overrides but isn't declared 'override': " << field );
                     auto overriddenField = this->virtualFields.get_field( field->get_unique_name() );
                     if ( overriddenField->get_decl_flags() & TXD_FINAL )
                         CERROR( field, "Can't override a base type field that is declared 'final': " << field );
+                    if ( overriddenField->get_decl_flags() & TXD_VIRTUAL
+                         && !( fieldDecl->get_decl_flags() & TXD_VIRTUAL ) )
+                        CERROR( field, "Field overrides a virtual field but is not declared 'virtual': " << field );
                     if ( !( field->qtype()->is_assignable_to( *overriddenField->qtype() ) ) )
                         CERROR( field, "Overriding member's type " << field->qtype() << std::endl
                                 << "   not assignable to overridden member's type " << overriddenField->qtype() );
                     if ( !expErrField || expErrWholeType )
                         this->virtualFields.override_field( field );
                 }
+                else if ( this->instanceFields.has_field( field->get_unique_name() ) ) {
+                    CERROR( field, "Field declared virtual but shadows non-virtual parent field: " << field );
+                }
                 else {
                     if ( ( fieldDecl->get_decl_flags() & ( TXD_OVERRIDE | TXD_BUILTIN ) ) == TXD_OVERRIDE )  // (suppressed for built-ins)
-                        CWARNING( field, "Field doesn't override but is declared 'override': " << field );
+                        CERROR( field, "Field doesn't override but is declared 'override': " << field );
                     if ( !expErrField || expErrWholeType )
                         this->virtualFields.add_field( field );
                 }
@@ -743,7 +753,7 @@ bool TxActualType::inner_prepare_members() {
                 if ( fieldDecl->get_decl_flags() & TXD_ABSTRACT )
                     CERROR( field, "Can't declare a non-virtual field as abstract: " << field );
                 if ( ( fieldDecl->get_decl_flags() & ( TXD_OVERRIDE | TXD_BUILTIN ) ) == TXD_OVERRIDE )  // (suppressed for built-ins)
-                    CWARNING( field, "Field doesn't override but is declared 'override': " << field );
+                    CERROR( field, "Field doesn't override but is declared 'override': " << field );
                 if ( !expErrField || expErrWholeType )
                     this->staticFields.add_field( field );
             }

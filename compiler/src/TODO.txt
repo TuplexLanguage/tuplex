@@ -180,7 +180,7 @@ Document array behavior, rules, and syntax
 
 Array 'fill' constructor
 
-Array 'unset' support (poping elements of the end)
+Array remove/pop/reduce support (removing elements)
 
 Array initialization from sequence; sequence expansion
  - requires custom modifiability handling
@@ -302,6 +302,8 @@ Multi-valued function returns (i.e. return tuple)
 
 Miscellaneous
 -------------
+
+Improve inline lambda expression syntax, enable using newline/indent
 
 value equals in String
 

@@ -67,7 +67,14 @@ void TxFieldDeclNode::declaration_pass() {
             if ( !( flags & ( TXD_PROTECTED | TXD_PUBLIC ) ) )
                 CERROR( this, "'abstract' fields cannot be private (since private are non-virtual): " << this->fieldDef->get_descriptor() );
         }
-        storage = ( flags & TXD_VIRTUAL ) ? TXS_VIRTUAL : TXS_INSTANCE;
+        if ( flags & TXD_VIRTUAL ) {
+            storage = TXS_VIRTUAL;
+        }
+        else {
+            if ( flags & TXD_OVERRIDE )
+                CERROR( this, "'override' is not a valid modifier for a non-virtual field: " << this->fieldDef->get_descriptor() );
+            storage = TXS_INSTANCE;
+        }
     }
 
     // TXS_VIRTUAL may be changed to TXS_STATIC depending on context:

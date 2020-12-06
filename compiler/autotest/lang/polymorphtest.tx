@@ -1,25 +1,41 @@
 
-puts(cstr : &[]UByte) :
-    tx.c.puts( cstr )
+rem( dividend : Long, divisor : Long ) -> Long:
+    return dividend - dividend / divisor * divisor
+
+puts(cstr : &[]UByte, f : Long) :
+    pstr : ~[cstr.L + 2]UByte = cstr
+    pstr[pstr.L-1] = ' '
+    pstr[pstr.L] = '0' + UByte( rem( f, 10 ) )
+    pstr[pstr.L] = 0
+    tx.c.puts( pstr )
 
 
 type ~ AType derives Tuple :
     virtual SFIELD := 41
-    virtual SFIELD2 := 2.72
-    field1 : ~Long
-    field2 : ~Float
+    virtual vm_field : ~Float = 3
+    virtual vm_field2 : ~Float = 3
+    virtual vm_field3 : ~Float = 3
+
+    instance_field : ~Long
+    instance_field2 : ~Long
 
     self() :
-        #init: field1(), field2()
-
+        #init: instance_field(1), instance_field2(1)
 
     print() :
-        puts(c"AType")
+        puts(c"AType", self.instance_field)
 
-
-    method(a : Int)->Int :
+    virtual v_method(a : Int)->Int :
+        #experr 1: self.instance_field = a  ## virtual methods can't access self / instance members
         return a * 2
 
+    virtual v_method2(a : Int)->Int :
+        return a * 2
+
+    virtual v_func_field := (a : Int) -> Int: {
+        #experr 1: self.instance_field = a;  ## virtual members can't access self / instance members
+        return a*2;
+    };
 
     ## overloaded method name:
     ## TODO: Support this. For now, error is generated.
@@ -31,26 +47,33 @@ type ~ AType derives Tuple :
         return Int( a * 3.5 )
 
 
-
 type ~ BType derives AType :
     virtual override SFIELD := 42
-    virtual override SFIELD2 := 3.14
-    field1 : ~Long
-    field2 : ~Float
+    virtual override vm_field : ~Float = 4
+    instance_field : ~Long = 6
+    virtual override v_func_field := (a : Int) -> Int: return a*4; ;
+
+    #experr 1: vm_field2 : ~Float = 4                       ## non-virtual though parent field is virtual
+    #experr 1: virtual vm_field3 : ~Float = 4               ## missing 'override'
+    #experr 1: virtual instance_field2 : ~Long = 100        ## 'virtual' though parent field is non-virtual
+    #experr 1: override err_o_field1 : ~Long = 100          ## override on fields only if also virtual
+    #experr 1: virtual override err_o_field2 : ~Long = 100  ## override on field though no parent field to override
+
+##    self() :
+##        #init: instance_field(3)
 
     override print() :
-        puts(c"BType")
+        puts(c"BType", self.instance_field)
 
+    virtual override v_method(a : Int)->Int :
+        return Super.v_method( a ) * 2
 
-    override method(a : Int)->Int :
-        return super.method( a ) * 2
+    #experr 1: override v_method2(a : Int)->Int :  ## overrides virtual method but doesn't declare virtual
+        return Super.v_method2( a ) * 2
 
-
-    ## currently a warning, not an error:
-    ##override bad_method() {}
+    #experr 1: override bad_method() {}  ## no such parent method
 
     b_method() : {}
-
 
     ## overriding overloaded method (in reverse order):
     ## TODO: Support this.
@@ -61,27 +84,14 @@ type ~ BType derives AType :
     override multimethod(a : Int)->Int :
         return super.multimethod( a ) * 3
 
-
     #experr: virtual override multimethod : Bool
     */
 
 
 main()->Int :
-    bo := ~BType( 0, 0 )
+    bo := ~BType()
     ar : &~AType = &bo
     br : &~BType = &bo
-
-    ar.field1 = 1
-    br.field1 = 2
-    assert ar.field1 == 1
-    assert br.field1 == 2
-    assert bo.field1 == 2
-
-    ar.field1 = 4
-    br.field1 = 8
-    assert ar.field1 == 4
-    assert br.field1 == 8
-    assert bo.field1 == 8
 
     assert ar.SFIELD == 42
     assert br.SFIELD == 42
@@ -89,14 +99,35 @@ main()->Int :
     assert AType.SFIELD == 41
     assert BType.SFIELD == 42
 
+    assert ar.vm_field == 4
+    assert br.vm_field == 4
+    assert bo.vm_field == 4
+    assert AType.vm_field == 3
+    assert BType.vm_field == 4
+
+    ar.instance_field = 10
+    br.instance_field = 20
+    assert ar.instance_field == 10
+    assert br.instance_field == 20
+    assert bo.instance_field == 20
+
+    ar.instance_field = 40
+    br.instance_field = 80
+    assert ar.instance_field == 40
+    assert br.instance_field == 80
+    assert bo.instance_field == 80
+
     br.b_method()
     #experr: ar.b_method()
 
+    ## methods are always "virtual":
+    ar.instance_field = 4
+    br.instance_field = 8
     ##ar.print()
     ##br.print()
-    vala := ar.method( 2 )
+    vala := ar.v_method( 2 )
     assert vala == 8
-    valb := br.method( 2 )
+    valb := br.v_method( 2 )
     assert valb == 8
 /*
     val := ar.multimethod( 4.0 )
