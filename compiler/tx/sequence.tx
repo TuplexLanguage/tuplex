@@ -24,7 +24,7 @@ interface Iterable{ E } derives Sequenceable{ E } :
  */
 interface Indicable{ K, E } derives Iterable{ E } :
 
-    abstract count() -> Ordinal
+    abstract count() -> ULong
 
     abstract has( key : K ) -> Bool
 

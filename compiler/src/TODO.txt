@@ -178,6 +178,8 @@ Let nested array assignment statements support implicit initialization of assign
 Document array behavior, rules, and syntax
  - document nested arrays behavior
 
+Sequence-range-iteration chaining, e.g.  sequencable[ 0..2..8 ]
+
 Array 'fill' constructor
 
 Array remove/pop/reduce support (removing elements)
@@ -324,6 +326,8 @@ Union typeclass
 Enum typeclass
 
 Switch-like statements
+
+Inclusive ranges syntax, e.g. 1..=10 for [1,10] inclusive
 
 Support non-constant static initializers (i.e. executed before main())
 
