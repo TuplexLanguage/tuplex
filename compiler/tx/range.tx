@@ -5,11 +5,12 @@ interface Range{ E } <: Indicable{ Long, E } :
 
     abstract override sequencer() -> Ref{ ~Iterator{E} }
 
-    abstract override count() -> ULong
+    abstract override count() -> Ordinal
 
     abstract override has( key : Long ) -> Bool
 
     abstract override get( key : Long ) -> E
+
 
 
 /** A range between two values of an Enumerable type.
@@ -46,22 +47,21 @@ type ERange{ E derives Enumerable } <: Tuple, Range{ E }, Stringer :
 
     start : E
     limit : E
-    stride : ULong
+    stride : Long
 
-    self( start : E, limit : E, stride : ULong, inclusive : Bool ) :
+    self( start : E, limit : E, stride : Long ) :
         if stride == 0:
             panic ( "Zero stride in ERange" )
         indexLimit : ~ULong = 0
-        if limit.ordinal() > start.ordinal():
-            indexLimit = ( limit.ordinal() - start.ordinal() + stride - 1 ) / stride
-        else if limit.ordinal() < start.ordinal():
-            indexLimit = ( start.ordinal() - limit.ordinal() + stride - 1 ) / stride
-        if inclusive :
-            indexLimit = indexLimit + 1
+        if limit.ordinal() < start.ordinal():
+            if stride > 0:
+                panic ( "Positive stride in ERange though range is descending" )
+            indexLimit = ( start.ordinal() - limit.ordinal() + ULong(-stride) - 1 ) / ULong(-stride)
+        else if limit.ordinal() > start.ordinal():
+            if stride < 0:
+                panic ( "Negative stride in ERange though range is ascending" )
+            indexLimit = ( limit.ordinal() - start.ordinal() + ULong(stride) - 1 ) / ULong(stride)
         #init: _indexLimit( indexLimit ), start( start ), limit( limit ), stride( stride )
-
-    self( start : E, limit : E, stride : ULong ) :
-        #self( start, limit, stride, FALSE )
 
     override sequencer() -> Ref{ ~ERangeIterator } :
         return new ~ERangeIterator( self )
@@ -71,12 +71,8 @@ type ERange{ E derives Enumerable } <: Tuple, Range{ E }, Stringer :
         iter._nextIndex = self._indexLimit
         return iter
 
-    /** Returns TRUE if the limit of this range is greater than or equal to its start. */
-    is_positive() -> Bool :
-        return self.limit.ordinal() >= self.start.ordinal()
-
-    override count() -> ULong :
-        return self._indexLimit
+    override count() -> Ordinal :
+        return Ordinal( self._indexLimit )
 
     override has( index : Long ) -> Bool :
         if index < 0:
@@ -95,10 +91,10 @@ type ERange{ E derives Enumerable } <: Tuple, Range{ E }, Stringer :
             return self._get_abs_ix( ULong( index ) )
 
     _get_abs_ix( absIx : ULong ) -> E :
-        if self.limit.ordinal() > self.start.ordinal():
-            return E.value( self.start.ordinal() + absIx * self.stride )
+        if self.stride >= 0:
+            return E.value( self.start.ordinal() + absIx * ULong( self.stride ) )
         else:
-            return E.value( self.start.ordinal() - absIx * self.stride )
+            return E.value( self.start.ordinal() - absIx * ULong( -self.stride ) )
 
     override string( writer : &~tx.ByteWriter ) :
         ## TODO: Either support duck-typing in generic types or provide "unchecked { ... }" mechanism (or similar)
