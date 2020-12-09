@@ -1,0 +1,83 @@
+## Tests foundation math functions
+
+
+main():
+    assert abs( 0 ) == 0
+    assert abs( 1 ) == 1
+    assert abs( 10 ) == 10
+    assert abs( -0 ) == 0
+    assert abs( -1 ) == 1
+    assert abs( -10 ) == 10
+
+    assert sign( 0 ) == 0
+    assert sign( 1 ) == 1
+    assert sign( 10 ) == 1
+    assert sign( -0 ) == 0
+    assert sign( -1 ) == -1
+    assert sign( -10 ) == -1
+
+    assert min( 0, 0 ) == 0
+    assert min( 0, 10 ) == 0
+    assert min( 10, 0 ) == 0
+    assert min( 10, 20 ) == 10
+    assert min( 20, 10 ) == 10
+    assert min( 0, -1 ) == -1
+    assert min( -1, 0 ) == -1
+    assert min( 1, -1 ) == -1
+    assert min( -1, 1 ) == -1
+    assert min( -1, -10 ) == -10
+    assert min( -10, -1 ) == -10
+
+    assert max( 0, 0 ) == 0
+    assert max( 0, 10 ) == 10
+    assert max( 10, 0 ) == 10
+    assert max( 10, 20 ) == 20
+    assert max( 20, 10 ) == 20
+    assert max( 0, -1 ) == 0
+    assert max( -1, 0 ) == 0
+    assert max( 1, -1 ) == 1
+    assert max( -1, 1 ) == 1
+    assert max( -1, -10 ) == -1
+    assert max( -10, -1 ) == -1
+
+    assert mod( 0, 1 ) == 0
+    assert mod( 0, 2 ) == 0
+    assert mod( 0, -1 ) == 0
+    assert mod( 0, -2 ) == 0
+    assert mod( 1, 1 ) == 0
+    assert mod( 1, 2 ) == 1
+    assert mod( 1, -1 ) == 0
+    assert mod( 1, -2 ) == 1
+    assert mod( -1, 1 ) == 0
+    assert mod( -1, 2 ) == 1
+    assert mod( -1, -1 ) == 0
+    assert mod( -1, -2 ) == 1
+    assert mod( 9, 3 ) == 0
+    assert mod( 8, 3 ) == 2
+    assert mod( 7, 3 ) == 1
+    assert mod( 6, 3 ) == 0
+    assert mod( 7, -3 ) == 1
+    assert mod( -7, 3 ) == 1
+    assert mod( -7, -3 ) == 1
+    assert mod( 65, 10 ) == 5
+
+    assert rem( 0, 1 ) == 0
+    assert rem( 0, 2 ) == 0
+    assert rem( 0, -1 ) == 0
+    assert rem( 0, -2 ) == 0
+    assert rem( 1, 1 ) == 0
+    assert rem( 1, 2 ) == 1
+    assert rem( 1, -1 ) == 0
+    assert rem( 1, -2 ) == 1
+    assert rem( -1, 1 ) == 0
+    assert rem( -1, 2 ) == -1
+    assert rem( -1, -1 ) == 0
+    assert rem( -1, -2 ) == -1
+    assert rem( 9, 3 ) == 0
+    assert rem( 8, 3 ) == 2
+    assert rem( 7, 3 ) == 1
+    assert rem( 6, 3 ) == 0
+    assert rem( 7, -3 ) == 1
+    assert rem( -7, 3 ) == -1
+    assert rem( -7, -3 ) == -1
+    assert rem( 65, 10 ) == 5

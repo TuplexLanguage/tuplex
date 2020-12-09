@@ -54,6 +54,28 @@ for_loops( var : UInt )->Int :
         expectI = expectI + 2
         expectJ = expectJ - 2
 
+    ## test empty ranges:
+    expect = ~1I
+    for i in 1..1 :
+        expect = expect + 1
+    assert expect == 1
+
+    ##tx.c.puts( c"9 - 1:" )
+    expect = 9I
+    for i in 9..-1..9 :
+        expect = expect - 1
+    assert expect == 9
+
+    ##tx.c.puts( c"parallell iteration, shortest of 1 - 19 and 9 - 1 with step 2:" )
+    expectI := ~1I
+    expectJ := ~9I
+    for i in 1..2..1,
+        j in 9..-2..0 :
+        expectI = expectI + 2
+        expectJ = expectJ - 2
+    assert expectI == 1
+    assert expectJ == 9
+
     return 0
 
 

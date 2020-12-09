@@ -73,9 +73,10 @@ public:
                 // error, too many subsequent .. operators
                 CERROR( otherRange, "Too many subsequent .. operators in range expression" );
             }
+            else {
+                // FUTURE - delete allocated subnodes of otherRange
+            }
             new(otherRange) TxERangeLitNode( ploc, startValue, otherRange->endValue, otherRange->startValue );
-//            TxERangeLitNode tmp( ploc, startValue, otherRange->endValue, otherRange->startValue );
-//            memcpy( otherRange, &tmp, sizeof( TxERangeLitNode ) );
             return otherRange;
         }
         else {

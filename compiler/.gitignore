@@ -21,9 +21,8 @@
 /build*/
 
 # ignore all built files in case of in-source build
-generated/
-bin/
-lib/
+/generated/
+/bin/
 
 # ignore all CMake files in case of in-source build
 CMakeFiles/

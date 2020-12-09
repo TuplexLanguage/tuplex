@@ -29,10 +29,10 @@ builtin type ~ Array{E, C : UInt} derives Any, Collection{E}, Updatable{UInt, E}
     override empty() -> Bool :
         return self.L == 0
 
-    override count() -> ULong :
+    override count() -> Ordinal :
         return self.L
 
-    override capacity() -> ULong :
+    override capacity() -> Ordinal :
         return self.C
 
     override contains( val : E ) -> Bool :

@@ -1,15 +1,15 @@
 module tx
 
 
-interface Range{ E } <: Indicable{ Long, E } :
+interface Range{ E } <: Indicable{ ULong, E } :
 
     abstract override sequencer() -> Ref{ ~Iterator{E} }
 
-    abstract override count() -> Ordinal
+    abstract override count() -> ULong
 
-    abstract override has( key : Long ) -> Bool
+    abstract override has( key : ULong ) -> Bool
 
-    abstract override get( key : Long ) -> E
+    abstract override get( key : ULong ) -> E
 
 
 
@@ -49,19 +49,34 @@ type ERange{ E derives Enumerable } <: Tuple, Range{ E }, Stringer :
     limit : E
     stride : Long
 
-    self( start : E, limit : E, stride : Long ) :
+    /** Constructs a conventional, ascending range [ start, limit ) with stride 1. */
+    self( start : E, limit : E ) :
+        minIndex : ~ULong = start.ordinal()
+        if limit.ordinal() < minIndex:
+            minIndex = limit.ordinal()
+        indexLimit : ~ULong = limit.ordinal() - minIndex
+        #init: _indexLimit( indexLimit ), start( start ), limit( limit ), stride( 1 )
+
+    /** Constructs a range [ start, limit ) with the specified stride if inclusive is FALSE,
+    *   or a range [ start, limit ] with the specified stride if inclusive is TRUE. */
+    self( start : E, limit : E, stride : Long, inclusive : Bool ) :
         if stride == 0:
             panic ( "Zero stride in ERange" )
+        minIndex : ~ULong = start.ordinal()
+        if limit.ordinal() < minIndex:
+            minIndex = limit.ordinal()
         indexLimit : ~ULong = 0
-        if limit.ordinal() < start.ordinal():
-            if stride > 0:
-                panic ( "Positive stride in ERange though range is descending" )
-            indexLimit = ( start.ordinal() - limit.ordinal() + ULong(-stride) - 1 ) / ULong(-stride)
-        else if limit.ordinal() > start.ordinal():
-            if stride < 0:
-                panic ( "Negative stride in ERange though range is ascending" )
-            indexLimit = ( limit.ordinal() - start.ordinal() + ULong(stride) - 1 ) / ULong(stride)
+        if inclusive:
+            indexLimit = 1
+        if stride > 0:
+            indexLimit = indexLimit + ( limit.ordinal() - minIndex + ULong(stride) - 1 ) / ULong(stride)
+        else:  ## stride < 0
+            indexLimit = indexLimit + ( start.ordinal() - minIndex + ULong(-stride) - 1 ) / ULong(-stride)
         #init: _indexLimit( indexLimit ), start( start ), limit( limit ), stride( stride )
+
+    /** Constructs a range [ start, limit ) with the specified stride. */
+    self( start : E, limit : E, stride : Long ) :
+        #self( start, limit, stride, FALSE )
 
     override sequencer() -> Ref{ ~ERangeIterator } :
         return new ~ERangeIterator( self )
@@ -71,16 +86,25 @@ type ERange{ E derives Enumerable } <: Tuple, Range{ E }, Stringer :
         iter._nextIndex = self._indexLimit
         return iter
 
-    override count() -> Ordinal :
-        return Ordinal( self._indexLimit )
+    override count() -> ULong :
+        return self._indexLimit
 
-    override has( index : Long ) -> Bool :
+    override has( index : ULong ) -> Bool :
+        return ULong(index) < self._indexLimit
+
+    override get( index : ULong ) -> E :
+        if ULong( index ) >= self._indexLimit:
+            panic "Invalid range index: " %d index %% " >= " %d self._indexLimit
+        return self._get_abs_ix( ULong( index ) )
+
+    ## TODO: When overloading of virtual methods supported, let these override has() and get()
+    has_( index : Long ) -> Bool :
         if index < 0:
             return ULong(-index) <= self._indexLimit
         else
             return ULong(index) < self._indexLimit
 
-    override get( index : Long ) -> E :
+    get_( index : Long ) -> E :
         if index < 0 :
             if ULong( -index ) > self._indexLimit :
                 panic "Invalid range index: " %d index %% " < -" %d self._indexLimit
@@ -95,6 +119,10 @@ type ERange{ E derives Enumerable } <: Tuple, Range{ E }, Stringer :
             return E.value( self.start.ordinal() + absIx * ULong( self.stride ) )
         else:
             return E.value( self.start.ordinal() - absIx * ULong( -self.stride ) )
+
+    /** Returns TRUE if this is an ascending range (from lower ordinal to higher). */
+    is_ascending() -> Bool :
+        return self.stride > 0
 
     override string( writer : &~tx.ByteWriter ) :
         ## TODO: Either support duck-typing in generic types or provide "unchecked { ... }" mechanism (or similar)

@@ -8,15 +8,11 @@ interface Sequenceable{ E } derives Interface :
     abstract sequencer() -> Ref{ ~Sequencer{ E } }
 
 
-
-
 /** An iterable sequence supports step-wise forward and backward traversal.
  */
 interface Iterable{ E } derives Sequenceable{ E } :
 
     abstract override sequencer() -> Ref{ ~Iterator{ E } }
-
-
 
 
 /** An indicable sequence is finite and supports random-access.
@@ -31,8 +27,6 @@ interface Indicable{ K, E } derives Iterable{ E } :
     abstract get( key : K ) -> E
 
 
-
-
 /** A modifiable Indicable. */
 interface Updatable{ K, E } derives Indicable{ K, E } :
 
@@ -45,14 +39,11 @@ interface Updatable{ K, E } derives Indicable{ K, E } :
     abstract swap( keyA : K, keyB : K ) ~
 
 
-
-
 interface Sequencer{ E } :
 
     abstract has_next() -> Bool
 
     abstract next() ~ -> E
-
 
 
 interface Iterator{ E } derives Sequencer{ E } :
@@ -62,9 +53,7 @@ interface Iterator{ E } derives Sequencer{ E } :
     abstract prev() ~ -> E
 
 
-
 interface Updater{ E } derives Iterator{ E } :
 
     /** Replaces the value returned by the most-recent call to next() / prev(). Returns the replaced element. */
     abstract set( element : E ) ~ -> E
-
