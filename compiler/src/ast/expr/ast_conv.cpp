@@ -7,6 +7,7 @@
 #include "tx_error.hpp"
 #include "tx_logging.hpp"
 #include <cmath>
+#include <utility>
 #include <float.h>
 
 /** Evaluates if the operand is a statically constant scalar value that fits in the required type without loss of precision. */
@@ -123,8 +124,13 @@ bool auto_converts_to( TxExpressionNode* originalExpr, TxQualType requiredType )
 /** Returns null if conversion failed. */
 static TxExpressionNode* inner_wrap_conversion( TxExpressionNode* originalExpr, TxQualType originalType,
                                                 TxQualType requiredType, bool _explicit ) {
-    if ( originalType == requiredType )
-        return originalExpr;
+    if ( requiredType.is_modifiable() && !originalType.is_modifiable() )
+        return nullptr;  // should we do this check here?
+    else if ( originalType.type() == requiredType.type() ) {
+//        if ( originalType->get_type_class() != TXTC_ELEMENTARY )
+//            std::cerr << "EQUAL WHEN WITHOUT MODIFIABILITY CHECK: " << originalType << "  ->  " << requiredType << std::endl;
+        return originalExpr;  // assume correct to not check modifiability here...
+    }
 
     if ( _explicit || originalType->auto_converts_to( *requiredType ) ) {
         // wrap originalExpr with conversion node
@@ -249,15 +255,19 @@ TxExpressionNode* make_conversion( TxExpressionNode* originalExpr, TxQualType re
 
 
 TxQualType TxMaybeConversionNode::define_type( TxPassInfo passInfo ) {
-//    if (get_node_id()==3539)
-//        std::cerr << "HERE " << this << std::endl;
+    if (get_node_id()==22303)
+        std::cerr << "HERE " << this << std::endl;
     if ( this->insertedResultType ) {
         this->resolvedExpr = make_conversion( this->originalExpr, this->insertedResultType, this->_explicit );
     }
     return this->resolvedExpr->resolve_type( passInfo );
 }
 
-void TxMaybeConversionNode::insert_conversion( TxPassInfo passInfo, TxQualType resultType, bool _explicit ) {
+void TxMaybeConversionNode::insert_conversion( TxPassInfo passInfo, const TxActualType* resultType, bool _explicit ) {
+    this->insert_qual_conversion( passInfo, resultType, _explicit);
+}
+
+void TxMaybeConversionNode::insert_qual_conversion( TxPassInfo passInfo, TxQualType resultType, bool _explicit ) {
 //    if (get_node_id()==9308)
 //        std::cerr << "HERE " << this << std::endl;
     ASSERT( this->originalExpr->is_context_set(), "declaration pass not yet run on originalExpr" );

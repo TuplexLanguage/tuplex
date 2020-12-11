@@ -5,6 +5,7 @@
 #include "ast/expr/ast_string.hpp"
 #include "ast/expr/ast_op_exprs.hpp"
 #include "ast_flow.hpp"
+#include "txparser/scanner.hpp"
 
 
 TxAssertStmtNode::TxAssertStmtNode( const TxLocation& ploc, TxExpressionNode* expr )
@@ -21,9 +22,9 @@ TxAssertStmtNode::TxAssertStmtNode( const TxLocation& ploc, TxExpressionNode* ex
     if ( pLoc.begin.filename )
         msg << *pLoc.begin.filename;
     msg << ":" << pLoc.begin.line;
-    //msg << ": " << srcFuncHeader;    // TODO: source text needed for this
+    //msg << ": " << srcFuncHeader;    // TODO: some ast analysis needed for this
     msg << ": Assertion failed";
-    //msg << ": `" << srcExpr << "`";  // TODO: source text needed for this
+    msg << ": `" << pLoc.parserCtx->scanCtx->source_line( pLoc.begin.line, pLoc.begin.column, pLoc.end.column ) << "`";
     //msg << ": " << customMessage;    // TODO: supported custom assert message
     std::string assertFailedMsg = "c\"" + msg.str() + "\n\"";
     auto msgExpr = new TxReferenceToNode( pLoc, new TxCStringLitNode( pLoc, assertFailedMsg ) );

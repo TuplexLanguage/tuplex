@@ -94,6 +94,7 @@ TxQualType TxFunctionCallNode::define_type( TxPassInfo passInfo ) {
                 auto argExpr = this->argsExprList->at( i );
                 auto argDefType = calleeArgTypes.at( i );
                 // note: similar rules to assignment
+                // no qualifiers since this only copies value
                 // TODO: check dataspace rules if function arg is a reference
                 argExpr->insert_conversion( passInfo, argDefType );  // generates compilation error upon mismatch
             }

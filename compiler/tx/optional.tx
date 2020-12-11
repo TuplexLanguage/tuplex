@@ -1,0 +1,28 @@
+module tx
+
+
+type ~ Opt{ T } :
+    ## currently implemented using Array, which can handle uninitialized vs initialized state
+    _arr : ~Array{~T,1}
+
+    self():
+        #init: _arr()
+
+    self( val : T ):
+        #init: _arr( val )
+
+    final has() -> Bool:
+        return self._arr.L != 0
+
+    final get() -> T:
+        return self._arr[0]
+
+    final set( val : T )~ -> Bool:
+        hadValue := self._arr.L != 0
+        self._arr[0] = val
+        return hadValue
+
+    final clear()~ -> Bool:
+        hadValue := self._arr.L != 0
+        self._arr.clear()
+        return hadValue

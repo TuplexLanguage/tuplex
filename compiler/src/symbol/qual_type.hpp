@@ -15,8 +15,6 @@ class TxActualType;
  * are never modified after construction except via whole instance assignment.
  */
 class TxQualType final : public Printable {
-//    TxActualType const * const _type;
-//    const bool _modifiable;
     uintptr_t _mashed;
 
     static uintptr_t mashptr( const TxActualType* type, bool modifiable ) {
@@ -32,16 +30,14 @@ class TxQualType final : public Printable {
     }
 
 public:
+    /** Initializes a null-valued (not set) instance. */
     TxQualType() : _mashed( 0 )  { }
 
+    /** Initializes a properly set instance. */
     TxQualType( const TxActualType* type, bool modifiable = false )
             : _mashed( mashptr( type, modifiable ) ) {
         ASSERT( type, "NULL type" );
     }
-
-//    TxQualType( const TxQualType* tu )
-//            :  _type( tu->_type ), _modifiable( tu->_modifiable ) {
-//    }
 
 //    TxQualType& operator=( TxQualType&& other ) {
 //        this->_mashed = other._mashed;
@@ -55,32 +51,21 @@ public:
         return this->inner_get_type();
     }
 
+    /** Returns true if this qual-type is set, false if not (then it is considered null-valued). */
     operator bool() const { return bool(_mashed); }
 
-    /** Returns true if this type usage form is _modifiable
+    /** Returns true if this type usage form is modifiable
      * (i.e. its instances' contents may be modified after initialization).
-     * (The base type must be mutable for a _modifiable usage form to be legal.)
+     * (The base type must be mutable for a modifiable usage form to be legal.)
      */
     inline bool is_modifiable() const {
         return this->inner_get_mod();
     }
 
+    /** Returns the TxActualType of this TxQualType. */
     inline const TxActualType* type() const {
         return this->inner_get_type();
     }
-
-//    inline TxTypeClass get_type_class() const {
-//        return this->_type->get_type_class();
-//    }
-//
-//    inline uint32_t get_type_id() const {
-//        return this->_type->get_runtime_type_id();
-//    }
-
-//    /** Performs as accurate equals as possible without forcing actualization of this type or that type.
-//     * Since it doesn't force actualization it may produce false negatives; but no false positives.
-//     */
-//    bool shallow_equals( const TxQualType* that ) const;
 
     inline bool operator==( const TxQualType& other ) const {
         return ( this->_mashed == other._mashed );

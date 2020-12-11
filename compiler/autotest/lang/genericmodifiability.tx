@@ -3,7 +3,7 @@
 type ImmutableType{M,N} :
     mfield : M
     nfield : N
-    #experr 2: efield : ~M;  ## can't declare modifiable member on immutable type
+    #experr 1: efield : ~M;  ## can't declare modifiable member on immutable type
 
     self( m : M, n : N ) :
         #init: mfield( m ), nfield( n )

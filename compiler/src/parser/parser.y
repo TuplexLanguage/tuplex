@@ -489,10 +489,10 @@ func_arg_def   : identifier COLON type_expression
                         { $$ = new TxArgTypeDefNode(@$, $1,
                                     new TxReferenceTypeNode(@3, nullptr,
                                             new TxConstTypeNode( @3, new TxArrayTypeNode(@3, new TxMaybeModTypeNode(@3, $3))))); }  // TODO: remove const and mod nodes?
-               | identifier COLON mut_token type_expression ELLIPSIS
-                        { $$ = new TxArgTypeDefNode(@$, $1,
-                                    new TxReferenceTypeNode(@3, nullptr,
-                                            new TxConstTypeNode( @3, new TxArrayTypeNode(@3, new TxModifiableTypeNode(@3, $4))))); }  // TODO: remove const and mod nodes?
+//               | identifier COLON mut_token type_expression ELLIPSIS
+//                        { $$ = new TxArgTypeDefNode(@$, $1,
+//                                    new TxReferenceTypeNode(@3, nullptr,
+//                                            new TxConstTypeNode( @3, new TxArrayTypeNode(@3, new TxModifiableTypeNode(@3, $4))))); }  // TODO: remove const and mod nodes?
                ;
 
 

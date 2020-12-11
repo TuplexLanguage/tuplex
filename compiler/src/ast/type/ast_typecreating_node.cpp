@@ -54,10 +54,10 @@ TxActualType* TxAliasTypeNode::create_type( TxPassInfo passInfo ) {
 
 void TxGenParamTypeNode::set_requires_mutable( bool mut ) {
     TxTypeExpressionNode::set_requires_mutable( mut );
-    this->constraintTypeNode->set_requires_mutable( mut );
+    this->constraintTypeNode->set_requires_mutable( mut );  // FIXME: investigate how to determine this
 }
 
 TxActualType* TxGenParamTypeNode::create_type( TxPassInfo passInfo ) {
     // create empty specialization (uniquely named but identical type)
-    return this->registry().instantiate_type( this->get_declaration(), this->constraintTypeNode, {}, this->requires_mutable_type() );
+    return this->registry().instantiate_type( this->get_declaration(), this->constraintTypeNode, {}, true /*this->requires_mutable_type()*/ );
 }

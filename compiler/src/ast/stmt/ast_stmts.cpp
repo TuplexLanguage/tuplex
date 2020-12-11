@@ -229,7 +229,8 @@ void TxReturnStmtNode::resolution_pass() {
     if ( funcHeader->returnField ) {
         auto retField = funcHeader->returnField->resolve_field();
         if ( this->expr ) {
-            this->expr->insert_conversion( TXP_RESOLUTION, retField->qtype() );
+            // strip qualifiers since this only copies value
+            this->expr->insert_conversion( TXP_RESOLUTION, retField->qtype().type() );
         }
         else
             CERROR( this, "Return statement has no value expression although function returns " << retField->qtype() );
@@ -251,8 +252,7 @@ void TxAssignStmtNode::resolution_pass() {
         // (Sufficient capacity is checked in runtime.)
         auto rtype = this->rvalue->originalExpr->resolve_type( TXP_RESOLUTION );
         if ( rtype->get_type_class() == TXTC_REFERENCE ) {
-            this->rvalue->insert_conversion( TXP_RESOLUTION, rtype->target_type() );
-            rtype = this->rvalue->qtype();
+            this->rvalue->insert_conversion( TXP_RESOLUTION, rtype->target_type().type() );
         }
         else
             this->rvalue->resolve_type( TXP_RESOLUTION );

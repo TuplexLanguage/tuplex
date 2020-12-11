@@ -134,10 +134,10 @@ TxQualType TxEqualityOperatorNode::define_type( TxPassInfo passInfo ) {
     if ( ltype->get_type_class() == TXTC_ELEMENTARY && rtype->get_type_class() == TXTC_ELEMENTARY ) {
         if ( ltype != rtype ) {
             if ( auto_converts_to( this->rhs->originalExpr, ltype ) ) {
-                this->rhs->insert_conversion( passInfo, ltype );
+                this->rhs->insert_conversion( passInfo, ltype.type() );
             }
             else if ( auto_converts_to( this->lhs->originalExpr, rtype ) ) {
-                this->lhs->insert_conversion( passInfo, rtype );
+                this->lhs->insert_conversion( passInfo, rtype.type() );
             }
             else
                 CERR_THROWRES( this, "Equality is always false: Incompatible operand types for equality operator: " << ltype << ", " << rtype );

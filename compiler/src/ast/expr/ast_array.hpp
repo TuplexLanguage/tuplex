@@ -171,7 +171,7 @@ protected:
         if ( opType->get_type_class() == TXTC_REFERENCE ) {
             auto targType = opType->target_type();
             if ( targType->get_type_class() == TXTC_ARRAY ) {
-                this->array->insert_conversion( passInfo, targType );
+                this->array->insert_qual_conversion( passInfo, targType );
             }
         }
         opType = this->array->resolve_type( passInfo );
@@ -254,7 +254,7 @@ protected:
         if ( opType->get_type_class() == TXTC_REFERENCE ) {
             auto targType = opType->target_type();
             if ( targType->get_type_class() == TXTC_ARRAY ) {
-                this->array->insert_conversion( passInfo, targType );
+                this->array->insert_qual_conversion( passInfo, targType );
             }
         }
         opType = this->array->resolve_type( passInfo );

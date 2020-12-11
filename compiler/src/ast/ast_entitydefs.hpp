@@ -46,7 +46,7 @@ public:
     }
 
     /** Returns the type of the entity/value this node produces/uses if already successfully resolved,
-     * otherwise NULL. */
+     * otherwise the returned TxQualType is null-valued . */
     TxQualType attempt_qtype() const {
         return this->_type;
     }

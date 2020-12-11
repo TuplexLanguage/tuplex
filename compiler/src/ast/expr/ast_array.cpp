@@ -111,7 +111,8 @@ TxQualType TxFilledArrayLitNode::define_type( TxPassInfo passInfo ) {
     }
 
     for ( auto elemExpr : *this->elemExprList )
-        elemExpr->insert_conversion( passInfo, expectedArgQType );
+        // strip qualifiers since this effectively copies value
+        elemExpr->insert_conversion( passInfo, expectedArgQType.type() );
     return arrayType;
 }
 
@@ -221,7 +222,7 @@ TxQualType TxElemAssigneeNode::define_type( TxPassInfo passInfo ) {
     if ( opType->get_type_class() == TXTC_REFERENCE ) {
         auto targType = opType->target_type();
         if ( targType->get_type_class() == TXTC_ARRAY ) {
-            this->array->insert_conversion( passInfo, targType );
+            this->array->insert_qual_conversion( passInfo, targType );
         }
         // TODO: May cause code_gen_typeid() to return a too-general type, override code_gen_typeid()
     }

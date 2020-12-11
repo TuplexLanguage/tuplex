@@ -54,7 +54,10 @@ for_loops( var : UInt )->Int :
         expectI = expectI + 2
         expectJ = expectJ - 2
 
+
+    ##########
     ## test empty ranges:
+
     expect = ~1I
     for i in 1..1 :
         expect = expect + 1
@@ -75,6 +78,19 @@ for_loops( var : UInt )->Int :
         expectJ = expectJ - 2
     assert expectI == 1
     assert expectJ == 9
+
+
+    ##########
+    ## test sub-sequences:
+    /* FIXME: Fix bug
+    indicable : &Indicable{UInt,UByte} = &strA
+    filter : &Sequenceable{UInt} = (1UI..2..9)
+    sel := Selection{UInt,UByte}( indicable, filter )
+    ##sel := Selection{UInt,UByte}( &strA, (1..2..9).sequencer() )
+    for c in sel:
+        t := [ c, '\0' ]
+        tx.c.puts( t )
+    */
 
     return 0
 

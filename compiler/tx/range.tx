@@ -28,14 +28,14 @@ type ERange{ E derives Enumerable } <: Tuple, Range{ E }, Stringer :
         override has_prev() -> Bool :
             return self._nextIndex > 0
 
-        override next() ~ -> E :
+        override next()~ -> E :
             if self._nextIndex >= self._range.count():
                 panic( "No next() element in ERangeIterator" )
             ix := self._nextIndex
             self._nextIndex = self._nextIndex + 1
             return self._range._get_abs_ix( ix )
 
-        override prev() ~ -> E :
+        override prev()~ -> E :
             if self._nextIndex <= 0:
                 panic( "No prev() element in ERangeIterator" )
             self._nextIndex = self._nextIndex - 1

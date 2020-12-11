@@ -1,0 +1,38 @@
+module tx
+
+
+type ~Selector{ K, E } <: Tuple, Sequencer{ E } :
+    _indicable : &Indicable{K,E}
+    _filter : &~Sequencer{K}
+    _nextKey : ~Opt{K}
+
+    self( indicable : &Indicable{K,E}, filter : &Sequenceable{K} ):
+        tx.c.puts(c"one")
+        fs := filter.sequencer()
+        tx.c.puts(c"two")
+        if fs.has_next():
+            tx.c.puts(c"three")
+            #init: _indicable( indicable ), _filter( fs ), _nextKey( fs.next() )
+        else:
+            tx.c.puts(c"four")
+            #init: _indicable( indicable ), _filter( fs ), _nextKey()
+
+    override has_next() -> Bool:
+        return self._nextKey.has() & self._indicable.has( self._nextKey.get() )
+
+    override next() ~ -> E:
+        nextKey := self._nextKey.get()
+        if self._filter.has_next():
+            self._nextKey.set( self._filter.next() )
+        return self._indicable.get( nextKey )
+
+
+type Selection{ K, E } <: Tuple, Sequenceable{ E } :
+    _indicable : &Indicable{K,E}
+    _filter : &Sequenceable{K}
+
+    self( indicable : &Indicable{K,E}, filter : &Sequenceable{K} ):
+        #init: _indicable( indicable ), _filter( filter )
+
+    override sequencer() -> Ref{ ~Sequencer{ E } }:
+        return new ~Selector{K,E}( self._indicable, self._filter )

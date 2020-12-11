@@ -40,7 +40,10 @@ public:
      * so that conversion isn't possible.
      * @param _explicit if true, forces conversion between types that don't permit implicit conversion
      */
-    void insert_conversion( TxPassInfo passInfo, TxQualType resultType, bool _explicit = false );
+    void insert_conversion( TxPassInfo passInfo, const TxActualType* resultType, bool _explicit = false );
+
+    /** Like insert_conversion, but can specify required mutability. */
+    void insert_qual_conversion( TxPassInfo passInfo, TxQualType resultType, bool _explicit = false );
 
     virtual const TxExpressionNode* get_data_graph_origin_expr() const override {
         return this->get_expr()->get_data_graph_origin_expr();

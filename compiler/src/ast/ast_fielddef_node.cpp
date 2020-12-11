@@ -101,34 +101,21 @@ TxQualType TxFieldDefiningNode::define_type( TxPassInfo passInfo ) {
                 // We only handle auto-dereferencing of the rvalue:
                 auto rtype = this->initExpression->originalExpr->resolve_type( TXP_RESOLUTION );
                 if ( rtype->get_type_class() == TXTC_REFERENCE )
-                    this->initExpression->insert_conversion( TXP_RESOLUTION, rtype->target_type() );
+                    this->initExpression->insert_qual_conversion( TXP_RESOLUTION, rtype->target_type() );
                 else
                     this->initExpression->resolve_type( TXP_RESOLUTION );
             }
             else {
+                if ( is_not_properly_concrete( this, qtype ) ) {
+                    // duplicated this check here from verification pass in order to provide better error messaging
+                    CERR_THROWRES( this, "Field type is not concrete: " << this->get_descriptor() << " : " << qtype );
+                }
                 this->initExpression->insert_conversion( passInfo, qtype.type(), this->_explicit );
             }
         }
     }
     else {
         qtype = this->initExpression->resolve_type( passInfo );
-//        if ( this->modifiable ) {
-//            if ( !qtype.is_modifiable() ) {
-//                auto typeEnt = qtype.type();
-//                if ( !typeEnt->is_mutable() ) {
-//                    if ( typeEnt->is_generic_specialization() && typeEnt->get_source_base_type()->is_mutable() ) {
-//                        // copying an immutable type to a modifiable field is ok if we can obtain the mutable specialization
-//                        // corresponding to the source's immutable specialization
-//                        qtype = TxQualType( get_mutable_specialization( passInfo, this->initExpression, typeEnt ), true );
-//                        //std::cerr << "Made mutable specialization from " << typeEnt << "  to " << qtype->type() << std::endl;
-//                    }
-//                    else
-//                        CERR_THROWRES( this, "Can't use immutable type as modifiable: " << qtype );
-//                }
-//                else
-//                    qtype = TxQualType( typeEnt, true );
-//            }
-//        }
         if ( !dynamic_cast<TxModifiableValueNode*>( this->initExpression->originalExpr )
              && !dynamic_cast<TxStackConstructionNode*>( this->initExpression->originalExpr ) ) {
             if ( qtype.is_modifiable() )

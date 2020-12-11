@@ -102,6 +102,14 @@ public:
         return parserContext;
     }
 
+    std::string_view source_line( unsigned lineNumber, unsigned startCol, unsigned endCol ) const {
+        size_t startIx = lineIndex.line_index[lineNumber-1] + startCol - 1;
+        size_t length = endCol - startCol;
+        if ( buffer.source[startIx+length-1] == '\n' )
+            length--;
+        return std::string_view( buffer.source + startIx, length );
+    }
+
     // internal interface; encapsulate?
     std::stack<const TxScanner*> scannerStack;
     std::vector<TxScopeLevel> scopeStack;

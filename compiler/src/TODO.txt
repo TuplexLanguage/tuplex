@@ -178,8 +178,6 @@ Let nested array assignment statements support implicit initialization of assign
 Document array behavior, rules, and syntax
  - document nested arrays behavior
 
-Sequence-range-iteration chaining, e.g.  sequencable[ 0..2..8 ]
-
 Array 'fill' constructor
 
 Array remove/pop/reduce support (removing elements)
@@ -227,7 +225,7 @@ Dataspace support
 
 Advanced array and range features
 ---------------------------------
-Sub-range production:  arr[2..5]
+Sub-range production:  arr[2..5] and sequencable[ 0..2..8 ]
 
 Support negative array indexing from array end
 
@@ -305,9 +303,11 @@ Multi-valued function returns (i.e. return tuple)
 Miscellaneous
 -------------
 
-Improve inline lambda expression syntax, enable using newline/indent
-
 value equals in String
+
+intrinsic Opt support, and perhaps null-safe dereferenceing (see Kotlin)
+
+Improve inline lambda expression syntax, enable using newline/indent
 
 Implement advanced debugging info
  - self, super fields in methods

@@ -922,6 +922,8 @@ static TxTopScanner topLevelScanner;
 TxSourceScan::TxSourceScan( TxParserContext& parserContext, const TxSourceBuffer& buffer )
         : parserContext( parserContext ), buffer( buffer ), nextToken( 0 ),
           scannerStack( { &topLevelScanner } ), scopeStack( { TxScopeLevel( 0, TxTokenId::END ) } ) {
+    lineIndex.line_index.push_back( 0 );  // 'empty' first index, since line numbering starts from 1
+    lineIndex.line_index.push_back( 0 );  // first line starts at index 0
 }
 
 /** moves the head cursor forwards, updating the line index as proper */
@@ -931,6 +933,7 @@ void TxSourceScan::advance_head( size_t length ) {
         cursor.index++;
         if ( nextChar == '\n' ) {
             lineIndex.line_index.push_back( cursor.index );
+            //std::cerr << this->source_line( cursor.line ) << "\\n" << std::endl;
             cursor.line++;
             cursor.column = 1;
         }
@@ -995,6 +998,7 @@ const TxToken& TxSourceScan::next_token() {
             }
             tokens.emplace_back( buffer, cursor, cursor, TxTokenId::DEDENT );
         }
+        lineIndex.line_index.push_back( cursor.index );  // terminates line list, not actual source line
         tokens.emplace_back( buffer, cursor, cursor, TxTokenId::END );
         return tokens.at( nextToken++ );
     }

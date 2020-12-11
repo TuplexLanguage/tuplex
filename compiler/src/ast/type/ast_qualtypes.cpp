@@ -6,7 +6,11 @@
 void TxQualTypeExprNode::verification_pass() const {
     if ( auto qtype = this->attempt_qtype() ) {
         if ( qtype.is_modifiable() && !qtype->is_mutable() )
+        {
+            //if ( qtype->is_generic_param())
+            //    std::cerr << "Here is an immutable generic param type: " << qtype << std::endl;
             CERROR( this, "Can't declare immutable type as modifiable: " << qtype.type() );
+        }
     }
 }
 
