@@ -26,14 +26,13 @@ int main( int argc, const char **argv )
     options.run_jit = true;
     options.no_bc_output = true;
 #endif
-    // FIXME: Stripping debug info is currently default since it crashes LLVM (probably malformed)
-    options.strip_debug = true;
 
     bool explicit_jit = false;
     bool explicit_bc = false;
 
     options.txPath = ".";
 
+    // FUTURE: revamp; and pass digested options string in options struct
     for ( int a = 1; a < argc; a++ ) {
         if ( argv[a][0] == '-' && argv[a][1] ) {
             if ( !strcmp( argv[a], "-h" ) || !strcmp( argv[a], "-help" ) ) {

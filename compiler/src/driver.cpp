@@ -78,6 +78,8 @@ int TxDriver::compile( const std::vector<std::string>& startSourceFiles, const s
         this->_LOG.fatal( "No source specified." );
         return 1;
     }
+    this->firstSourceFilename = startSourceFiles.front();
+
     if ( options.sourceSearchPaths.empty())
         this->_LOG.config( "Source search path is empty" );
     else
@@ -425,7 +427,9 @@ void TxDriver::add_source_file( const TxIdentifier& moduleName, const std::strin
     this->sourceFileQueue.emplace_back( std::pair<TxIdentifier, std::string>( moduleName, filePath ));
 }
 
-int TxDriver::llvm_compile( const std::string& outputFileName ) {
+int TxDriver::llvm_compile( const std::string& outputFilename ) {
+    this->genContext->init_codegen();
+
     // initialize debug info generation:
     for ( auto parserContext : this->parsedASTs ) {
         parserContext->init_debug();
@@ -470,8 +474,6 @@ int TxDriver::llvm_compile( const std::string& outputFileName ) {
         LOG_DEBUG( &_LOG, "Generated program entry for user main method " << funcDecl );
     }
 
-    this->genContext->initialize_target();
-
     this->genContext->finalize_codegen();
 
     _LOG.info( "+ LLVM code generated (not yet written)" );
@@ -487,8 +489,8 @@ int TxDriver::llvm_compile( const std::string& outputFileName ) {
         retCode = this->genContext->verify_code();
         if ( !retCode )
             _LOG.info( "+ LLVM code verification OK" );
-        //else
-        //    return retCode;
+        else
+            return retCode;
     }
 
     if ( this->options.run_jit ) {
@@ -500,8 +502,8 @@ int TxDriver::llvm_compile( const std::string& outputFileName ) {
     }
 
     if ( !this->options.no_bc_output ) {
-        retCode = this->genContext->write_bitcode( outputFileName );
-        _LOG.info( "+ Wrote bitcode file '%s'", outputFileName.c_str());
+        retCode = this->genContext->write_bitcode( outputFilename );
+        _LOG.info( "+ Wrote bitcode file '%s'", outputFilename.c_str());
     }
 
     return retCode;

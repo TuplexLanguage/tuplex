@@ -62,15 +62,6 @@ TxParserContext::TxParserContext( TxDriver& driver, TxIdentifier moduleName, std
 void TxParserContext::init_debug() {
     std::string tmpFileName = ( _inputFilename.empty() ? "builtin" : _inputFilename );
     this->_debugFile = this->_driver.get_llvm_gen_context()->debug_builder()->createFile( tmpFileName, "" );
-    bool isOptimized = false;
-    std::string commandLineOptions;
-    unsigned runtimeVersion = 0;
-    this->_debugUnit = this->_driver.get_llvm_gen_context()->debug_builder()->createCompileUnit(
-            llvm::dwarf::DW_LANG_C, this->_debugFile, get_version_string(), isOptimized, commandLineOptions, runtimeVersion);
-}
-
-llvm::DICompileUnit* TxParserContext::debug_unit() const {
-    return this->_debugUnit;
 }
 
 llvm::DIFile* TxParserContext::debug_file() const {

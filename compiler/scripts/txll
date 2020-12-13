@@ -1,6 +1,6 @@
 #/bin/bash
-# Script that builds a tuplex program binary (via LLVM bitcode file (.bc)).
-# Runs optimization passes.
+# Script that builds a tuplex program binary, via LLVM IR intermediate file (.ll).
+# Does not optimize.
 
 color_black='\e[0;30m'        # Black
 color_red='\e[0;31m'          # Red
@@ -36,18 +36,15 @@ while [[ $# -gt 0 ]]; do
     fi
 done
 
-bctarget="${basepath}.bc"
+lltarget="${basepath}.ll"
 objtarget="${basepath}.o"
 bintarget="${basepath}.out"
 
-echo -e $color_cyan "Compiling" $bctarget $color_off
-checked txc -nojit -bc -o "$bctarget" $options
+echo -e $color_cyan "Compiling" $lltarget $color_off
+checked txc -nojit -nobc $options -di >$lltarget
 
-echo -e $color_cyan "Optimizing" $bctarget $color_off
-checked opt -O3 $bctarget -o $bctarget
-
-echo -e $color_cyan "LL-compiling" $bctarget $color_off
-checked llc --relocation-model=pic -filetype=obj $bctarget
+echo -e $color_cyan "LL-compiling" $lltarget $color_off
+checked llc --relocation-model=pic -filetype=obj $lltarget
 
 echo -e $color_cyan "Linking" $bintarget $color_off
 checked gcc -o $bintarget $objtarget

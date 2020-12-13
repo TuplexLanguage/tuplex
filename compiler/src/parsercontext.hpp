@@ -70,7 +70,6 @@ public:
 
     void init_debug();
 
-    llvm::DICompileUnit* debug_unit() const;
     llvm::DIFile* debug_file() const;
 
     /** Returns the LLVMContext for this parser context. Can be used in constant expression evaluation during analysis. */

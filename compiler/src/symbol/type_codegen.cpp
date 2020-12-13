@@ -496,12 +496,38 @@ Type* TxFunctionTypeClassHandler::make_llvm_type( const TxActualType* type, Llvm
     return llvmType;
 }
 
-DIType* TxFunctionTypeClassHandler::make_llvm_debug_type( const TxActualType* type, LlvmGenerationContext& context ) const {
+DISubroutineType* TxFunctionTypeClassHandler::make_llvm_suboutine_debug_type( const TxActualType* type, LlvmGenerationContext& context ) const {
     SmallVector<Metadata*, 8> eltTypes;
     eltTypes.push_back( context.get_debug_type( type->return_type() ) );
     for ( auto argType : type->argument_types() )
         eltTypes.push_back( context.get_debug_type( argType ) );
     return context.debug_builder()->createSubroutineType( context.debug_builder()->getOrCreateTypeArray( eltTypes ) );
+}
+
+DIType* TxFunctionTypeClassHandler::make_llvm_debug_type( const TxActualType* type, LlvmGenerationContext& context ) const {
+    auto subroutineType = this->make_llvm_suboutine_debug_type( type, context );
+
+    // make lambda handle:
+    auto declarer = static_cast<const TxTypeDeclNode*>( type->get_declaration()->get_definer()->parent() );
+    DIFile* file = declarer->get_parser_context()->debug_file();
+    DIScope* scope = file;
+    unsigned lineNo = declarer->ploc.begin.line;
+    DIType* closureDType = context.debug_builder()->createUnspecifiedType( "closure" );  // FUTURE: improve
+    DIType* closurePtrDType = context.debug_builder()->createPointerType( closureDType, 64, 64 );
+    SmallVector<Metadata*, 2> elts(
+            {
+                    context.debug_builder()->createMemberType( scope, "fptr", file, lineNo, 64, 64, 0,
+                                                               DINode::DIFlags::FlagZero, subroutineType ),
+                    context.debug_builder()->createMemberType( scope, "cptr", file, lineNo, 64, 64, 64,
+                                                               DINode::DIFlags::FlagZero, closurePtrDType )
+            } );
+    DINodeArray elements = context.debug_builder()->getOrCreateArray( elts );
+    uint64_t bitSize = 128;
+    uint32_t alignInBits = 64;
+    DIType* derivedFrom = context.get_debug_type( type->get_base_type() );
+    return context.debug_builder()->createStructType( scope, type->get_declaration()->get_unique_full_name(),
+                                                      file, lineNo, bitSize, alignInBits,
+                                                      DINode::DIFlags::FlagPublic, derivedFrom, elements );
 }
 
 Type* TxExternCFunctionTypeClassHandler::make_llvm_type( const TxActualType* type, LlvmGenerationContext& context ) const {

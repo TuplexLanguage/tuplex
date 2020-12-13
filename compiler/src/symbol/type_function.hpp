@@ -3,6 +3,9 @@
 
 #include "type_base.hpp"
 
+namespace llvm {
+    class DISubroutineType;
+}
 
 class TxFunctionTypeClassHandler : public TxTypeClassHandler {
 protected:
@@ -22,6 +25,8 @@ public:
 
     /** Makes the llvm::DIType for an instance of this type. */
     virtual llvm::DIType* make_llvm_debug_type( const TxActualType* type, LlvmGenerationContext& context ) const override;
+
+    llvm::DISubroutineType* make_llvm_suboutine_debug_type( const TxActualType* type, LlvmGenerationContext& context ) const;
 };
 
 

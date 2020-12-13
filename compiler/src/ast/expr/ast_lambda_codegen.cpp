@@ -70,30 +70,21 @@ void TxLambdaExprNode::code_gen_function_body( LlvmGenerationContext& context ) 
     // FUTURE: if this is a lambda within a code-block, define the implicit closure object here
 
     // generate the function debug info:
-    DIFile* fileScope = this->get_parser_context()->debug_file();
     {
-        // TODO: this puts all functions' debug info as if in file scope, do we need to reflect that methods and lambdas are local?
-        DIScope* outerDebugScope = this->get_parser_context()->debug_unit();
+        // TODO: this puts all functions' debug info as if in file scope, we probably need to reflect that methods and lambdas are local
+        DIFile* fileScope = this->get_parser_context()->debug_file();
+        DIScope* outerDebugScope = this->get_parser_context()->debug_file();
         auto linkageName = StringRef();
-        DISubroutineType* subRoutineType = cast<DISubroutineType>( context.get_debug_type( this->qtype() ) );
+        DISubroutineType* subRoutineType = dynamic_cast<const TxFunctionTypeClassHandler*>( this->qtype()->type_class_handler() )
+                ->make_llvm_suboutine_debug_type( this->qtype().type(), context );
         unsigned scopeLine = this->body->ploc.begin.line;
-//        bool isLocalToUnit = true;  // internal linkage
-//        DITemplateParameterArray funcTemplParams = nullptr;  // can we use this for generic functions in future?
         DISubprogram *subProg = context.debug_builder()->createFunction(
             outerDebugScope, this->functionPtr->getName(), linkageName,
             fileScope, this->ploc.begin.line, subRoutineType, scopeLine,
-            DINode::FlagPrototyped,
+            DINode::FlagPrototyped,  // FlagVirtual might be relevant for virtual methods?
             DISubprogram::SPFlagLocalToUnit | DISubprogram::SPFlagDefinition
-//            DINode::FlagPrototyped  // FlagVirtual might be relevant for virtual methods?
-//            isLocalToUnit,
-//            true /* isDefinition */,
-//            false /* isOptimized */,
-//            funcTemplParams
             );
         this->functionPtr->setSubprogram( subProg );
-
-//        // Push the current scope.
-//        KSDbgInfo.LexicalBlocks.push_back( subProg );
     }
 
     // generated the function entry block and prologue:

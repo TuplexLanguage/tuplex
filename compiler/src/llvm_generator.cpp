@@ -77,6 +77,17 @@ LlvmGenerationContext::LlvmGenerationContext( TxPackage& tuplexPackage, llvm::LL
 
 /***** Compile the AST into a module *****/
 
+void LlvmGenerationContext::init_codegen() {
+    // initialize debug info build:
+    auto& firstSourceFilename = this->tuplexPackage.driver().get_first_source_filename();
+    auto firstDebugFile = this->_debugBuilder->createFile( firstSourceFilename, "" );
+    bool isOptimized = false;
+    std::string commandLineOptions;
+    unsigned runtimeVersion = 0;
+    this->_debugUnit = this->_debugBuilder->createCompileUnit(
+            llvm::dwarf::DW_LANG_C, firstDebugFile, get_version_string(), isOptimized, commandLineOptions, runtimeVersion);
+}
+
 int LlvmGenerationContext::generate_code( const TxParsingUnitNode* staticScopeNode ) {
     try {
         staticScopeNode->code_gen( *this );
@@ -129,7 +140,7 @@ void LlvmGenerationContext::initialize_target() {
     auto cpu = "generic";
     auto features = "";
     TargetOptions opt;
-    auto relocModel = Optional<Reloc::Model>();
+    auto relocModel = Optional<Reloc::Model>();  // Reloc::Model::PIC_
     auto targetMachine = target->createTargetMachine( targetTriple, cpu, features, opt, relocModel );
 
     this->llvmModulePtr->setDataLayout( targetMachine->createDataLayout() );
@@ -137,6 +148,8 @@ void LlvmGenerationContext::initialize_target() {
 }
 
 void LlvmGenerationContext::finalize_codegen() {
+    this->initialize_target();
+
     this->_debugBuilder->finalize();
 }
 
@@ -869,19 +882,15 @@ Function* LlvmGenerationContext::gen_main_function( const std::string userMain, 
         DISubroutineType* subRoutineType = this->debug_builder()->createSubroutineType( this->debug_builder()->getOrCreateTypeArray( eltTypes ) );
 
         auto linkageName = StringRef();
-//        bool isLocalToUnit = false;  // external linkage
+        // Note - not local to unit, external linkage
         unsigned lineNo = __LINE__;
         unsigned scopeLine = lineNo;
         DISubprogram *subProg = this->debug_builder()->createFunction(
-               this->tuplexPackage.driver().builtin_parser_context()->debug_unit(),
+               this->_debugUnit,
                mainFunc->getName(), linkageName, this->_genDIFile,
                lineNo, subRoutineType, scopeLine,
                DINode::FlagPrototyped,
                DISubprogram::SPFlagDefinition
-//               diFlags, spFlags
-//               isLocalToUnit,
-//               true /* isDefinition */,
-//               false /* isOptimized */
                );
         mainFunc->setSubprogram( subProg );
     }
@@ -1070,15 +1079,17 @@ void LlvmGenerationContext::gen_get_supertypes_array_function() {
     Value* runtimeBaseTypeIdV = &( *args );
     runtimeBaseTypeIdV->setName( "runtimeBaseTypeIdV" );
 
+    const bool TX_DEBUG_INFO = true;  // if true, generates this debug info
+    if ( TX_DEBUG_INFO )
     { // debug info
-        auto diScope = this->tuplexPackage.driver().builtin_parser_context()->debug_unit();
+        auto globScope = this->_debugUnit;
         SmallVector<Metadata*, 2> eltTypes;
         auto uintDT = this->debug_builder()->createBasicType( "UInt", 32, dwarf::DW_ATE_unsigned );
         {  // return type:
             DINodeArray subscripts;  // ??
             SmallVector<Metadata*, 3> arrayElts( { uintDT, uintDT, this->debug_builder()->createArrayType( 0, 64, uintDT, subscripts ) } );
             eltTypes.push_back( this->debug_builder()->createPointerType(
-                    this->debug_builder()->createStructType( diScope, "[]UInt", _genDIFile, __LINE__, 64, 64,
+                    this->debug_builder()->createStructType( globScope, "[]UInt", _genDIFile, __LINE__, 64, 64,
                                                              DINode::DIFlags::FlagZero, nullptr,
                                                              debug_builder()->getOrCreateArray( arrayElts ) ), 64 ) );
         }
@@ -1086,17 +1097,14 @@ void LlvmGenerationContext::gen_get_supertypes_array_function() {
         DISubroutineType* subRoutineType = this->debug_builder()->createSubroutineType( this->debug_builder()->getOrCreateTypeArray( eltTypes ) );
 
         auto linkageName = StringRef();
-//        bool isLocalToUnit = true;  // internal linkage
         unsigned lineNo = __LINE__;
-        unsigned scopeLine = 0;  // FIXME
+        unsigned scopeLine = lineNo;
         DISubprogram *subProg = this->debug_builder()->createFunction(
-               diScope, function->getName(), linkageName, _genDIFile,
-               lineNo, subRoutineType, scopeLine,
-               DINode::FlagPrototyped,
-               DISubprogram::SPFlagLocalToUnit | DISubprogram::SPFlagDefinition
-//               DINode::FlagPrototyped
-//               isLocalToUnit, true /* isDefinition */,
-//               false /* isOptimized */
+                globScope,
+                function->getName(), linkageName, _genDIFile,
+                lineNo, subRoutineType, scopeLine,
+                DINode::FlagPrototyped,
+                DISubprogram::SPFlagLocalToUnit | DISubprogram::SPFlagDefinition
                );
         function->setSubprogram( subProg );
     }
@@ -1109,7 +1117,8 @@ void LlvmGenerationContext::gen_get_supertypes_array_function() {
     BasicBlock* nonVTableBlock = BasicBlock::Create( this->llvmContext, "if_nonvtabletype", parentFunc );
     BasicBlock* vTableBlock = BasicBlock::Create( this->llvmContext, "if_vtabletype", parentFunc );
 
-    builder.SetCurrentDebugLocation( DebugLoc::get( __LINE__, 0, scope.debug_scope() ) );
+    if ( TX_DEBUG_INFO )
+        builder.SetCurrentDebugLocation( DebugLoc::get( __LINE__, 0, scope.debug_scope() ) );
 
     auto superTypesC = cast<GlobalVariable>( this->lookup_llvm_value( "tx.runtime.SUPER_TYPES" ) );
     {

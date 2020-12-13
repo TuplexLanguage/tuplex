@@ -31,6 +31,10 @@ class TxDriver {
 
     const TxOptions options;
 
+    /** The name of the first user source file of this compilation package.
+     * Will often contain the 'main' function but this is not guaranteed. */
+    std::string firstSourceFilename;
+
     /** Parser context representing the built-in internally coded constructs (without actual source code). */
     TxParserContext* builtinParserContext;
 
@@ -61,15 +65,8 @@ class TxDriver {
      * The value is the top level root node of the AST. */
     std::unordered_map<std::string, TxParsingUnitNode*> parsedSourceFiles;
 
-//    // Handling the scanner.
-//    int scan_begin( const std::string &filePath );
-//    void scan_end();
-//
-//    /** Parse a file, including it in the currently compiling package. */
-//    int parse( TxParserContext& parserContext );
-
     /** Generate LLVM IR and/or bytecode. */
-    int llvm_compile( const std::string& outputFileName );
+    int llvm_compile( const std::string& outputFilename );
 
     /** Add all .tx source files directly under the specified directory to the currently compiling package. */
     int add_all_in_dir( const TxIdentifier& moduleName, const std::string &dirPath, bool recurseSubDirs );
@@ -93,6 +90,10 @@ public:
     explicit TxDriver( const TxOptions& options );
 
     virtual ~TxDriver();
+
+    inline const std::string& get_first_source_filename() const {
+        return this->firstSourceFilename;
+    }
 
     inline const TxOptions& get_options() const {
         return this->options;
