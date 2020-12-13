@@ -32,14 +32,13 @@ std::string format_location( const TxLocation& ploc );
  */
 class TxParserContext : public Printable {
     TxDriver& _driver;
-    TxIdentifier _moduleName;  // note, may be empty
+    const TxIdentifier _moduleName;  // note, may be empty
     /** used for parse error messages */
-    std::string _inputFilename;
+    const std::string _inputFilename;
 
     /** non-empty if currently processing within an EXPERR block */
     std::stack<ExpectedErrorClause*> expErrorStack;
 
-    llvm::DICompileUnit* _debugUnit = nullptr;
     llvm::DIFile *_debugFile = nullptr;
 
     void emit_comp_error( const std::string& msg, ExpectedErrorClause* expErrorContext );
@@ -59,7 +58,7 @@ public:
     enum ParseInputSourceSet { BUILTINS, TX_SOURCES, FIRST_USER_SOURCE, REST_USER_SOURCES };
     const ParseInputSourceSet parseInputSourceSet;
 
-    TxParserContext( TxDriver& driver, TxIdentifier moduleName, std::string filePath,
+    TxParserContext( TxDriver& driver, TxIdentifier moduleName, const std::string& filePath,
                      TxSourceBuffer sourceBuffer, ParseInputSourceSet parseInputSourceSet );
 
     ~TxParserContext() override = default;
@@ -85,7 +84,7 @@ public:
 
     /** The path of the file currently being parsed.
      * Used later to pass the file path to the location tracker. */
-    const std::string* current_input_filepath() const {
+    const std::string* source_filepath() const {
         return &this->_inputFilename;
     }
 

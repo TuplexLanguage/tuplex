@@ -57,24 +57,12 @@ class position
 {
 public:
     /// Construct a position.
-    explicit position( const std::string* f = YY_NULLPTR,
-                       unsigned int l = 1u,
+    explicit position( unsigned int l = 1u,
                        unsigned int c = 1u )
-            : filename( f ),
-              line( l ),
+            : line( l ),
               column( c )
     {
     }
-
-//    /// Initialization.
-//    void initialize( std::string* fn = YY_NULLPTR,
-//                     unsigned int l = 1u,
-//                     unsigned int c = 1u )
-//                     {
-//        filename = fn;
-//        line = l;
-//        column = c;
-//    }
 
     /** \name Line and Column related manipulators
      ** \{ */
@@ -95,8 +83,6 @@ public:
     }
     /** \} */
 
-    /// File name to which this position refers.
-    const std::string* filename;
     /// Current line number.
     unsigned int line;
     /// Current column number.
@@ -145,10 +131,7 @@ operator-( position res, int width )
 /// Compare two position objects.
 inline bool operator==( const position& pos1, const position& pos2 ) {
     return ( pos1.line == pos2.line
-             && pos1.column == pos2.column
-             && ( pos1.filename == pos2.filename
-                  || ( pos1.filename && pos2.filename
-                       && *pos1.filename == *pos2.filename ) ) );
+             && pos1.column == pos2.column );
 }
 
 /// Compare two position objects.
@@ -164,8 +147,6 @@ template<typename YYChar>
 inline std::basic_ostream<YYChar>&
 operator<<( std::basic_ostream<YYChar>& ostr, const position& pos )
             {
-    if ( pos.filename )
-        ostr << *pos.filename << ':';
     return ostr << pos.line << '.' << pos.column;
 }
 

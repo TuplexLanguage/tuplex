@@ -67,12 +67,11 @@ public:
     }
 
     /// Construct a 0-width location in \a f, \a l, \a c.
-    explicit TxLocation( const std::string* f,
-                         unsigned int l,
+    explicit TxLocation( unsigned int l,
                          unsigned int c,
                          TxParserContext* parserCtx )
-            : begin( f, l, c ),
-              end( f, l, c ),
+            : begin( l, c ),
+              end( l, c ),
               parserCtx( parserCtx )
     {
         ASSERT( parserCtx, "NULL parserCtx" );
@@ -179,6 +178,9 @@ operator!=( const TxLocation& loc1, const TxLocation& loc2 )
     return !( loc1 == loc2 );
 }
 
+/// From parsercontext.hpp
+std::string format_location( const TxLocation& ploc );
+
 /** \brief Intercept output stream redirection.
  ** \param ostr the destination output stream
  ** \param loc a reference to the location to redirect
@@ -189,17 +191,19 @@ template<typename YYChar>
 inline std::basic_ostream<YYChar>&
 operator<<( std::basic_ostream<YYChar>& ostr, const TxLocation& loc )
             {
-    unsigned int end_col = 0 < loc.end.column ? loc.end.column - 1 : 0;
-    ostr << loc.begin;
-    if ( loc.end.filename
-         && ( !loc.begin.filename
-              || *loc.begin.filename != *loc.end.filename ) )
-        ostr << '-' << loc.end.filename << ':' << loc.end.line << '.' << end_col;
-    else if ( loc.begin.line < loc.end.line )
-        ostr << '-' << loc.end.line << '.' << end_col;
-    else if ( loc.begin.column < end_col )
-        ostr << '-' << end_col;
+    ostr << format_location( loc );
     return ostr;
+//    unsigned int end_col = 0 < loc.end.column ? loc.end.column - 1 : 0;
+//    ostr << loc.begin;
+//    if ( loc.end.filename
+//         && ( !loc.begin.filename
+//              || *loc.begin.filename != *loc.end.filename ) )
+//        ostr << '-' << loc.end.filename << ':' << loc.end.line << '.' << end_col;
+//    else if ( loc.begin.line < loc.end.line )
+//        ostr << '-' << loc.end.line << '.' << end_col;
+//    else if ( loc.begin.column < end_col )
+//        ostr << '-' << end_col;
+//    return ostr;
 }
 
 //} // yy

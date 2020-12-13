@@ -98,8 +98,7 @@ YY_DECL;
 %initial-action
 {
     // Initialize the initial location.
-    // Afterward new locations are computed relatively to the previous locations: the file name will be propagated.
-    @$.begin.filename = @$.end.filename = parserCtx->current_input_filepath();
+    // Afterward new locations are computed relatively to the previous locations, the other fields will be propagated.
     @$.parserCtx = parserCtx;
 };
 

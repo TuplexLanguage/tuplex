@@ -62,7 +62,7 @@ const std::string& get_builtins_file_name() {
     return thisSrcFileName;
 }
 
-#define PLOC(parserContext)  (TxLocation( &thisSrcFileName, __LINE__, 0, (parserContext) ))
+#define PLOC(parserContext)  (TxLocation( __LINE__, 0, (parserContext) ))
 
 
 /** Abstract superclass for the built-in type defining nodes. */

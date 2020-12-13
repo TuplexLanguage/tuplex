@@ -18,6 +18,6 @@ int parse( TxParserContext* parserContext ) {
     parser.set_debug_level( parserContext->driver().get_options().debug_parser );
     int ret = parser.parse();
     _LOG.debug( "Completed grammar parse of source buffer for '%s'",
-                parserContext->current_input_filepath()->c_str() );
+                parserContext->source_filepath()->c_str() );
     return ret;
 }

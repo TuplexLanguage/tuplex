@@ -10,7 +10,7 @@
 std::string format_location( const TxLocation& ploc ) {
     const size_t bufSize = 256;
     char buf[bufSize];
-    auto filename = ploc.begin.filename ? ploc.begin.filename->c_str() : "";
+    auto filename = ploc.parserCtx->source_filepath()->c_str();
     if ( ploc.begin.line == ploc.end.line ) {
         snprintf( buf, bufSize, "%s %2d.%-2d-%2d", filename,
                   ploc.begin.line, ploc.begin.column, ploc.end.column );
@@ -51,10 +51,10 @@ static std::string format_location_message( const TxParseOrigin* origin, char co
 static Logger& CLOG = Logger::get( "COMPILER" );
 
 
-TxParserContext::TxParserContext( TxDriver& driver, TxIdentifier moduleName, std::string filePath,
+TxParserContext::TxParserContext( TxDriver& driver, TxIdentifier moduleName, const std::string& filePath,
                                   TxSourceBuffer sourceBuffer, ParseInputSourceSet parseInputSourceSet )
         : _driver( driver ), _moduleName( std::move( moduleName )),
-          _inputFilename( std::move( filePath )), scanCtx( new TxSourceScan( *this, sourceBuffer )),
+          _inputFilename( filePath ), scanCtx( new TxSourceScan( *this, sourceBuffer )),
           parseInputSourceSet( parseInputSourceSet ) {
 }
 
@@ -178,5 +178,5 @@ void TxParserContext::cinfo( const TxLocation& loc, const std::string& msg ) {
 }
 
 std::string TxParserContext::str() const {
-    return std::string( "ParserContext file '" ) + *this->current_input_filepath() + "'";
+    return std::string( "ParserContext file '" ) + *this->source_filepath() + "'";
 }

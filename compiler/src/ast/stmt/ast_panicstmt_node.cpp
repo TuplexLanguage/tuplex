@@ -1,10 +1,9 @@
 #include "ast_panicstmt_node.hpp"
 
 #include "ast/expr/ast_ref.hpp"
-#include "ast/expr/ast_lit.hpp"
 #include "ast/expr/ast_string.hpp"
-#include "ast/expr/ast_op_exprs.hpp"
 #include "ast/stmt/ast_stmts.hpp"
+#include "parsercontext.hpp"
 
 
 static TxStatementNode* make_output_stmt( const TxLocation& ploc, TxExpressionNode* messageExpr ) {
@@ -58,8 +57,7 @@ TxPanicStmtNode::TxPanicStmtNode( const TxLocation& ploc, TxExpressionNode* mess
 TxPanicStmtNode::TxPanicStmtNode( const TxLocation& ploc, const std::string& message )
         : TxStatementNode( ploc ) {
     std::stringstream msg;
-    if ( this->ploc.begin.filename )
-        msg << *this->ploc.begin.filename;
+    msg << this->ploc.parserCtx->source_filepath();
     msg << ":" << this->ploc.begin.line;
     msg << ": Panic: " << message;
     std::string panicMsg = "c\"" + msg.str() + "\n\"";

@@ -163,9 +163,6 @@ Clean up tests and tx code with new structure syntax - DONE
 
 Make blog post about new syntax - DONE
 
-FUTURE: A non-whitespace token after COLON means a single-line body terminated by NEWLINE.
-        (Then brace-enclosed single-line scope, and double semicolon in some cases, may not be needed anymore.)
-
 
 Remaining core array features:
 ------------------------------
@@ -310,6 +307,7 @@ intrinsic Opt support, and perhaps null-safe dereferenceing (see Kotlin)
 Improve inline lambda expression syntax, enable using newline/indent
 
 Implement advanced debugging info
+ - polymorphic methods (inheritance)
  - self, super fields in methods
  - non-local fields
  - expressions, rvalues, etc
@@ -336,6 +334,9 @@ Ideal concrete fields checking
  - methods may have function signature independent of generics, but contain code that is dependent on generic parameters
 
 Auto-generate default (zero arguments) constructor if base type and all members without inlined initializers allow default construction?
+
+A non-whitespace token after COLON means a single-line body terminated by NEWLINE.
+    (Then brace-enclosed single-line scope, and double semicolon in some cases, may not be needed anymore.)
 
 Array-of-structs and Struct-of-arrays via keywords?
 

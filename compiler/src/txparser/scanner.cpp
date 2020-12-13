@@ -656,8 +656,7 @@ void TxTopScanner::scan_token( TxSourceScan& scanState ) const {
                 emptyLine = false;
                 if ( mixedIndentChars ) {
                     auto& cursor = scanState.current_cursor();
-                    TxLocation loc( scanState.parser_context().current_input_filepath(),
-                                    cursor.line, cursor.column, &scanState.parser_context());
+                    TxLocation loc( cursor.line, cursor.column, &scanState.parser_context());
                     std::ostringstream ostr;
                     ostr << "Mixed spaces and tabs in indentations";
                     scanState.parser_context().cerror( loc, ostr.str());
@@ -683,8 +682,7 @@ void TxTopScanner::scan_token( TxSourceScan& scanState ) const {
                             // check consistency with previous indentation levels (it should match one of the previous lengths exactly):
                             if ( indentLen > prevIndent ) {
                                 auto& cursor = scanState.current_cursor();
-                                TxLocation loc( scanState.parser_context().current_input_filepath(),
-                                                cursor.line, cursor.column, &scanState.parser_context());
+                                TxLocation loc( cursor.line, cursor.column, &scanState.parser_context());
                                 std::ostringstream ostr;
                                 ostr << "Inconsistent indentation at line=" << cursor.line << ",col="
                                      << cursor.column << ", " << indentLen << " > " << prevIndent;
@@ -736,8 +734,7 @@ void TxTopScanner::scan_token( TxSourceScan& scanState ) const {
             case TxTokenId::RBRACKET:
             case TxTokenId::RPAREN:
                 if ( match.id != scanState.scopeStack.back().closingToken ) {
-                    TxLocation loc( scanState.parser_context().current_input_filepath(),
-                                    scanState.current_cursor().line, scanState.current_cursor().column,
+                    TxLocation loc( scanState.current_cursor().line, scanState.current_cursor().column,
                                     &scanState.parser_context());
                     std::ostringstream ostr;
                     ostr << "Unexpected closing brace / paren / bracket, expected "
@@ -989,8 +986,7 @@ const TxToken& TxSourceScan::next_token() {
         for ( auto it = scopeStack.crbegin(); it != scopeStack.crend() - 1; it++ ) {
             // produce implicit DEDENTs
             if ( it->closingToken != TxTokenId::DEDENT ) {
-                TxLocation loc( parser_context().current_input_filepath(),
-                                current_cursor().line, current_cursor().column,
+                TxLocation loc( current_cursor().line, current_cursor().column,
                                 &parser_context());
                 std::ostringstream ostr;
                 ostr << "Missing closing brace / paren / bracket: " << it->closingToken;
