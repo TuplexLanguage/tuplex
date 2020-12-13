@@ -82,10 +82,19 @@ TxQualType TxFunctionCallNode::define_type( TxPassInfo passInfo ) {
                     arrayArgs->push_back( this->argsExprList->at( i ) );
                 }
                 this->argsExprList->resize( lastCalleeArgIx );
-                const TxLocation& varArgLoc = ( arrayArgs->empty() ? this->ploc : arrayArgs->front()->ploc );
-                auto elemTypeExpr = new TxQualTypeExprNode( new TxTypeDeclWrapperNode( varArgLoc, arrayArgElemType->get_declaration() ) );
-                auto arrayArgNode = new TxMaybeConversionNode( new TxFilledArrayLitNode( varArgLoc, elemTypeExpr, arrayArgs ) );
+
+                TxLocation varArgLoc = this->ploc;
+                if ( !arrayArgs->empty() )
+                    varArgLoc = TxLocation( arrayArgs->front()->ploc.begin, arrayArgs->back()->ploc.end, arrayArgs->front()->ploc.parserCtx );
+                auto typeDeclWrNode = new TxTypeDeclWrapperNode( varArgLoc, arrayArgElemType->get_declaration() );
+                auto elemTypeExpr = new TxQualTypeExprNode( typeDeclWrNode );
+                auto filledArrayNode = new TxFilledArrayLitNode( varArgLoc, elemTypeExpr, arrayArgs );
+                auto arrayArgNode = new TxMaybeConversionNode( filledArrayNode );
                 run_declaration_pass( arrayArgNode, this, "arg" );
+                // NOTE: The TxFilledArrayLitNode does not consider itself the OWNER of the arg nodes!
+                // Therefore we maintain a special reference to these args so our visitor can traverse them:
+                this->varargsList = arrayArgs;
+
                 this->argsExprList->push_back( arrayArgNode );
             }
             ASSERT( calleeArgTypes.size() == this->argsExprList->size(), "Mismatching argument count for callee " << this->calleeType );

@@ -42,13 +42,8 @@ TxFilledArrayLitNode::TxFilledArrayLitNode( const TxLocation& ploc, const std::v
 {
 }
 
-TxFilledArrayLitNode::TxFilledArrayLitNode( const TxLocation& ploc, const std::vector<TxMaybeConversionNode*>* elemExprList )
-        : TxFilledArrayLitNode( ploc, nullptr, elemExprList )
-{
-}
-
 TxFilledArrayLitNode::TxFilledArrayLitNode( const TxLocation& ploc, TxQualTypeExprNode* elementTypeExpr,
-                                const std::vector<TxMaybeConversionNode*>* elemExprList )
+                                            const std::vector<TxMaybeConversionNode*>* elemExprList )
         : TxArrayLitNode( ploc ), origElemExprList( nullptr ),
           elementTypeNode( elementTypeExpr ? new TxTypeArgumentNode( elementTypeExpr ) : nullptr ),
           capacityExpr( nullptr ), elemExprList( elemExprList ) {

@@ -220,6 +220,20 @@ Dataspace support
 
 
 
+REFACTORING
+-----------
+Make all AST nodes' state unambiguous - avoid the tree having mix of "originally created nodes" with
+inserted wrapper nodes, transformed constructor calls, argument vectors etc - where the compiler pass state
+becomes unclear.
+ - Each compiler pass should execute exactly once on each node.
+ - It should be perfectly clear which state the node is in.
+ - Preferably, there shouldn't be an ocean of if statements to process on the nodes - and the passes should
+   (typically) not need to run several times on the same subtree.
+ -> perhaps pass PASS info with visitor?
+ -> perhaps merge declaration pass with node construction?
+
+
+
 Advanced array and range features
 ---------------------------------
 Sub-range production:  arr[2..5] and sequencable[ 0..2..8 ]

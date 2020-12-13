@@ -52,18 +52,24 @@ class TxLocation
 {
 public:
 
-//    /// Construct a location from \a b to \a e.
-//    TxLocation (const position& b, const position& e)
-//      : begin (b)
-//      , end (e)
-//    {
-//    }
-//
     /// Construct a 0-width location in \a p.
     explicit TxLocation( const position& p = position() )
             : begin( p ),
-              end( p )
+              end( p ),
+              parserCtx( nullptr )
     {
+        // FUTURE: Remove this 'empty' constructor, currently required by Bison code
+    }
+
+    /// Construct a location.
+    explicit TxLocation( const position& b,
+                         const position& e,
+                         TxParserContext* parserCtx )
+            : begin( b ),
+              end( e ),
+              parserCtx( parserCtx )
+    {
+        ASSERT( parserCtx, "NULL parserCtx" );
     }
 
     /// Construct a 0-width location in \a f, \a l, \a c.
@@ -79,22 +85,7 @@ public:
 
     TxLocation( const TxLocation& loc ) = default;
 
-//    /// Initialization.
-//    void initialize (std::string* f = YY_NULLPTR,
-//                     unsigned int l = 1u,
-//                     unsigned int c = 1u)
-//    {
-//      begin.initialize (f, l, c);
-//      end = begin;
-//    }
-
     TxLocation& operator= ( const TxLocation& ) = default;
-//    void operator =( const TxLocation& loc )
-//                     {
-//        begin = loc.begin;
-//        end = loc.end;
-//        parserCtx = loc.parserCtx;
-//    }
 
     /** \name Line and Column related manipulators
      ** \{ */

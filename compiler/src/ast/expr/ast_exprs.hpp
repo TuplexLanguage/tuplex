@@ -23,6 +23,7 @@ class TxFunctionCallNode : public TxExpressionNode {
     bool doesNotReturn;
     const TxActualType* calleeType = nullptr;
     TxExpressionNode* inlinedExpression = nullptr;  // substitutes the function/constructor call if non-null
+    std::vector<TxMaybeConversionNode*>* varargsList = nullptr;  // since FilledArrayNode isn't currently able to "own" them
 
     static std::vector<TxMaybeConversionNode*>* make_args_vec( const std::vector<TxExpressionNode*>* argsExprList ) {
         std::vector<TxMaybeConversionNode*>* copyVec = new std::vector<TxMaybeConversionNode*>( argsExprList->size() );
@@ -73,6 +74,9 @@ public:
             this->callee->visit_ast( visitor, thisCursor, "callee", context );
             for ( auto arg : *this->argsExprList )
                 arg->visit_ast( visitor, thisCursor, "arg", context );
+            if ( this->varargsList )
+                for ( auto arg : *this->varargsList )
+                    arg->visit_ast( visitor, thisCursor, "arg", context );
         }
     }
 };

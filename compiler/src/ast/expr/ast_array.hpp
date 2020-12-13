@@ -49,11 +49,6 @@ public:
      * The resulting array literal node may not be AST-copied. */
     TxFilledArrayLitNode( const TxLocation& ploc, TxQualTypeExprNode* elementTypeExpr, const std::vector<TxMaybeConversionNode*>* elemExprList );
 
-    /** Creates an array literal node with elements that are owned by another AST node.
-     * The element type is defined by the first element.
-     * The provided element expression list must not be empty.
-     * The resulting array literal node may not be AST-copied. */
-    TxFilledArrayLitNode( const TxLocation& ploc, const std::vector<TxMaybeConversionNode*>* elemExprList );
 
     virtual TxFilledArrayLitNode* make_ast_copy() const override {
         if ( !this->origElemExprList ) {
