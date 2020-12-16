@@ -301,7 +301,7 @@ TxQualType TxReferenceConvNode::define_type( TxPassInfo passInfo ) {
         auto origTargetType = this->expr->resolve_type( passInfo )->target_type();
         if ( !equivalent_interface_target_types( resultTargetType, origTargetType ) ) {
             // create / retrieve interface adapter type
-            //std::cerr << "Converting interface reference to adapter:\n\tfrom & " << origTargetType << "\n\tto   & " << resultTargetType << std::endl;
+            //std::cerr << "Converting interface reference to adapter in " << this << ":\n\tfrom & " << origTargetType << "\n\tto   & " << resultTargetType << std::endl;
             this->adapterType = this->registry().get_interface_adapter( this, resultTargetType.type(), origTargetType.type() );
             ASSERT( this->adapterType->get_type_class() == TXTC_INTERFACEADAPTER, "Not an interface adapter type: " << this->adapterType );
 

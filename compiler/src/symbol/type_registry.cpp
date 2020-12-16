@@ -401,10 +401,11 @@ static TxActualType* get_existing_type( const TxActualType* genBaseType, const s
             existingSpecDeclI != genBaseType->get_declaration()->get_symbol()->type_spec_cend();
             existingSpecDeclI++ ) {
         auto existingType = (*existingSpecDeclI)->get_definer()->qtype().type();
-        if ( existingType->is_mutable() == mutableType
-                && bool( existingType->get_decl_flags() & TXD_EXPERROR ) == expError
-                && existingType->get_bindings().size() == bindings.size() )
-            if ( auto matchingType = matches_existing_specialization( genBaseType, existingType, bindings ) )
+        if (( genBaseType->get_type_class() == TXTC_INTERFACE  // interfaces are implicitly mutable
+              || existingType->is_mutable() == mutableType )
+            && bool( existingType->get_decl_flags() & TXD_EXPERROR ) == expError
+            && existingType->get_bindings().size() == bindings.size())
+            if ( auto matchingType = matches_existing_specialization( genBaseType, existingType, bindings ))
                 return matchingType;
     }
     return nullptr;
