@@ -1225,7 +1225,19 @@ bool TxActualType::operator==( const TxActualType& other ) const {
     return thisType->type_class_handler()->inner_equals( thisType, thatType );
 }
 
-bool TxActualType::is_assignable_to( const TxActualType& destination ) const {
+bool TxActualType::is_a_primary_path( const TxActualType& other ) const {
+    const TxActualType* thisType = this;
+    do {
+        if ( thisType->type_class_handler()->inner_equals( thisType, &other ) )
+            return true;
+        if ( !thisType->has_base_type() )
+            break;
+        thisType = thisType->get_base_type();
+    } while( true );
+    return false;
+}
+
+bool TxActualType::is_assignable_to( const TxActualType& destination, bool returnType ) const {
     // fields must at least be the same instance data type
     // modifiability is disregarded (since this is in the context of copy-by-value)
     auto thisType = this;
@@ -1236,7 +1248,7 @@ bool TxActualType::is_assignable_to( const TxActualType& destination ) const {
         return false;
     do {
         //std::cerr << thisType << "  IS-ASSIGNABLE-TO\n" << destType << std::endl;
-        if ( thisType->type_class_handler()->inner_is_assignable_to( thisType, destType ) )
+        if ( thisType->type_class_handler()->inner_is_assignable_to( thisType, destType, returnType ) )
             return true;
         if ( !thisType->is_same_instance_type() )
             return false;
@@ -1590,6 +1602,13 @@ TxExpressionNode* TxBuiltinAssignInitializerType::make_inline_expr( TxExpression
 
 bool TxInterfaceAdapterType::inner_prepare_members() {
     bool rec = TxActualType::inner_prepare_members();
+
+    bool expErrWholeType = ( ( this->get_declaration()->get_decl_flags() & TXD_EXPERROR )
+                             || this->get_declaration()->get_definer()->exp_err_ctx() );
+    if ( expErrWholeType ) {
+        LOG_DEBUG( this->LOGGER(), "Skipping preparation of EXPERR adapter type " << this );
+        return rec;
+    }
 
     LOG_DEBUG( this->LOGGER(), "preparing adapter for " << this->adaptedType << " to interface " << this->get_semantic_base_type() );
     // The virtual fields of the abstract base interface type are overridden to refer to

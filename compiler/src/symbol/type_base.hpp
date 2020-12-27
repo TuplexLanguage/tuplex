@@ -618,6 +618,11 @@ public:
         return this->type_class_handler()->is_a( this, &other );
     }
 
+    /** Returns true if the provided type is the same as this, or a primary-path specialization of this.
+     * This condition must be satisfied for vtable substitutability.
+     */
+    bool is_a_primary_path( const TxActualType& other ) const;
+
     /** Returns true if an instance of this type can implicitly convert to an instance of the destination type.
      * This may be less strict test than is_assignable, since some types that are not directly assignable
      * may be so after an implicit conversion (e.g. Byte -> Int). */
@@ -632,8 +637,10 @@ public:
      * (For example, an initializer to an unmodifiable field is still valid if assignable to its type.)
      * For many type classes this is a more strict test than is-a,
      * however for functions, arrays, references and adapters this test concerns data type equivalence and
-     * substitutability rather than is-a relationship. */
-    bool is_assignable_to( const TxActualType& destination ) const;
+     * substitutability rather than is-a relationship.
+     * @param returnType if true, special checking for function return type is done (vtable substitutability)
+     */
+    bool is_assignable_to( const TxActualType& destination, bool returnType=false ) const;
 
 
     /*--- type parameters and bindings ---*/

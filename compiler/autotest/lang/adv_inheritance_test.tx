@@ -1,0 +1,252 @@
+## Tests advanced inheritance cases - interfaces and multiple inheritance chains.
+
+## Diamond-shaped interface hierarchy:
+
+interface IntfaceA :
+    abstract intf_a_method() -> Int
+
+interface IntfaceB <: IntfaceA :
+    abstract intf_b_method() -> Int
+
+interface IntfaceC <: IntfaceA :
+    abstract intf_c_method() -> Int
+
+interface IntfaceD <: IntfaceB, IntfaceC :
+    abstract intf_d_method() -> Int
+
+
+## Implementing object hierarchy that matches interface hierarchy:
+
+type ObjA <: Tuple, IntfaceA :
+    override intf_a_method() -> Int:
+        return 10
+
+type ObjB <: ObjA, IntfaceB :
+    override intf_a_method() -> Int:
+        return 11
+    override intf_b_method() -> Int:
+        return 20
+
+type ObjC <: ObjA, IntfaceC :
+    override intf_a_method() -> Int:
+        return 12
+    override intf_c_method() -> Int:
+        return 30
+
+type ObjD <: ObjC, IntfaceD :  ## note - inherits "right hand side" (secondary ancestor path) of diamond parent
+    override intf_a_method() -> Int:
+        return 13
+    override intf_b_method() -> Int:
+        return 21
+    override intf_c_method() -> Int:
+        return 31
+    override intf_d_method() -> Int:
+        return 40
+
+type ObjBC <: Tuple, IntfaceB, IntfaceC :  ## direct implementer of B and C in that order
+    override intf_a_method() -> Int:
+        return 14
+    override intf_b_method() -> Int:
+        return 22
+    override intf_c_method() -> Int:
+        return 32
+
+type ObjCB <: Tuple, IntfaceC, IntfaceB :  ## direct implementer of C and B in that order
+    override intf_a_method() -> Int:
+        return 15
+    override intf_b_method() -> Int:
+        return 23
+    override intf_c_method() -> Int:
+        return 33
+
+
+## Diamond-shaped container interface hierarchy:
+
+interface HolderIntfA :
+    abstract make() -> &IntfaceA
+    abstract makeA() -> &IntfaceA
+    abstract get() -> &IntfaceA
+    abstract getA() -> &IntfaceA
+
+interface HolderIntfB <: HolderIntfA :
+    abstract override make() -> &IntfaceB
+    abstract makeB() -> &IntfaceB
+    abstract override get() -> &IntfaceB
+    abstract getB() -> &IntfaceB
+
+interface HolderIntfC <: HolderIntfA :
+    abstract override make() -> &IntfaceC
+    abstract makeC() -> &IntfaceC
+    abstract override get() -> &IntfaceC
+    abstract getC() -> &IntfaceC
+
+interface HolderIntfD <: HolderIntfB, HolderIntfC:
+    abstract override make() -> &IntfaceD
+    abstract makeD() -> &IntfaceD
+    abstract override get() -> &IntfaceD
+    abstract getD() -> &IntfaceD
+
+
+## Container object hierarchy that matches interface hierarchy:
+
+type ~ HolderA <: Tuple, HolderIntfA:
+    override make() -> &IntfaceA:
+        return new ObjA()
+    override makeA() -> &IntfaceA:
+        return new ObjA()
+    objA : ~&IntfaceA
+    override get() -> &IntfaceA:
+        return self.objA
+    override getA() -> &IntfaceA:
+        return self.objA
+
+type ~ HolderB <: HolderA, HolderIntfB :
+    override make() -> &IntfaceB:
+        return new ObjB()
+    override makeB() -> &IntfaceB:
+        return new ObjB()
+    objB : ~&IntfaceB
+    override get() -> &IntfaceB:
+        return self.objB
+    override getB() -> &IntfaceB:
+        return self.objB
+
+type ~ HolderC <: HolderA, HolderIntfC :
+    override make() -> &IntfaceC:  ## note - concrete object type
+        return new ObjC()
+    override makeC() -> &IntfaceC:
+        return new ObjC()
+    objC : ~&IntfaceC
+    override get() -> &IntfaceC:
+        return self.objC
+    override getC() -> &IntfaceC:
+        return self.objC
+
+type ~ HolderD <: HolderC, HolderIntfD:  ## note - inherits "right hand side" (secondary ancestor path) of diamond parent
+    override make() -> &IntfaceC:  ## can't specify IntfaceD since it does not have IntfaceC as a primary path ancestor
+        return new ObjD()
+    override makeB() -> &IntfaceD:  ## overrides from parent interface type
+        return new ObjD()
+    override makeC() -> &IntfaceC:  ## overrides from parent object type
+        return new ObjD()
+    override makeD() -> &IntfaceD:
+        return new ObjD()
+    objD : ~&ObjD
+    override get() -> &IntfaceC:  ## can't specify IntfaceD since it does not have IntfaceC as a primary path ancestor
+        return self.objD
+    override getB() -> &IntfaceD:  ## overrides from parent interface type
+        return self.objD
+    override getC() -> &IntfaceC:  ## overrides from parent object type
+        return self.objD
+    override getD() -> &IntfaceD:
+        return self.objD
+
+
+main() -> Int :
+    ##  overrideabilty is based on assignability, and the same behavior applies to reference assignment
+    do :
+        bc : &IntfaceB = ObjBC()
+        assert bc.intf_a_method() == 14
+        assert bc.intf_b_method() == 22
+        cb : &IntfaceB = ObjCB()
+        assert cb.intf_a_method() == 15
+        assert cb.intf_b_method() == 23
+        bRef1 : &IntfaceB = bc
+        assert bRef1.intf_a_method() == 14
+        assert bRef1.intf_b_method() == 22
+        bRef2 : &IntfaceB = cb
+        assert bRef2.intf_a_method() == 15
+        assert bRef2.intf_b_method() == 23
+
+        d := ObjD()
+        bRef : &IntfaceB = d
+        assert bRef.intf_a_method() == 13
+        assert bRef.intf_b_method() == 21
+        cRef : &IntfaceC = d
+        assert cRef.intf_a_method() == 13
+        assert cRef.intf_c_method() == 31
+
+    ##  direct usage of Holders and their make methods
+    do :
+        bObj := ObjB()
+        bHolder := HolderB( bObj, bObj )
+        bRet := bHolder.make()
+        assert bRet.intf_a_method() == 11
+
+        cObj := ObjC()
+        cHolder := HolderC( cObj, cObj )
+        cRet := cHolder.make()
+        assert cRet.intf_a_method() == 12
+
+        dObj := ObjD()
+        dHolder := HolderD( dObj, dObj, dObj )
+        dRet := dHolder.make()
+        assert dRet.intf_a_method() == 13
+
+        xHolder : &HolderA = bHolder
+        xRet := xHolder.make()
+        assert xRet.intf_a_method() == 11
+
+        yHolder : &HolderA = cHolder
+        yRet := yHolder.make()
+        assert yRet.intf_a_method() == 12
+
+        zHolder : &HolderA = dHolder
+        zRet := zHolder.make()
+        assert zRet.intf_a_method() == 13
+
+    ## TODO: direct usage of Holders and their get methods
+
+    ## Tests of HolderC as container of both C, BC, CD, and D objects.
+    do:
+        bcObj := ObjBC()
+        cbObj := ObjCB()
+        dObj := ObjD()
+        cHolder : &HolderIntfC = HolderD( bcObj, cbObj, dObj )
+
+        x1 := cHolder.make()
+        assert x1.intf_a_method() == 13
+        assert x1.intf_c_method() == 31
+        if x1 is d1 : &ObjD :
+            assert d1.intf_a_method() == 13
+            assert d1.intf_b_method() == 21
+            assert d1.intf_c_method() == 31
+            assert d1.intf_d_method() == 40
+        else:
+            assert FALSE
+
+        x2 := cHolder.makeC()
+        assert x2.intf_a_method() == 13
+        assert x2.intf_c_method() == 31
+        if x2 is d2 : &ObjD :
+            assert d2.intf_a_method() == 13
+            assert d2.intf_b_method() == 21
+            assert d2.intf_c_method() == 31
+            assert d2.intf_d_method() == 40
+        else:
+            assert FALSE
+
+        x3 := cHolder.getA()  ## bcObj
+        assert x3.intf_a_method() == 14
+        if x3 is bc : &ObjBC :
+            assert bc.intf_a_method() == 14
+            assert bc.intf_b_method() == 22
+            assert bc.intf_c_method() == 32
+        else:
+            assert FALSE
+
+        x4 := cHolder.getC()  ## dObj
+        assert x4.intf_a_method() == 13
+        if x4 is d4 : &ObjD :
+            assert d4.intf_a_method() == 13
+            assert d4.intf_b_method() == 21
+            assert d4.intf_c_method() == 31
+        else:
+            assert FALSE
+
+        if cHolder is dHolder : &HolderD:
+            assert dHolder.getD().intf_d_method() == 40
+        else:
+            assert FALSE
+
+    return 0

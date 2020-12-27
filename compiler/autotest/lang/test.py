@@ -96,6 +96,8 @@ source_files = [
     "rangeiftest.tx",
     "genericconvtest.tx",
 
+    "adv_inheritance_test.tx",
+
     "matrixtest.tx",
 
     "syntax_intro.tx",

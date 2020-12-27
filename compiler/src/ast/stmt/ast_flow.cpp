@@ -15,12 +15,12 @@ TxIsClauseNode::TxIsClauseNode( const TxLocation& ploc, TxExpressionNode* valueE
 
 void TxIsClauseNode::verification_pass() const {
     if ( this->origValueExpr->qtype()->get_type_class() != TXTC_REFERENCE )
-        CERROR( this->origValueExpr, "Can't cast non-reference type: " << this->origValueExpr->qtype() );
+        CERROR( this->origValueExpr, "Can't cast a non-reference type: " << this->origValueExpr->qtype() );
 
     if ( this->typeExpr->qtype()->get_type_class() != TXTC_REFERENCE )
-        CERROR( this->typeExpr, "Can't cast non-reference type: " << this->typeExpr->qtype() );
+        CERROR( this->typeExpr, "Can't cast to a non-reference type: " << this->typeExpr->qtype() );
     else if ( this->typeExpr->qtype()->target_type()->get_type_class() == TXTC_INTERFACE )
-        CERROR( this->typeExpr, "Cast to interface type currently not supported: " << this->typeExpr->qtype()->target_type() );
+        CERROR( this->typeExpr, "Cast to an interface type currently not supported: " << this->typeExpr->qtype()->target_type() );
 }
 
 

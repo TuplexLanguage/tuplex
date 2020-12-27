@@ -57,7 +57,7 @@ TxPanicStmtNode::TxPanicStmtNode( const TxLocation& ploc, TxExpressionNode* mess
 TxPanicStmtNode::TxPanicStmtNode( const TxLocation& ploc, const std::string& message )
         : TxStatementNode( ploc ) {
     std::stringstream msg;
-    msg << this->ploc.parserCtx->source_filepath();
+    msg << *this->ploc.parserCtx->source_filepath();
     msg << ":" << this->ploc.begin.line;
     msg << ": Panic: " << message;
     std::string panicMsg = "c\"" + msg.str() + "\n\"";

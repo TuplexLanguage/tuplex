@@ -32,6 +32,7 @@ chdir( current_script_dir )
 
 source_files = [
     "math_test.tx",
+    "opt_test.tx",
     "range_test.tx",
     "helloworld.tx",
     "array_equals.tx",
@@ -39,6 +40,7 @@ source_files = [
     "string_test.tx",
     "scalars_test.tx",
     "for_loops.tx",
+    "selection_test.tx",
     "format_test.tx",
     "equality_test.tx",
 ]

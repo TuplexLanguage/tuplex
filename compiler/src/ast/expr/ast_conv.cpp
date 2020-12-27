@@ -255,8 +255,8 @@ TxExpressionNode* make_conversion( TxExpressionNode* originalExpr, TxQualType re
 
 
 TxQualType TxMaybeConversionNode::define_type( TxPassInfo passInfo ) {
-    if (get_node_id()==22303)
-        std::cerr << "HERE " << this << std::endl;
+//    if (get_node_id()==22303)
+//        std::cerr << "HERE " << this << std::endl;
     if ( this->insertedResultType ) {
         this->resolvedExpr = make_conversion( this->originalExpr, this->insertedResultType, this->_explicit );
     }
@@ -287,7 +287,7 @@ void TxMaybeConversionNode::insert_qual_conversion( TxPassInfo passInfo, TxQualT
 /** Returns true if the two types are mutually "equivalent".
  * Note, does not take explicit naming into account. */
 // TODO: possibly revise together with is_equivalent_derivation()
-static bool equivalent_interface_target_types( TxQualType typeA, TxQualType typeB ) {
+static bool equivalent_target_types( TxQualType typeA, TxQualType typeB ) {
     while ( typeA->is_same_vtable_type() )
         typeA = typeA->get_semantic_base_type();
     while ( typeB->is_same_vtable_type() )
@@ -299,18 +299,16 @@ TxQualType TxReferenceConvNode::define_type( TxPassInfo passInfo ) {
     auto resultTargetType = this->resultType->target_type();
     if ( resultTargetType->get_type_class() == TXTC_INTERFACE ) {
         auto origTargetType = this->expr->resolve_type( passInfo )->target_type();
-        if ( !equivalent_interface_target_types( resultTargetType, origTargetType ) ) {
+        if ( origTargetType->get_type_class() == TXTC_INTERFACE ) {
+            if ( !origTargetType->is_a_primary_path( *resultTargetType ) )
+                CERR_THROWRES( this, "Can't convert from one interface-ref to another interface-ref that is not a primary derivation" );
+            //std::cerr << "converting from one interface-ref to another interface-ref: " << this << std::endl;
+        }
+        else if ( !equivalent_target_types( resultTargetType, origTargetType ) ) {
             // create / retrieve interface adapter type
-            //std::cerr << "Converting interface reference to adapter in " << this << ":\n\tfrom & " << origTargetType << "\n\tto   & " << resultTargetType << std::endl;
+            //std::cerr << "Converting to interface adapter reference in " << this << ":\n\tfrom & " << origTargetType << "\n\tto   & " << resultTargetType << std::endl;
             this->adapterType = this->registry().get_interface_adapter( this, resultTargetType.type(), origTargetType.type() );
-            ASSERT( this->adapterType->get_type_class() == TXTC_INTERFACEADAPTER, "Not an interface adapter type: " << this->adapterType );
-
-//            // earlier we created a reference type to the adapter type, but shouldn't be necessary, doesn't affect code generation
-//            auto adapterDefiner = new TxSetQualTypeExprNode( this->ploc, new TxTypeDeclWrapperNode( this->ploc, adapterType->get_declaration() ),
-//                                                             resultTargetType.is_modifiable() );
-//            TxTypeArgumentNode* targetTypeNode = new TxTypeArgumentNode( adapterDefiner );
-//            run_declaration_pass( targetTypeNode, this, "type" );
-//            return this->registry().get_reference_type( this, targetTypeNode, nullptr );
+            // (earlier we created a reference type to the adapter type, but shouldn't be necessary, doesn't affect code generation)
         }
     }
     return TxConversionNode::define_type( passInfo );  // returns the required resultType

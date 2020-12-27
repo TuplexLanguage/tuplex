@@ -19,7 +19,7 @@ void initialize_array_obj( LlvmGenerationContext& context, GenScope* scope,
 
 class TxArrayTypeClassHandler final : public TxTypeClassHandler {
 protected:
-    virtual bool inner_is_assignable_to( const TxActualType* type, const TxActualType* other ) const override;
+    virtual bool inner_is_assignable_to( const TxActualType* type, const TxActualType* other, bool returnType=false ) const override;
 
 public:
     TxArrayTypeClassHandler()
@@ -43,7 +43,7 @@ public:
 /** Note, all reference specializations are mutable. */
 class TxReferenceTypeClassHandler final : public TxTypeClassHandler {
 protected:
-    virtual bool inner_is_assignable_to( const TxActualType* type, const TxActualType* other ) const override;
+    virtual bool inner_is_assignable_to( const TxActualType* type, const TxActualType* other, bool return_type=false ) const override;
 
 public:
     TxReferenceTypeClassHandler()

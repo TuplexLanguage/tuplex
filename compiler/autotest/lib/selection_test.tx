@@ -1,0 +1,39 @@
+/**
+Tests Selection / Selector implementation.
+*/
+
+main() :
+    strA := c"123456"
+
+    sel := Selection{UInt,UByte}( &strA, 1UI..2..9 )
+
+    do:
+        res1 := ~[10]UByte()
+        iter := sel.sequencer()
+        while iter.has_next():
+            c := iter.next()
+            res1.add( c )
+            ## t := [ c, '\0' ] ; tx.c.puts( t )
+        assert res1 == [3]UByte( '2', '4', '6' )
+
+        res2 := ~[10]UByte()
+        for c in sel:
+            res2.add( c )
+            ## t := [ c, '\0' ] ; tx.c.puts( t )
+        assert res2 == [ '2', '4', '6' ]
+
+    do:
+        res3 := ~[10]UByte()
+        for c in Selection{UInt,UByte}( &strA, 0UI..2..9 ):
+            res3.add( c )
+            ## t := [ c, '\0' ] ; tx.c.puts( t )
+        assert res3 == [ '1', '3', '5', 0 ]
+
+/* FIXME: probably something wrong with the data layout in Selector._nextKey._arr, its contents seem to get corrupted
+    do:
+        res4 := ~[10]UByte()
+        for c in Selection{UInt,UByte}( &strA, 5UI..-1..0 ):
+            res4.add( c )
+            t := [ c, '\0' ] ; tx.c.puts( t )
+        assert res4 == [ '6', '5', '4', '3', '2', '1' ]
+*/

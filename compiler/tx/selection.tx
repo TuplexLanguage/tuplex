@@ -1,20 +1,20 @@
 module tx
 
 
+print_if_uint( str : String, ref : &Any ):
+    if ref is uintRef : &UInt:
+        print( str %% " uint=" %d uintRef )
+
 type ~Selector{ K, E } <: Tuple, Sequencer{ E } :
     _indicable : &Indicable{K,E}
     _filter : &~Sequencer{K}
     _nextKey : ~Opt{K}
 
     self( indicable : &Indicable{K,E}, filter : &Sequenceable{K} ):
-        tx.c.puts(c"one")
         fs := filter.sequencer()
-        tx.c.puts(c"two")
         if fs.has_next():
-            tx.c.puts(c"three")
             #init: _indicable( indicable ), _filter( fs ), _nextKey( fs.next() )
         else:
-            tx.c.puts(c"four")
             #init: _indicable( indicable ), _filter( fs ), _nextKey()
 
     override has_next() -> Bool:
@@ -22,8 +22,11 @@ type ~Selector{ K, E } <: Tuple, Sequencer{ E } :
 
     override next() ~ -> E:
         nextKey := self._nextKey.get()
+        ##print_if_uint( "Selector.next() nextKey=", nextKey )
         if self._filter.has_next():
             self._nextKey.set( self._filter.next() )
+        else:
+            self._nextKey.clear()
         return self._indicable.get( nextKey )
 
 

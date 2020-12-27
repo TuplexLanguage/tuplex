@@ -8,8 +8,8 @@ using namespace llvm;
 /** Gets a virtual field value via the vtable.
  * Note that this returns a value of pointer type for all virtual fields, except for $adTypeId which has type i32.
  */
-static Value* virtual_field_addr_code_gen( LlvmGenerationContext& context, GenScope* scope,
-                                           const TxActualType* staticBaseType, Value* runtimeBaseTypeIdV, const std::string& fieldName ) {
+Value* virtual_field_addr_code_gen( LlvmGenerationContext& context, GenScope* scope,
+                                    const TxActualType* staticBaseType, Value* runtimeBaseTypeIdV, const std::string& fieldName ) {
     // retrieve the vtable of the base's actual (runtime) type:
     Value* vtableBase = context.gen_get_vtable( scope, staticBaseType, runtimeBaseTypeIdV );
     if ( !vtableBase ) {
@@ -18,6 +18,7 @@ static Value* virtual_field_addr_code_gen( LlvmGenerationContext& context, GenSc
 
     // get the virtual field:
     uint32_t fieldIx = staticBaseType->get_virtual_fields().get_field_index( fieldName );
+    ASSERT( fieldIx != UINT32_MAX, "Unknown field index for field " << fieldName << " in " << staticBaseType );
     //std::cerr << "(static type id " << staticBaseType->get_runtime_type_id() << ") Getting TXS_VIRTUAL ix " << fieldIx << " value off LLVM base value: " << vtableBase << std::endl;
     Value* ixs[] = { ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ),
                      ConstantInt::get( Type::getInt32Ty( context.llvmContext ), fieldIx ) };

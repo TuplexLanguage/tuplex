@@ -78,10 +78,10 @@ type ERange{ E derives Enumerable } <: Tuple, Range{ E }, Stringer :
     self( start : E, limit : E, stride : Long ) :
         #self( start, limit, stride, FALSE )
 
-    override sequencer() -> Ref{ ~ERangeIterator } :
+    override sequencer() -> Ref{ ~Iterator{E} } :
         return new ~ERangeIterator( self )
 
-    rev_sequencer() -> Ref{ ~ERangeIterator } :
+    rev_sequencer() -> Ref{ ~Iterator{E} } :
         iter := new ~ERangeIterator( self )
         iter._nextIndex = self._indexLimit
         return iter

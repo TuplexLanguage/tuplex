@@ -27,11 +27,11 @@ llvm::Value* gen_ref( LlvmGenerationContext& context, GenScope* scope, const TxA
 
 /** Converts a reference value from one type to another. If targetTypeId is specified, it will replace the original type id. */
 llvm::Value* gen_ref_conversion( LlvmGenerationContext& context, GenScope* scope, llvm::Value* origRefV,
-                                 llvm::Type* targetRefT, uint32_t targetTypeId = UINT32_MAX );
+                                 llvm::Type* targetRefT, llvm::Value* tidV = nullptr );
 
 /** Converts a reference constant from one type to another. If targetTypeId is specified, it will replace the original type id. */
 llvm::Constant* gen_ref_conversion( LlvmGenerationContext& context, llvm::Constant* origRefC,
-                                    llvm::Type* targetRefT, uint32_t targetTypeId = UINT32_MAX );
+                                    llvm::Type* targetRefT, llvm::Constant* tidC = nullptr );
 
 
 class TxReferenceDerefNode : public TxExpressionNode {

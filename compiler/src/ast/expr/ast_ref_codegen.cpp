@@ -75,10 +75,11 @@ Constant* gen_ref( LlvmGenerationContext& context, Type* refT, Constant* ptrC, C
 
 
 /** Converts a reference value from one type to another. If targetTypeId is specified, it will replace the original type id. */
-Value* gen_ref_conversion( LlvmGenerationContext& context, GenScope* scope, Value* origValue, Type* targetRefT, uint32_t targetTypeId ) {
+Value* gen_ref_conversion( LlvmGenerationContext& context, GenScope* scope, Value* origValue,
+                           Type* targetRefT, Value* tidV ) {
     auto newPtrT = cast<StructType>( targetRefT )->getElementType( 0 );
-    Value* tidV = ( targetTypeId == UINT32_MAX ? gen_get_ref_typeid( context, scope, origValue )
-                                               : ConstantInt::get( Type::getInt32Ty( context.llvmContext ), targetTypeId ) );
+    if ( tidV == nullptr )
+        tidV = gen_get_ref_typeid( context, scope, origValue );
     Value* origPtrV = gen_get_ref_pointer( context, scope, origValue );
     // bitcast from one pointer type to another
     Value* newPtrV = scope->builder->CreateBitCast( origPtrV, newPtrT );
@@ -87,10 +88,11 @@ Value* gen_ref_conversion( LlvmGenerationContext& context, GenScope* scope, Valu
 }
 
 /** Converts a reference constant from one type to another. If targetTypeId is specified, it will replace the original type id. */
-Constant* gen_ref_conversion( LlvmGenerationContext& context, Constant* origValue, Type* targetRefT, uint32_t targetTypeId ) {
+Constant* gen_ref_conversion( LlvmGenerationContext& context, Constant* origValue,
+                              Type* targetRefT, Constant* tidC ) {
     auto newPtrT = cast<StructType>( targetRefT )->getElementType( 0 );
-    Constant* tidC = ( targetTypeId == UINT32_MAX ? gen_get_ref_typeid( context, origValue )
-                                                  : ConstantInt::get( Type::getInt32Ty( context.llvmContext ), targetTypeId ) );
+    if ( tidC == nullptr )
+        tidC = gen_get_ref_typeid( context, origValue );
     Constant* origPtrC = gen_get_ref_pointer( context, origValue );
     // bitcast from one pointer type to another
     Constant* newPtrC = ConstantExpr::getBitCast( origPtrC, newPtrT );

@@ -227,10 +227,12 @@ static void print_type( const TxActualType* type ) {
         stat = "stat-concr";
     else if ( type->is_dynamic() )
         stat = "dyn-concr";
+    else if ( type->is_type_generic() )
+        stat = "type-gen";
     else if ( type->is_value_generic() )
         stat = "value-gen";
     else if ( !type->is_same_vtable_type() )
-        stat = "abstr/vtab";
+        stat = "abstr/vtab";  // abstract, but with distinct vtable type
     printf( "%4d  %s  %-10s  %10s  %c  %s\n",
             type->get_runtime_type_id(),
             ::to_string( type->get_declaration()->get_decl_flags() ).c_str(),
@@ -242,6 +244,7 @@ static void print_type( const TxActualType* type ) {
 
 void TypeRegistry::dump_types() const {
     auto typeI = this->runtime_types_cbegin();
+    std::cout << "For types marked S, code generation is suppressed." << std::endl;
     std::cout << "runtime types > vtable types > data types > built-in types:" << std::endl;
     for ( ; typeI != this->builtin_types_cend(); typeI++ ) {
         print_type( *typeI );
@@ -749,12 +752,15 @@ public:
     }
 };
 
-TxActualType* TypeRegistry::get_interface_adapter( const TxNode* origin, const TxActualType* interfaceType, const TxActualType* adaptedType ) {
+TxActualType* TypeRegistry::get_interface_adapter( const TxNode* origin, const TxActualType* interfaceType,
+                                                   const TxActualType* adaptedType ) {
     while ( interfaceType->is_same_vtable_type() && !interfaceType->is_explicit_declaration() )
         interfaceType = interfaceType->get_semantic_base_type();
     while ( adaptedType->is_same_vtable_type() && !adaptedType->is_explicit_declaration() )
         adaptedType = adaptedType->get_semantic_base_type();
 
+    ASSERT( interfaceType->get_type_class() == TXTC_INTERFACE, "interfaceType not an interface type: " << interfaceType );
+    ASSERT( adaptedType->get_type_class() != TXTC_INTERFACE, "adaptedType can't be an interface type: " << adaptedType );
     ASSERT( *interfaceType != *adaptedType, "Shouldn't create adapter between equivalent types" );
     ASSERT( !( adaptedType->is_empty_derivation() && !adaptedType->is_explicit_declaration() ),
             "Can't derive from implicit empty base type: " << adaptedType );
@@ -762,6 +768,8 @@ TxActualType* TypeRegistry::get_interface_adapter( const TxNode* origin, const T
     auto ifDecl = interfaceType->get_declaration();
     auto scope = ifDecl->get_symbol()->get_outer();
     std::string adapterName = ifDecl->get_unique_name() + "$if$" + encode_type_name( adaptedType->get_declaration() );
+    if ( origin->context().exp_error() )
+        adapterName.append( "$EE$" );
 
     if ( auto existingAdapterSymbol = dynamic_cast<TxEntitySymbol*>( scope->get_member_symbol( adapterName ) ) ) {
         if ( auto typeDecl = existingAdapterSymbol->get_type_decl() ) {
@@ -782,12 +790,13 @@ TxActualType* TypeRegistry::get_interface_adapter( const TxNode* origin, const T
                                                                          new TxNamedTypeNode( loc, "tx.UInt" ), nullptr ) );
     auto fieldDecls = new std::vector<TxDeclarationNode*>( { tidFieldDecl } );
 
-    // TODO: combine flags from adapted and adaptee types, including TXD_EXPERRBLOCK
+    // TODO: combine TXD_EXPERROR flag from adapted and adaptee types?
     auto adapterDeclNode = new TxTypeDeclNode( loc, TXD_PUBLIC | TXD_IMPLICIT,
                                                new TxIdentifierNode( loc, adapterName ), fieldDecls, adapterTypeNode );
 
     auto & adaptedTypeCtx = adaptedType->get_declaration()->get_definer()->context();
-    LexicalContext adapterCtx( scope, adaptedTypeCtx.exp_error(), adaptedTypeCtx.reinterpretation_definer(),
+    auto * errCtx = origin->context().exp_error() ? origin->context().exp_error() : adaptedTypeCtx.exp_error();
+    LexicalContext adapterCtx( scope, errCtx, adaptedTypeCtx.reinterpretation_definer(),
                                adaptedTypeCtx.is_type_generic(), adaptedTypeCtx.is_value_generic(),
                                adaptedTypeCtx.is_type_gen_dep_bindings(), adaptedTypeCtx.is_value_gen_dep_bindings() );
     run_declaration_pass( adapterDeclNode, adapterCtx );

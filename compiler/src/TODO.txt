@@ -237,6 +237,7 @@ becomes unclear.
 Advanced array and range features
 ---------------------------------
 Sub-range production:  arr[2..5] and sequencable[ 0..2..8 ]
+ - syntactic sugar for Selection
 
 Support negative array indexing from array end
 
@@ -255,6 +256,20 @@ For VALUEs below a threshold (e.g. <= 4), coge-gen individual specializations fo
 
 Advanced type handling
 ----------------------
+
+casting from interface adapter to adaptee type - DONE
+
+Support for non-primary-path polymorphism
+ - casting to interface type that isn't primary-path-supertype
+
+Support for entirely dynamic type casting from one interface (adapter) to another interface (adapter),
+  via runtime type checking logic
+  - may require interface-adapters built at runtime
+
+cast / conditional type check of generic type parameters that aren't references
+
+shall isa() checks return true even though mismatching mutability?
+
 Support runtime is-a tests for interface adapters
 
 Support boolean test expression for: Ref<P> is-a Ref<Q> if P is-a Q
@@ -328,6 +343,8 @@ Implement advanced debugging info
  - generic type parameters?
 
 break and continue out of nested loops
+
+Make 'abstract' qualifier optional for members in Interface types?
 
 Implement implicit static initializer function for types' static members and static code
 

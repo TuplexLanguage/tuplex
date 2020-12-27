@@ -7,18 +7,11 @@ interface IntfA :
     mixin_method_2()->Int : { return 2; }
 
 
-interface IntfB <: IntfA :    ## extends the interface IntfA
-    abstract set_value( v : Int )~
-
-
-type ~ MyType <: Tuple, IntfB :   ## a Tuple type that implements IntfB
-    field : ~Int
+type ~ MyType <: Tuple, IntfA :
+    field : Int
 
     override get_value()->Int :
         return self.field
-
-    override set_value( v : Int ) ~ :
-        self.field = v
 
     override mixin_method_2()->Int :
         return 3
@@ -31,9 +24,14 @@ func( r : &Any )->Int :
     if r is f : &Float :
         return -Int(f)
 
-    #experr 2: if r^ is i : Int :  return i;  ## cast of non-reference
+    #experr 1: if r^ is i : &Int :  return i;  ## cast of non-reference
+    #experr 1: if r is i : Int :  return i;    ## cast to a non-reference
+    #experr 2: if r^ is i : Int :  return i;   ## cast of non-reference
 
-    ##experr 1: if r is a : &IntfA :  return a.get_value();  ## TODO: support cast to interface ref
+    #experr 1: if r is a : &IntfA :  return a.get_value();  ## down-cast to interface
+    ## FUTURE: can we support down-cast to interface ref - requires 'dynamic' interface-adapter generation?
+
+    if r is m : &MyType :  return m.get_value();
 
     return 0
 
@@ -82,6 +80,10 @@ type_isa() :
 
 main()->Int :
     type_isa()
+
     i : Int = 42
     f : Float = 3.14
-    return func( f )
+    assert func( i ) == 42
+    assert func( f ) == -3
+    assert func( MyType( 11 ) ) == 11
+    return 0

@@ -340,6 +340,10 @@ int TxDriver::compile( const std::vector<std::string>& startSourceFiles, const s
 
     if ( this->options.dump_types ) {
         std::cout << "TYPES DUMP:\n";
+        std::cout << "Declaration flags legend: " << (TxDeclarationFlags) 0xFFFF << std::endl;
+        std::cout << "Public  pRotected  Virtual  eXternc  Abstract  Final  Override    "
+                  << "Built-in  Implicit  Genparam  genBinding  Constructor  Initializer  Expected-error"
+                  << std::endl;
         this->package->registry().dump_types();
         std::cout << "END TYPES DUMP\n";
     }

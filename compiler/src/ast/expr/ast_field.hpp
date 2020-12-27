@@ -22,6 +22,13 @@ const TxFieldDeclaration* resolve_constructor( TxExpressionNode* origin, const T
                                                const std::vector<TxExpressionNode*>* arguments );
 
 
+/** Gets a virtual field value via the vtable.
+ * Note that this returns a value of pointer type for all virtual fields, except for $adTypeId which has type i32.
+ */
+llvm::Value* virtual_field_addr_code_gen( LlvmGenerationContext& context, GenScope* scope,
+                                          const TxActualType* staticBaseType, llvm::Value* runtimeBaseTypeIdV,
+                                          const std::string& fieldName );
+
 /** Returns an instance method lambda object value. */
 llvm::Value* instance_method_value_code_gen( LlvmGenerationContext& context, GenScope* scope,
                                        const TxActualType* staticBaseType, llvm::Value* runtimeBaseTypeIdV, llvm::Value* basePtrV,

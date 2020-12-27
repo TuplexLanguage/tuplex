@@ -1,14 +1,22 @@
 ## interface adapter tests (including interface adapter modifiability)
 
-interface IntfA :
+interface TopIf :
     abstract get_value()->Int
 
+
+## 'tagging' interface that won't be derived from in first position
+interface TagIf :
+    get_tag()->Int:
+        return 501
+
+
+interface IntfA <: TopIf, TagIf :
     ## "mixin" or default-implementation interface methods:
     mixin_method_1()->Int : { return 1; }
     mixin_method_2()->Int : { return 2; }
 
 
-interface IntfB :
+interface IntfB <: TopIf :
     abstract set_value( v : Int ) ~
 
 
@@ -18,15 +26,24 @@ type ~ Type <: Tuple, IntfA, IntfB :
     override get_value()->Int :
         return self.fld
 
-
     override set_value( v : Int ) ~ :
         self.fld = v
-
 
     override mixin_method_2()->Int :
         return 3
 
 
+type ~ ImplA <: Tuple, IntfA :
+    override get_value()->Int :
+        return 42
+
+
+type ~ ImplB <: Tuple, IntfB :
+    fld : ~Int
+    override get_value()->Int :
+        return self.fld;
+    override set_value( v : Int ) ~ :
+        self.fld = v
 
 
 mixin_tests() :
@@ -48,8 +65,52 @@ mixin_tests() :
     assert t.mixin_method_2() == 3
 
 
+test_tag( t : &TagIf ):
+    assert t.get_tag() == 501
+
+test_top( o : &TopIf, expected : Int ):
+    assert o.get_value() == expected
+
+
+ref_assign( a : &IntfA, b : &IntfB ):
+    ## implicit conversion from interface-ref to a primary-path supertype interface-ref:
+    test_top( a, 42 )
+    test_top( b, 200 )
+
+    ## can't do implicit conversion from interface-ref to a non-primary-path supertype interface-ref:
+    #experr 1: test_tag( a )
+
+    assert isa( a, _typeid{ IntfA } )
+    assert isa( b, _typeid{ IntfB } )
+    x : &Any = a
+    y : &Any = b
+    assert isa( x, _typeid{ IntfA } )
+    assert isa( y, _typeid{ IntfB } )
+    if a is at : &ImplA:
+        assert _typeid( at ) == _typeid{ ImplA }
+        assert at.get_value() == 42;
+    else:
+        assert FALSE
+    if b is bt : &ImplB:
+        assert _typeid( bt ) == _typeid{ ImplB }
+        assert bt.get_value() == 200;
+    else:
+        assert FALSE
+    if x is xt : &ImplA:
+        assert _typeid( xt ) == _typeid{ ImplA }
+        assert xt.get_value() == 42;
+    else:
+        assert FALSE
+    assert isa( a, _typeid{IntfA} )
+    assert isa( a, _typeid{ImplA} )
+    assert isa( a, _typeid{Any} )
+
 
 main()->Int :
     mixin_tests()
-    return 0
 
+    iA := ImplA()
+    iB := ImplB(200)
+    test_tag( iA )
+    ref_assign( iA, iB )
+    return 0

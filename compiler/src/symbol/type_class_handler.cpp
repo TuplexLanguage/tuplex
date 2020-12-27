@@ -72,7 +72,7 @@ bool TxTypeClassHandler::auto_converts_to( const TxActualType* type, const TxAct
 //    return true;
 //}
 
-bool TxArrayTypeClassHandler::inner_is_assignable_to( const TxActualType* type, const TxActualType* destination ) const {
+bool TxArrayTypeClassHandler::inner_is_assignable_to( const TxActualType* type, const TxActualType* destination, bool returnType ) const {
     ASSERT( destination->get_type_class() == TXTC_ARRAY, "destination not an array: " << destination );
     if ( this->inner_equals( type, destination ) )
         return true;
@@ -102,7 +102,8 @@ bool TxArrayTypeClassHandler::inner_is_assignable_to( const TxActualType* type, 
     return true;
 }
 
-bool TxReferenceTypeClassHandler::inner_is_assignable_to( const TxActualType* type, const TxActualType* destination ) const {
+bool TxReferenceTypeClassHandler::inner_is_assignable_to( const TxActualType* type, const TxActualType* destination,
+                                                          bool return_type) const {
     ASSERT( destination->get_type_class() == TXTC_REFERENCE, "destination not a reference: " << destination );
     if ( this->inner_equals( type, destination ) )
         return true;
@@ -110,14 +111,21 @@ bool TxReferenceTypeClassHandler::inner_is_assignable_to( const TxActualType* ty
     // if origin has unbound type params that destination does not, origin is more generic and can't be assigned to destination
     if ( auto toTarget = destination->target_type() ) {
         if ( auto fromTarget = type->target_type() ) {
-            // is-a test sufficient for reference targets (it isn't for arrays, which require same concrete type)
             //std::cerr << "CHECKING REF ASSIGNABLE\n\tFROM " << fromTarget->str(false) << "\n\tTO   " << toTarget->str(false) << std::endl;
             if ( toTarget.is_modifiable() && !fromTarget.is_modifiable() )
                 return false;  // can't lose non-modifiability of target type
-            if ( fromTarget->is_a( *toTarget ) )
-                return true;
-            else
-                return false;
+            if ( return_type ) {
+                // Perform the stricter check that a reference target must be a primary-path subtype
+                // to the destination's target. (So that their vtable is substitutable.)
+                if ( fromTarget->is_a_primary_path( *toTarget ) )
+                    return true;
+            }
+            else {
+                // is-a test sufficient for reference targets (it isn't for arrays, which require same concrete type)
+                if ( fromTarget->is_a( *toTarget ))
+                    return true;
+            }
+            return false;
         }
         else
             return false;  // origin has not bound T
@@ -135,13 +143,13 @@ bool TxFunctionTypeClassHandler::is_a( const TxActualType* type, const TxActualT
         return inner_equals( type, other );
 }
 
-bool TxFunctionTypeClassHandler::inner_is_assignable_to( const TxActualType* type, const TxActualType* other ) const {
+bool TxFunctionTypeClassHandler::inner_is_assignable_to( const TxActualType* type, const TxActualType* other, bool returnType ) const {
     if ( other->get_type_class() != TXTC_FUNCTION )
         return false;
     auto & thisArgTypes = type->argument_types();
     auto & otherArgTypes = other->argument_types();
     return ( ( type->return_type() == other->return_type()
-               || ( type->return_type()->is_assignable_to( *other->return_type() ) ) )
+               || ( type->return_type()->is_assignable_to( *other->return_type(), true ) ) )
              && ( type->modifiable_closure() == other->modifiable_closure() || !type->modifiable_closure() )
              && thisArgTypes.size() == otherArgTypes.size()
              && std::equal( thisArgTypes.cbegin(), thisArgTypes.cend(), otherArgTypes.cbegin(),

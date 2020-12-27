@@ -8,8 +8,6 @@
 #include <llvm/IR/Module.h>
 #include <llvm/IR/Function.h>
 #include <llvm/IR/Verifier.h>
-#include <llvm/IR/PassManager.h>
-#include <llvm/IR/IRPrintingPasses.h>
 #include <llvm/Bitcode/BitcodeWriter.h>
 #include <llvm/Support/Host.h>
 #include <llvm/Support/raw_ostream.h>
@@ -19,7 +17,6 @@
 #include <llvm/Target/TargetOptions.h>
 #include <llvm/Target/TargetMachine.h>
 
-#include "util/util.hpp"
 #include "util/assert.hpp"
 
 #include "tx_lang_defs.hpp"
@@ -468,7 +465,7 @@ void LlvmGenerationContext::generate_runtime_vtables() {
 
         Constant* initializer = ConstantStruct::getAnon( this->llvmContext, initMembers );
         vtableC->setInitializer( initializer );
-        //std::cerr << "initializing " << vtableV << " with " << initializer << std::endl;
+        //std::cerr << "initializing vtable (statically constant): " << vtableC << std::endl;
     }
 }
 

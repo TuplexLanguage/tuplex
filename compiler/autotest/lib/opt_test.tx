@@ -1,0 +1,28 @@
+/**
+Tests Opt implementation.
+*/
+
+main() -> Int:
+    oi_empty := Opt{Int}()
+    oi_1 := Opt{Int}(1)
+    assert !oi_empty.has()
+    assert oi_1.has()
+    assert oi_1.get() == 1
+
+    mo := ~Opt{Int}()
+    assert !mo.has()
+    mo.set( 123 )
+    assert mo.has()
+    assert mo.get() == 123
+    assert mo.has()
+    assert mo.get() == 123
+    mo.set( 456 )
+    assert mo.has()
+    assert mo.get() == 456
+    assert mo.clear()
+    assert !mo.has()
+    mo.set( 789 )
+    assert mo.get() == 789
+    assert mo.has()
+
+    return 0

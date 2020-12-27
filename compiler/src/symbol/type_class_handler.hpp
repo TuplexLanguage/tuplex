@@ -41,8 +41,10 @@ protected:
     virtual bool auto_converts_to( const TxActualType* type, const TxActualType* dest ) const;
 
     /** Overriding this allows a type class to allow structurally equal types to be assignable.
-     * The default implementation simply calls inner_equals(). */
-    virtual bool inner_is_assignable_to( const TxActualType* type, const TxActualType* dest ) const {
+     * The default implementation simply calls inner_equals().
+     * @param returnType if true, special checking for function return type is done (vtable substitutability)
+     */
+    virtual bool inner_is_assignable_to( const TxActualType* type, const TxActualType* dest, bool returnType=false ) const {
         return this->inner_equals( type, dest );
     }
 

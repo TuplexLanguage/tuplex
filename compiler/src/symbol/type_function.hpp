@@ -11,7 +11,7 @@ class TxFunctionTypeClassHandler : public TxTypeClassHandler {
 protected:
     virtual bool is_a( const TxActualType* type, const TxActualType* other ) const override;
 
-    virtual bool inner_is_assignable_to( const TxActualType* type, const TxActualType* dest ) const override;
+    virtual bool inner_is_assignable_to( const TxActualType* type, const TxActualType* dest, bool returnType=false ) const override;
 
     virtual bool inner_equals( const TxActualType* type, const TxActualType* other ) const override;
 

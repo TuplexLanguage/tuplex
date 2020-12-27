@@ -19,7 +19,7 @@ TxAssertStmtNode::TxAssertStmtNode( const TxLocation& ploc, TxExpressionNode* ex
     auto & pLoc = ploc;
     std::stringstream msg;
     //msg << procName << ": ";         // TODO: will need to be determined via system call
-    msg << this->ploc.parserCtx->source_filepath();
+    msg << *this->ploc.parserCtx->source_filepath();
     msg << ":" << pLoc.begin.line;
     //msg << ": " << srcFuncHeader;    // TODO: some ast analysis needed for this
     msg << ": Assertion failed";

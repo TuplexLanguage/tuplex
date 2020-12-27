@@ -128,11 +128,23 @@ Value* TxReferenceConvNode::code_gen_dyn_value( LlvmGenerationContext& context, 
     if ( !refT ) {
         THROW_LOGIC( "In reference conversion, LLVM type not found for result type " << this->resultType << " in " << this );
     }
-    // (if UINT32_MAX, pointers original target type id is retained)
-    uint32_t adapterTypeId = ( this->adapterType ? this->adapterType->get_runtime_type_id() : UINT32_MAX );
+    Value* targetTidV = nullptr;
+    if ( this->adapterType )
+        targetTidV = ConstantInt::get( Type::getInt32Ty( context.llvmContext ), this->adapterType->get_runtime_type_id() );
+    else {
+        auto origTargetType = this->expr->qtype()->target_type();
+        auto resultTargetType = this->resultType->target_type();
+        if ( origTargetType->get_type_class() == TXTC_INTERFACE
+             && resultTargetType->get_type_class() != TXTC_INTERFACE ) {
+            // from interface (adapter) to non-interface (object): dereference adapter's adaptee-type-id
+            const TxActualType* staticBaseType = origTargetType.type();
+            auto * runtimeBaseTypeIdV = gen_get_ref_typeid( context, scope, origValueV );
+            targetTidV = virtual_field_addr_code_gen( context, scope, staticBaseType, runtimeBaseTypeIdV, "$adTypeId" );
+        }
+    }
     //std::cerr << "Ref conversion\n from " << this->expr->get_type(0) << "\n   to " << this->resultType << " = " << refT
     //          << "\n adapterTypeId=" << adapterTypeId << std::endl;
-    return gen_ref_conversion( context, scope, origValueV, refT, adapterTypeId );
+    return gen_ref_conversion( context, scope, origValueV, refT, targetTidV );
 }
 
 Constant* TxReferenceConvNode::code_gen_const_value( LlvmGenerationContext& context ) const {
@@ -144,9 +156,23 @@ Constant* TxReferenceConvNode::code_gen_const_value( LlvmGenerationContext& cont
     if ( !refT ) {
         THROW_LOGIC( "In reference conversion, LLVM type not found for result type " << this->resultType << " in " << this );
     }
-    // (if UINT32_MAX, pointers original target type id is retained)
-    uint32_t adapterTypeId = ( this->adapterType ? this->adapterType->get_runtime_type_id() : UINT32_MAX );
+    Constant* targetTidC = nullptr;
+    if ( this->adapterType )
+        targetTidC = ConstantInt::get( Type::getInt32Ty( context.llvmContext ), this->adapterType->get_runtime_type_id() );
+    else {
+        auto origTargetType = this->expr->qtype()->target_type();
+        auto resultTargetType = this->resultType->target_type();
+        if ( origTargetType->get_type_class() == TXTC_INTERFACE
+             && resultTargetType->get_type_class() != TXTC_INTERFACE ) {
+            // from interface (adapter) to non-interface (object): dereference adapter's adaptee-type-id
+            // Do we ever encounter interface adapters as constant source values??
+            LOG( this->LOGGER(), ALERT, "Encountering unexpected constant from-adapter conversion, in " << this );
+//            const TxActualType* staticBaseType = origTargetType.type();
+//            auto * runtimeBaseTypeIdC = gen_get_ref_typeid( context, origValueC );
+//            targetTidC = virtual_field_addr_code_gen( context, staticBaseType, runtimeBaseTypeIdC, "$adTypeId" );
+        }
+    }
     //std::cerr << "Ref conversion\n from " << this->expr->get_type(0) << "\n   to " << this->resultType << " = " << refT
     //          << "\n adapterTypeId=" << adapterTypeId << std::endl;
-    return gen_ref_conversion( context, origValueC, refT, adapterTypeId );
+    return gen_ref_conversion( context, origValueC, refT, targetTidC );
 }
