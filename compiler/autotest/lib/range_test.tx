@@ -50,7 +50,7 @@ type RangeTester{E <: Enumerable} :
 
 
 test_ranges()->Int :
-    do:
+    scope:
         range := 0..10
         assert range.stride == 1
         assert range.count() == 10
@@ -72,7 +72,7 @@ test_ranges()->Int :
         assert range.get_( -9 ) == 1
         assert range.get_( -10 ) == 0
 
-    do:
+    scope:
         range := 0..0
         assert range.stride == 1
         assert range.count() == 0

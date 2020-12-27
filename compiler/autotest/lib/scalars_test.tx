@@ -13,7 +13,7 @@ test_scalar_ordinals() :
     assert Int.MAX.ordinal() == UInt.MAX.ordinal()
     assert Long.MAX.ordinal() == ULong.MAX.ordinal()
 
-    do:
+    scope:
         start := (-2B).ordinal()
         limit := 3B.ordinal()
         assert limit - start == 5
@@ -23,7 +23,7 @@ test_scalar_ordinals() :
         assert Byte.value( start+3 ) == 1
         assert Byte.value( start+4 ) == 2
 
-    do:
+    scope:
         start := (-2S).ordinal()
         limit := 3S.ordinal()
         assert limit - start == 5
@@ -33,7 +33,7 @@ test_scalar_ordinals() :
         assert Short.value( start+3 ) == 1
         assert Short.value( start+4 ) == 2
 
-    do:
+    scope:
         start := (-2I).ordinal()
         limit := 3I.ordinal()
         assert limit - start == 5
@@ -43,7 +43,7 @@ test_scalar_ordinals() :
         assert Int.value( start+3 ) == 1
         assert Int.value( start+4 ) == 2
 
-    do:
+    scope:
         start := (-2L).ordinal()
         limit := 3L.ordinal()
         assert limit - start == 5

@@ -112,7 +112,7 @@ format_string( writer : &~tx.ByteWriter, format : &StringFormat, value : ULong, 
         prefix[1] = '0'
 
     backward := ~[66]UByte()
-    do:
+    scope:
         prev : ~ULong = value
         val  : ~ULong = value / radix
         while prev >= radix :

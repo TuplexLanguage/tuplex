@@ -760,7 +760,7 @@ statement
 single_statement
     :   flow_stmt                  %prec STMT    { $$ = $1; }
     |   simple_stmt                %prec STMT    { $$ = $1; }
-    |   KW_DO COLON suite          %prec STMT    { $$ = $3; }
+    |   KW_SCOPE COLON suite       %prec STMT    { $$ = $3; }
     ;
 
 simple_stmt

@@ -1,5 +1,5 @@
 ## specific array tests
-## TODO: remove this test file when equality_test.tx can implement more complex arrays-of-arrays (requires type system improvements)
+## TOscope: remove this test file when equality_test.tx can implement more complex arrays-of-arrays (requires type system improvements)
 
 interface Face
 
@@ -19,7 +19,7 @@ comp_arr( a1 : &Array, a2 : &Array ) -> Bool :
 
 /** test arrays of arrays */
 comp_nested( v : Int ) -> Int :
-    do:
+    scope:
         a1 := [ v, 1, 2, 3, 0 ]
         a2 := [ v, 2, 3, 4, 0 ]
         aa2 := [ a1, a2 ]
@@ -32,7 +32,7 @@ comp_nested( v : Int ) -> Int :
         assert (&aa2) == (&aa2)
         assert (&aa2) != (&aa3)
 
-    do:
+    scope:
         a1 := [ 1, 2, 3 ]
         a2 := [ 2, 3, 4 ]
         a3 := [ 3, 4, 5 ]
@@ -47,7 +47,7 @@ comp_nested( v : Int ) -> Int :
         assert !comp_arr( aa1, aa4 )
         assert !comp_arr( aa2, aa4 )
 
-    do:
+    scope:
         b1 := [ &Byte(1), &Byte(2), &Byte(3) ]
         b2 := [ &Byte(1), &Byte(2), &Byte(3) ]
         b3 := [ &Byte(2), &Byte(2), &Byte(3) ]
@@ -62,7 +62,7 @@ comp_nested( v : Int ) -> Int :
         assert !comp_arr( b1, b3 )
         assert comp_arr( b1, b4 )
 
-    do:
+    scope:
         b1 := [ Body(1), Body(2), Body(3) ]
         b2 := [ Body(1), Body(2), Body(3) ]
         b3 := [ Body(2), Body(2), Body(3) ]
@@ -74,7 +74,7 @@ comp_nested( v : Int ) -> Int :
         assert comp_arr( b1, b2 )
         assert !comp_arr( b1, b3 )
 
-    do:
+    scope:
         b1 := [ &Body(1), &Body(2), &Body(3) ]
         b2 := [ &Body(1), &Body(2), &Body(3) ]
         b3 := [ &Body(2), &Body(2), &Body(3) ]

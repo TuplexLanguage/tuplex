@@ -7,7 +7,7 @@ main() :
 
     sel := Selection{UInt,UByte}( &strA, 1UI..2..9 )
 
-    do:
+    scope:
         res1 := ~[10]UByte()
         iter := sel.sequencer()
         while iter.has_next():
@@ -22,7 +22,7 @@ main() :
             ## t := [ c, '\0' ] ; tx.c.puts( t )
         assert res2 == [ '2', '4', '6' ]
 
-    do:
+    scope:
         res3 := ~[10]UByte()
         for c in Selection{UInt,UByte}( &strA, 0UI..2..9 ):
             res3.add( c )
@@ -30,7 +30,7 @@ main() :
         assert res3 == [ '1', '3', '5', 0 ]
 
 /* FIXME: probably something wrong with the data layout in Selector._nextKey._arr, its contents seem to get corrupted
-    do:
+    scope:
         res4 := ~[10]UByte()
         for c in Selection{UInt,UByte}( &strA, 5UI..-1..0 ):
             res4.add( c )

@@ -144,7 +144,7 @@ type ~ HolderD <: HolderC, HolderIntfD:  ## note - inherits "right hand side" (s
 
 main() -> Int :
     ##  overrideabilty is based on assignability, and the same behavior applies to reference assignment
-    do :
+    scope:
         bc : &IntfaceB = ObjBC()
         assert bc.intf_a_method() == 14
         assert bc.intf_b_method() == 22
@@ -167,7 +167,7 @@ main() -> Int :
         assert cRef.intf_c_method() == 31
 
     ##  direct usage of Holders and their make methods
-    do :
+    scope:
         bObj := ObjB()
         bHolder := HolderB( bObj, bObj )
         bRet := bHolder.make()
@@ -195,10 +195,10 @@ main() -> Int :
         zRet := zHolder.make()
         assert zRet.intf_a_method() == 13
 
-    ## TODO: direct usage of Holders and their get methods
+    ## TOscope: direct usage of Holders and their get methods
 
     ## Tests of HolderC as container of both C, BC, CD, and D objects.
-    do:
+    scope:
         bcObj := ObjBC()
         cbObj := ObjCB()
         dObj := ObjD()

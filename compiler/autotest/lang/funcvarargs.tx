@@ -2,7 +2,7 @@
 
 var_func1( x : Int, vars : Float... ) -> Int :
     sum : ~Float = 0.0
-    do:
+    scope:
         ix : ~UInt = 0
         while ix < vars.C :
             sum = sum + vars[ix]
@@ -13,7 +13,7 @@ var_func1( x : Int, vars : Float... ) -> Int :
 
 var_func2( x : Int, vars : &[]Float ) -> Int :
     sum : ~Float = 0.0
-    do:
+    scope:
         ix : ~UInt = 0
         while ix < vars.C :
             sum = sum + vars[ix]
@@ -26,7 +26,7 @@ var_func2( x : Int, vars : &[]Float ) -> Int :
 ## test syntactic sugar for passing a fixed-size array by value
 array_func( vars : [3]Float ) -> Int :
     sum : ~Float = 0.0
-    do:
+    scope:
         ix : ~UInt = 0
         while ix < vars.C :
             sum = sum + vars[ix]

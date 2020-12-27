@@ -36,7 +36,7 @@ type ~ GType{S,T,U} :
     sfield : S
     tfield : T
     ufield : U
-    ## TODO: add arrays of S and T
+    ## TOscope: add arrays of S and T
 
     get_s()->S :
         #experr: self.sfield = 5
@@ -67,20 +67,20 @@ main()->Int :
     #experr 1: type AlsoBadSyntax <: ~GType{~Float,~Int,Bool} : { }
     #experr 2: type ~AlsoBadSpec <: GType{Float,Int,Bool} : { }
 
-    do:
+    scope:
         nonmodI := GType{Int,Float,Bool}( 2, 3.14, TRUE )
         smodI   := GType{~Int,Float,Bool}( 2, 3.14, TRUE )
         tmodI   := GType{Int,~Float,Bool}( 2, 3.14, TRUE )
         allmodI := GType{~Int,~Float,Bool}( 2, 3.14, TRUE )
 
-    do:
+    scope:
         #experr 0: nonmodM := ~GType{Int,Float,Bool}( 2, 3.14, TRUE );  ## 0 errs since BadSpec above already created type spec
         #experr 1: smodM   := ~GType{~Int,Float,Bool}( 2, 3.14, TRUE )
         #experr 1: tmodM   := ~GType{Int,~Float,Bool}( 2, 3.14, TRUE )
         allmodM := ~GType{~Int,~Float,Bool}( 2, 3.14, TRUE )
 
     ## specialize a mutable generic type with immutable type bindings:
-    do:
+    scope:
         init := StillImmType( 17, 49.9 )
         #experr 2: errmut := ~GType{ StillImmType, StillImmType, StillImmType }( init, init, init )
         nonmut := GType{ StillImmType, StillImmType, StillImmType }( init, init, init )

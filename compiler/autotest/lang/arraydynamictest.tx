@@ -3,13 +3,13 @@
 do_array( len : UInt )->Int :
     arr := ~Array{~Int, len}()
     sum : ~Int = 0
-    do:
+    scope:
         ix : ~UInt = 0
         while ix < len :
             arr[ix] = Int(ix)
             ix = ix + 1
 
-    do:
+    scope:
         ix : ~UInt = len
         while ix > 0 :
             ix = ix - 1
