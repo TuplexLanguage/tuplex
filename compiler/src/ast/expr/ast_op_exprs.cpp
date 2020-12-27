@@ -182,7 +182,7 @@ void TxEqualityOperatorNode::verification_pass() const {
         }
         else if ( lelemtype->get_type_class() == TXTC_ELEMENTARY ) {
             if ( lelemtype->is_concrete() && relemtype->is_concrete() ) {
-                if ( lelemtype->get_runtime_type_id() != relemtype->get_runtime_type_id() )
+                if ( lelemtype.type() != relemtype.type() )
                     CERROR( this, "Equality is always false: Unequal array element types for equality operator: " << lelemtype << ", " << relemtype );
             }
         }
