@@ -840,8 +840,7 @@ DIType* LlvmGenerationContext::get_debug_type( const TxActualType* txType ) {
         this->llvmDebugTypeMapping[txType] = debugTypeBody;
         LOG_DEBUG( this->LOGGER(), "Replaced LLVM DEBUG type header mapping for " << txType << " to body " << debugTypeBody );
     }
-
-    return debugType;
+    return debugTypeBody;
 }
 
 

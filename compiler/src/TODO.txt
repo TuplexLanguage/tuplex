@@ -182,9 +182,8 @@ Array remove/pop/reduce support (removing elements)
 Array initialization from sequence; sequence expansion
  - requires custom modifiability handling
     arr := []Int( seq );  ## of type Sequencable<Int>
-    arr := c"0123456789"[ 0..2..10 ]  ## selects every second character
-    arr := [ seq... ];
-    arr := [ 0..2... ];
+    arr := [ seq ... ];
+    arr := [ 0..2 ... ];
 
 Basic working Matrix type
 
@@ -201,11 +200,19 @@ Misc
 ----
 LLVM 11 update - DONE
 
+Improve debugging info so that tuples' members can be inspected - DONE
+
+!! NEXT:  Improve debugging info so that references can be followed and tuples' members inspected
+
+!! NEXT:  Code-gen bug (see selection_test.tx)
+
+!! NEXT:  Arrays and Ranges site pages
+
+!! NEXT:  Change keyword from 'virtual' to 'static'
+
 Improved FFI support
  - opaque 64b pointer type
  - structs <-> Tuples
-
-Change keyword from 'virtual' to 'static'
 
 Number parsing functions atou() atoi() atof()
 
@@ -236,8 +243,11 @@ becomes unclear.
 
 Advanced array and range features
 ---------------------------------
+Inclusive ranges syntax, e.g. 1..=10 for [1,10] inclusive
+
 Sub-range production:  arr[2..5] and sequencable[ 0..2..8 ]
  - syntactic sugar for Selection
+   arr := c"0123456789"[ 0..2..10 ]  ## selects every second character
 
 Support negative array indexing from array end
 
@@ -355,8 +365,6 @@ Union typeclass
 Enum typeclass
 
 Switch-like statements
-
-Inclusive ranges syntax, e.g. 1..=10 for [1,10] inclusive
 
 Support non-constant static initializers (i.e. executed before main())
 

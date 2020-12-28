@@ -638,7 +638,7 @@ DIType* TxTupleTypeClassHandler::make_llvm_debug_type_body( const TxActualType* 
         //std::cerr << "    Added tuple member debug type: " << memberDType << std::endl;
     }
     DINodeArray elements = context.debug_builder()->getOrCreateArray( fieldTypes );
-    return context.debug_builder()->createStructType( scope, type->get_declaration()->get_unique_full_name(),
+    return context.debug_builder()->createStructType( scope, uniqueName,
                                                       file, declarer->ploc.begin.line, bitSize, alignInBits,
                                                       DINode::DIFlags::FlagPublic, derivedFrom, elements,
                                                       0, nullptr, uniqueName );
