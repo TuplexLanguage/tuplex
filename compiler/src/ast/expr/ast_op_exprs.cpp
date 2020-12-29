@@ -35,7 +35,8 @@ TxQualType TxBinaryElemOperatorNode::define_type( TxPassInfo passInfo ) {
     if ( rtype->get_type_class() != TXTC_ELEMENTARY )
         CERR_THROWRES( this, "Right operand of " << this->op << " is not an elementary type: " << rtype );
 
-    switch ( this->op_class ) {
+    auto opClass = get_op_class( this->op );
+    switch ( opClass ) {
     case TXOC_ARITHMETIC:
     case TXOC_COMPARISON:
         if ( !ltype->is_scalar() )
@@ -71,10 +72,10 @@ TxQualType TxBinaryElemOperatorNode::define_type( TxPassInfo passInfo ) {
         break;
 
     default:
-        THROW_LOGIC( "Invalid/unhandled op-class " << this->op_class << " in " << this );
+        THROW_LOGIC( "Invalid/unhandled op-class " << opClass << " in " << this );
     }
 
-    if ( this->op_class == TXOC_COMPARISON )
+    if ( opClass == TXOC_COMPARISON )
         return TxQualType( this->registry().get_builtin_type( TXBT_BOOL ) );
     else
         return this->lhs->qtype();

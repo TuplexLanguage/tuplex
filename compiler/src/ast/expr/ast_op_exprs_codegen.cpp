@@ -58,12 +58,12 @@ llvm::Constant* TxBinaryElemOperatorNode::code_gen_const_value( LlvmGenerationCo
     auto lval = this->lhs->code_gen_const_value( context );
     auto rval = this->rhs->code_gen_const_value( context );
 
-    auto op_class = get_op_class( this->op );
-    auto computeType = ( op_class == TXOC_ARITHMETIC ? this->qtype() : this->lhs->qtype() );
+    auto opClass = get_op_class( this->op );
+    auto computeType = ( opClass == TXOC_ARITHMETIC ? this->qtype() : this->lhs->qtype() );
     bool float_operation = false;
-    unsigned llvm_op = get_llvm_op( op_class, this->op, computeType.type(), &float_operation );
+    unsigned llvm_op = get_llvm_op( opClass, this->op, computeType.type(), &float_operation );
 
-    if ( op_class == TXOC_ARITHMETIC || op_class == TXOC_LOGICAL || op_class == TXOC_SHIFT ) {
+    if ( opClass == TXOC_ARITHMETIC || opClass == TXOC_LOGICAL || opClass == TXOC_SHIFT ) {
         ASSERT( Instruction::isBinaryOp( llvm_op ), "Not a valid LLVM binary op: " << llvm_op );
         Instruction::BinaryOps binop_instr = (Instruction::BinaryOps) llvm_op;
         return ConstantExpr::get( binop_instr, lval, rval );
@@ -82,17 +82,16 @@ Value* TxBinaryElemOperatorNode::code_gen_dyn_value( LlvmGenerationContext& cont
     // pick field's plain name, if available, for the expression value:
     const std::string fieldName = ( this->fieldDefNode ? this->fieldDefNode->get_descriptor() : "" );
 
-    auto op_class = get_op_class( this->op );
-    auto computeType = ( op_class == TXOC_ARITHMETIC ? this->qtype() : this->lhs->qtype() );
+    auto opClass = get_op_class( this->op );
+    auto computeType = ( opClass == TXOC_ARITHMETIC ? this->qtype() : this->lhs->qtype() );
     bool float_operation = false;
-    unsigned llvm_op = get_llvm_op( op_class, this->op, computeType.type(), &float_operation );
+    unsigned llvm_op = get_llvm_op( opClass, this->op, computeType.type(), &float_operation );
 
-    if ( op_class == TXOC_ARITHMETIC || op_class == TXOC_LOGICAL || op_class == TXOC_SHIFT ) {
+    if ( opClass == TXOC_ARITHMETIC || opClass == TXOC_LOGICAL || opClass == TXOC_SHIFT ) {
         ASSERT( Instruction::isBinaryOp( llvm_op ), "Not a valid LLVM binary op: " << llvm_op );
         Instruction::BinaryOps binop_instr = (Instruction::BinaryOps) llvm_op;
         return scope->builder->CreateBinOp( binop_instr, lval, rval, fieldName );
     }
-
     else { // if (op_class == TXOC_COMPARISON) {
         CmpInst::Predicate cmp_pred = (CmpInst::Predicate) llvm_op;
         if ( float_operation ) {

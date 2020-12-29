@@ -121,11 +121,17 @@ int TxDriver::compile( const std::vector<std::string>& startSourceFiles, const s
     if ( !this->options.txPath.empty()) {
         // add the tx namespace sources
         std::string txPath( this->options.txPath );
-        this->_LOG.config( "Including tx namespace source path '%s'", txPath.c_str());
-        if ( !is_path_separator( txPath.back()))
-            txPath.push_back( get_path_separator());
-        txPath.append( BUILTIN_NS );
-        this->add_all_in_dir( BUILTIN_NS, txPath, true );
+        if ( file_status( txPath ) == 2 ) {
+            // path item exists and is a directory
+            this->_LOG.config( "Including tx namespace source path '%s'", txPath.c_str());
+            if ( !is_path_separator( txPath.back()))
+                txPath.push_back( get_path_separator());
+            txPath.append( BUILTIN_NS );
+            this->add_all_in_dir( BUILTIN_NS, txPath, true );
+        }
+        else {
+            _LOG.error( "tx namespace source path is not a valid directory: '%s'", txPath.c_str() );
+        }
     }
 
     for ( const auto& startFile : startSourceFiles )

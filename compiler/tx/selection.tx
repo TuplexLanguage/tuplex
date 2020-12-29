@@ -18,7 +18,10 @@ type ~Selector{ K, E } <: Tuple, Sequencer{ E } :
             #init: _indicable( indicable ), _filter( fs ), _nextKey()
 
     override has_next() -> Bool:
-        return self._nextKey.has() & self._indicable.has( self._nextKey.get() )
+        if self._nextKey.has():
+            return self._indicable.has( self._nextKey.get() )
+        else:
+            return FALSE
 
     override next() ~ -> E:
         nextKey := self._nextKey.get()

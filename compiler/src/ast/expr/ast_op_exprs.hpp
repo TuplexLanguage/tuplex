@@ -25,11 +25,10 @@ public:
     const TxOperation op;
     TxMaybeConversionNode* lhs;
     TxMaybeConversionNode* rhs;
-    const int op_class;
 
     TxBinaryElemOperatorNode( const TxLocation& ploc, TxExpressionNode* lhs, const TxOperation op, TxExpressionNode* rhs )
             : TxOperatorValueNode( ploc ), op( op ),
-              lhs( new TxMaybeConversionNode( lhs ) ), rhs( new TxMaybeConversionNode( rhs ) ), op_class( get_op_class( op ) ) {
+              lhs( new TxMaybeConversionNode( lhs ) ), rhs( new TxMaybeConversionNode( rhs ) ) {
         ASSERT( is_valid( op ), "Invalid operator value: " << (int)op );
     }
 

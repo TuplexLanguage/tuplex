@@ -202,10 +202,6 @@ LLVM 11 update - DONE
 
 Improve debugging info so that tuples' members can be inspected - DONE
 
-!! NEXT:  Improve debugging info so that references can be followed and tuples' members inspected
-
-!! NEXT:  Code-gen bug (see selection_test.tx)
-
 !! NEXT:  Arrays and Ranges site pages
 
 !! NEXT:  Change keyword from 'virtual' to 'static'
@@ -300,8 +296,10 @@ Evaluate whether TYPE type parameter constraint types shall be resolved in each 
                                             ^^^
 
 
-Arithmetic features
+Arithmetic / logic features
 -------------------
+Make logical operators only execute the necessary terms, i.e. left-to-right and skip remaining when result is known
+
 Separate bitwise and logical operators, so that bitwise can have higher priority than comparison operators:
   Bitwise: && || &| !
   Logical: & | != !
