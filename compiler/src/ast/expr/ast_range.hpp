@@ -13,17 +13,10 @@ class TxERangeLitNode final : public TxTypeDefiningValExprNode {
     TxExpressionNode* startValue;
     TxExpressionNode* endValue;
     TxExpressionNode* stepValue;
-    bool _implicitStep = false;
+    bool inclusive;
 
 protected:
-//    virtual void declaration_pass() override {
-//        if ( !this->stepValue )
-//            this->stepValue = new TxIntegerLitNode( endValue->ploc, 1, true, TXBT_LONG );
-//        this->stackConstr = new TxStackConstructionNode( ploc, new TxTypeExprWrapperNode( this ),
-//                                                         new std::vector<TxExpressionNode*>( { startValue, endValue, stepValue } ) );
-//    }
-
-    virtual TxQualType define_type( TxPassInfo passInfo ) override {
+    TxQualType define_type( TxPassInfo passInfo ) override {
         TxExpressionNode* limitTypeExpr;
         {
             auto ltype = this->startValue->resolve_type( passInfo );
@@ -43,11 +36,6 @@ protected:
             }
         }
 
-//        auto baseTypeNode = new TxNamedTypeNode( this->ploc, "tx.ERange" );
-//        run_declaration_pass( baseTypeNode, this, "basetype" );
-//        baseTypeNode->resolution_pass();
-//        auto baseType = baseTypeNode->resolve_type( passInfo );
-
         auto binding = new TxTypeArgumentNode( new TxQualTypeExprNode( new TxTypeExprWrapperNode( limitTypeExpr ) ) );
         run_declaration_pass( binding, this, "binding" );
         return this->registry().instantiate_type( this, baseTypeNode, { binding }, false );
@@ -55,38 +43,26 @@ protected:
 
 public:
     TxERangeLitNode( const TxLocation& ploc, TxExpressionNode* startValue, TxExpressionNode* endValue,
-                     TxExpressionNode* stepValue = nullptr )
-            : TxTypeDefiningValExprNode( ploc ), startValue( startValue ), endValue( endValue ), stepValue( stepValue ) {
+                     TxExpressionNode* stepValue = nullptr, bool inclusive = false )
+            : TxTypeDefiningValExprNode( ploc ), startValue( startValue ), endValue( endValue ), stepValue( stepValue ),
+              inclusive( inclusive ) {
         this->baseTypeNode = new TxNamedTypeNode( this->ploc, "tx.ERange" );
-        if ( !this->stepValue ) {
+        if ( this->inclusive && !this->stepValue )
             this->stepValue = new TxIntegerLitNode( endValue->ploc, 1, true, TXBT_LONG );
-            this->_implicitStep = true;
+        if ( this->stepValue ) {
+            auto inclNode = new TxBoolLitNode( endValue->ploc, this->inclusive );
+            this->stackConstr = new TxStackConstructionNode( ploc, new TxQualTypeExprNode( new TxTypeExprWrapperNode( this )),
+                                     new std::vector<TxExpressionNode*>( { this->startValue, this->endValue,
+                                                                           this->stepValue, inclNode } ));
         }
-        this->stackConstr = new TxStackConstructionNode( ploc, new TxQualTypeExprNode( new TxTypeExprWrapperNode( this ) ),
-                                 new std::vector<TxExpressionNode*>( { this->startValue, this->endValue, this->stepValue } ) );
+        else
+            this->stackConstr = new TxStackConstructionNode( ploc, new TxQualTypeExprNode( new TxTypeExprWrapperNode( this ) ),
+                                     new std::vector<TxExpressionNode*>( { this->startValue, this->endValue } ) );
     }
 
-    /** factory method that folds ( start .. ( step .. end ) ) grammar match into a single range node */
-    static TxERangeLitNode* make_range_node( const TxLocation& ploc, TxExpressionNode* startValue, TxExpressionNode* endValue ) {
-        if ( auto otherRange = dynamic_cast<TxERangeLitNode*>( endValue ) ) {
-            if ( !otherRange->_implicitStep ) {
-                // error, too many subsequent .. operators
-                CERROR( otherRange, "Too many subsequent .. operators in range expression" );
-            }
-            else {
-                // FUTURE - delete allocated subnodes of otherRange
-            }
-            new(otherRange) TxERangeLitNode( ploc, startValue, otherRange->endValue, otherRange->startValue );
-            return otherRange;
-        }
-        else {
-            return new TxERangeLitNode( ploc, startValue, endValue );
-        }
-    }
-
-    virtual TxERangeLitNode* make_ast_copy() const override {
+    TxERangeLitNode* make_ast_copy() const override {
         return new TxERangeLitNode( this->ploc, this->startValue->make_ast_copy(), this->endValue->make_ast_copy(),
-                                    this->stepValue->make_ast_copy() );
+                                    ( this->stepValue ? this->stepValue->make_ast_copy() : nullptr ), this->inclusive );
     }
 
 // Implementation note: Since we currently implement this by invoking the ERange constructor,
@@ -97,14 +73,14 @@ public:
 //                 && ( this->stepValue == nullptr || this->stepValue->is_statically_constant() ) );
 //    }
 
-    virtual TxFieldStorage get_storage() const override {
+    TxFieldStorage get_storage() const override {
         return TXS_UNBOUND_STACK;
     }
 
-    virtual llvm::Value* code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const override;
-    virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;
+    llvm::Value* code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const override;
+    llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->baseTypeNode->visit_ast( visitor, thisCursor, "basetype", context );
         this->stackConstr->visit_ast( visitor, thisCursor, "litconstr", context );
     }

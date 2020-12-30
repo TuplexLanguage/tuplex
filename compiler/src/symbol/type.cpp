@@ -767,7 +767,12 @@ bool TxActualType::inner_prepare_members() {
         for ( auto & field : virtualFields.fieldMap ) {
             auto actualFieldEnt = virtualFields.get_field( field.second );
             if ( actualFieldEnt->get_decl_flags() & TXD_ABSTRACT ) {
-                CERROR( this, "Concrete type " << this->str() << " doesn't implement abstract member " << actualFieldEnt );
+                // if this type is immutable, modifying methods will be skipped anyway, so this is not an error
+                if ( !( !this->is_mutable()
+                        && actualFieldEnt->qtype()->get_type_class() == TXTC_FUNCTION
+                        && actualFieldEnt->qtype()->modifiable_closure() ) ) {
+                    CERROR( this, "Concrete type " << this->str() << " doesn't implement abstract member " << actualFieldEnt );
+                }
             }
         }
     }

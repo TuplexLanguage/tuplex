@@ -4,6 +4,12 @@ Does not use for loops (since certain for loop forms rely on ERange).
 */
 
 type RangeTester{E <: Enumerable} :
+    test_contains( range : ERange{E}, value : E ) -> Bool :
+        b1 := self.find_in_range( range, value )
+        b2 := range.contains( value )
+        assert b1 == b2
+        return b1
+
     find_in_range( range : ERange{E}, value : E ) -> Bool :
         iter := range.sequencer()
         while iter.has_next():
@@ -12,17 +18,19 @@ type RangeTester{E <: Enumerable} :
         return FALSE
 
     test_range( range : &ERange{E}, start : E, limit : E, stride : Long, expCount : UInt ):
+        ## FIXME: more tests with ..= inclusive ranges
         assert range.start  == start
         assert range.limit  == limit
         assert range.stride == stride
         assert range.count() == expCount
+        assert range.capacity() == expCount
         assert ! range.has( expCount )
         assert ! range.has( expCount + 1 )
         assert ! range.has_( -expCount-1 )
         assert ! range.has_( -expCount-2 )
-        assert ! self.find_in_range( range, limit )
-        assert ! self.find_in_range( range, E.value( Ordinal( Long( start.ordinal() ) - stride ) ) )
-        assert ! self.find_in_range( range, E.value( Ordinal( Long( limit.ordinal() ) + stride ) ) )
+        assert self.test_contains( range, limit ) == range.is_inclusive()
+        assert ! self.test_contains( range, E.value( Ordinal( Long( start.ordinal() ) - stride ) ) )
+        assert ! self.test_contains( range, E.value( Ordinal( Long( limit.ordinal() ) + stride ) ) )
         if expCount > 0:
             assert range.has( 0 )
             assert range.has( expCount - 1 )
@@ -32,13 +40,13 @@ type RangeTester{E <: Enumerable} :
             ## print( "start=" %2d start.ordinal() %% "  limit=" %2d limit.ordinal() %% "  stride=" %2d stride
             ##        %% "  expCount=" %2d expCount %% "  lastValue=" %2d lastValue.ordinal() )
             assert range.get( expCount - 1 ) == lastValue
-            assert self.find_in_range( range, start )
-            assert self.find_in_range( range, lastValue )
+            assert self.test_contains( range, start )
+            assert self.test_contains( range, lastValue )
             if expCount > 1:
                 assert range.has( 1 )
                 assert range.has( expCount - 2 )
                 assert range.has_( -expCount + 1 )
-                assert self.find_in_range( range, E.value( Ordinal( Long( start.ordinal() ) + stride ) ) )
+                assert self.test_contains( range, E.value( Ordinal( Long( start.ordinal() ) + stride ) ) )
 
         counter := ~0UI
         iter := range.rev_sequencer()
@@ -54,11 +62,17 @@ test_ranges()->Int :
         range := 0..10
         assert range.stride == 1
         assert range.count() == 10
+        assert ! range.empty()
         assert range.has( 0 )
         assert range.has( 1 )
         assert range.has( 9 )
         assert ! range.has( 10 )
         assert ! range.has( 11 )
+        assert range.has_( 0 )
+        assert range.has_( 1 )
+        assert range.has_( 9 )
+        assert ! range.has_( 10 )
+        assert ! range.has_( 11 )
         assert range.has_( -1 )
         assert range.has_( -2 )
         assert range.has_( -9 )
@@ -71,16 +85,47 @@ test_ranges()->Int :
         assert range.get_( -1 ) == 9
         assert range.get_( -9 ) == 1
         assert range.get_( -10 ) == 0
+        assert range.contains( 0 )
+        assert range.contains( 1 )
+        assert range.contains( 9 )
+        assert ! range.contains( 10 )
+        assert ! range.contains( 11 )
 
     scope:
         range := 0..0
         assert range.stride == 1
         assert range.count() == 0
+        assert range.capacity() == 0
+        assert range.empty()
         assert ! range.has( 0 )
         assert ! range.has( 1 )
         assert ! range.has( 2 )
+        assert ! range.has_( 0 )
+        assert ! range.has_( 1 )
+        assert ! range.has_( 2 )
         assert ! range.has_( -1 )
         assert ! range.has_( -2 )
+        assert ! range.contains( 0 )
+        assert ! range.contains( 1 )
+        assert ! range.contains( 2 )
+
+    scope:
+        range := 0..=0
+        assert range.stride == 1
+        assert range.count() == 1
+        assert range.capacity() == 1
+        assert ! range.empty()
+        assert range.has( 0 )
+        assert ! range.has( 1 )
+        assert ! range.has( 2 )
+        assert range.has_( 0 )
+        assert range.has_( -1 )
+        assert ! range.has_( 1 )
+        assert ! range.has_( 2 )
+        assert ! range.has_( -2 )
+        assert range.contains( 0 )
+        assert ! range.contains( 1 )
+        assert ! range.contains( 2 )
 
     intRangeTester := RangeTester{Int}()
     intRangeTester.test_range( 0I..10, 0, 10, 1, 10 )
@@ -89,11 +134,24 @@ test_ranges()->Int :
     intRangeTester.test_range( 7I..7, 7, 7, 1, 0 )
     intRangeTester.test_range( 7I..8, 7, 8, 1, 1 )
 
+    intRangeTester.test_range( 0I..=10, 0, 10, 1, 11 )
+    intRangeTester.test_range( 0I..=0, 0, 0, 1, 1 )
+    intRangeTester.test_range( 7I..=17, 7, 17, 1, 11 )
+    intRangeTester.test_range( 7I..=7, 7, 7, 1, 1 )
+    intRangeTester.test_range( 7I..=8, 7, 8, 1, 2 )
+
     intRangeTester.test_range( 10I..-1..0, 10, 0, -1, 10 )
     intRangeTester.test_range( 0I..-1..0, 0, 0, -1, 0 )
     intRangeTester.test_range( 17I..-1..7, 17, 7, -1, 10 )
     intRangeTester.test_range( 7I..-1..7, 7, 7, -1, 0 )
     intRangeTester.test_range( 8I..-1..7, 8, 7, -1, 1 )
+
+    intRangeTester.test_range( 10I..-1..=0, 10, 0, -1, 11 )
+    intRangeTester.test_range( 0I..-1..=0, 0, 0, -1, 1 )
+    intRangeTester.test_range( 17I..-1..=7, 17, 7, -1, 11 )
+    intRangeTester.test_range( 7I..-1..=7, 7, 7, -1, 1 )
+    intRangeTester.test_range( 8I..-1..=7, 8, 7, -1, 2 )
+    intRangeTester.test_range( -7I..-1..=-7, -7, -7, -1, 1 )
 
     intRangeTester.test_range( 0I..2..10, 0, 10, 2, 5)
     intRangeTester.test_range( 0I..2..0, 0, 0, 2, 0 )
@@ -133,6 +191,24 @@ test_ranges()->Int :
     intRangeTester.test_range( -7I..3..13, -7, 13, 3, 7 )
     intRangeTester.test_range( 7I..-3..-13, 7, -13, -3, 7 )
 
+    intRangeTester.test_range( 10I..3..9, 10, 9, 3, 0 )
+    intRangeTester.test_range( 10I..3..8, 10, 8, 3, 0 )
+    intRangeTester.test_range( 10I..3..0, 10, 0, 3, 0 )
+    intRangeTester.test_range( 10I..3..-1, 10, -1, 3, 0 )
+
+    intRangeTester.test_range( 10I..3..=9, 10, 9, 3, 0 )
+    intRangeTester.test_range( 10I..3..=8, 10, 8, 3, 0 )
+    intRangeTester.test_range( 10I..3..=0, 10, 0, 3, 0 )
+    intRangeTester.test_range( 10I..3..=-1, 10, -1, 3, 0 )
+
+    intRangeTester.test_range( 10I..-3..=11, 10, 11, -3, 0 )
+    intRangeTester.test_range( 10I..-3..=20, 10, 20, -3, 0 )
+    intRangeTester.test_range( -10I..-3..=-9, -10, -9, -3, 0 )
+    intRangeTester.test_range( -10I..-3..=0,  -10, 0, -3, 0 )
+    intRangeTester.test_range( -10I..-3..=-1, -10, -1, -3, 0 )
+
+    intRangeTester.test_range( Int.MAX..1..Int.MAX, Int.MAX, Int.MAX, 1, 0 )
+    intRangeTester.test_range( Int.MIN..-1..Int.MIN, Int.MIN, Int.MIN, -1, 0 )
     intRangeTester.test_range( Int.MAX-10..1..Int.MAX, Int.MAX-10, Int.MAX, 1, 10 )
     intRangeTester.test_range( Int.MAX..-1..Int.MAX-10, Int.MAX, Int.MAX-10, -1, 10 )
     intRangeTester.test_range( Int.MIN..1..Int.MIN+10, Int.MIN, Int.MIN+10, 1, 10 )
@@ -143,6 +219,13 @@ test_ranges()->Int :
     intRangeTester.test_range( Int.MIN..3..Int.MIN+10, Int.MIN, Int.MIN+10, 3, 4 )
     intRangeTester.test_range( Int.MIN+10..-3..Int.MIN, Int.MIN+10, Int.MIN, -3, 4 )
 
+    intRangeTester.test_range( Int.MAX..1..=Int.MAX, Int.MAX, Int.MAX, 1, 1 )
+    intRangeTester.test_range( Int.MIN..-1..=Int.MIN, Int.MIN, Int.MIN, -1, 1 )
+    intRangeTester.test_range( Int.MAX-10..1..=Int.MAX, Int.MAX-10, Int.MAX, 1, 11 )
+    intRangeTester.test_range( Int.MAX..-1..=Int.MAX-10, Int.MAX, Int.MAX-10, -1, 11 )
+    intRangeTester.test_range( Int.MIN..1..=Int.MIN+10, Int.MIN, Int.MIN+10, 1, 11 )
+    intRangeTester.test_range( Int.MIN+10..-1..=Int.MIN, Int.MIN+10, Int.MIN, -1, 11 )
+
     ulongRangeTester := RangeTester{ULong}()
     ulongRangeTester.test_range( 0UL..10, 0, 10, 1, 10 )
     ulongRangeTester.test_range( 0UL..0, 0, 0, 1, 0 )
@@ -150,11 +233,23 @@ test_ranges()->Int :
     ulongRangeTester.test_range( 7UL..7, 7, 7, 1, 0 )
     ulongRangeTester.test_range( 7UL..8, 7, 8, 1, 1 )
 
+    ulongRangeTester.test_range( 0UL..=10, 0, 10, 1, 11 )
+    ulongRangeTester.test_range( 0UL..=0, 0, 0, 1, 1 )
+    ulongRangeTester.test_range( 7UL..=17, 7, 17, 1, 11 )
+    ulongRangeTester.test_range( 7UL..=7, 7, 7, 1, 1 )
+    ulongRangeTester.test_range( 7UL..=8, 7, 8, 1, 2 )
+
     ulongRangeTester.test_range( 10UL..-1..0, 10, 0, -1, 10 )
     ulongRangeTester.test_range( 0UL..-1..0, 0, 0, -1, 0 )
     ulongRangeTester.test_range( 17UL..-1..7, 17, 7, -1, 10 )
     ulongRangeTester.test_range( 7UL..-1..7, 7, 7, -1, 0 )
     ulongRangeTester.test_range( 8UL..-1..7, 8, 7, -1, 1 )
+
+    ulongRangeTester.test_range( 10UL..-1..=0, 10, 0, -1, 11 )
+    ulongRangeTester.test_range( 0UL..-1..=0, 0, 0, -1, 1 )
+    ulongRangeTester.test_range( 17UL..-1..=7, 17, 7, -1, 11 )
+    ulongRangeTester.test_range( 7UL..-1..=7, 7, 7, -1, 1 )
+    ulongRangeTester.test_range( 8UL..-1..=7, 8, 7, -1, 2 )
 
     ulongRangeTester.test_range( 0UL..2..10, 0, 10, 2, 5)
     ulongRangeTester.test_range( 0UL..2..0, 0, 0, 2, 0 )
@@ -184,6 +279,82 @@ test_ranges()->Int :
     ulongRangeTester.test_range( ULong.MAX..-1..ULong.MAX-10, ULong.MAX, ULong.MAX-10, -1, 10 )
     ulongRangeTester.test_range( ULong.MAX-10..3..ULong.MAX, ULong.MAX-10, ULong.MAX, 3, 4 )
     ulongRangeTester.test_range( ULong.MAX..-3..ULong.MAX-10, ULong.MAX, ULong.MAX-10, -3, 4 )
+
+    ulongRangeTester.test_range( ULong.MAX..1..=ULong.MAX, ULong.MAX, ULong.MAX, 1, 1 )
+    ulongRangeTester.test_range( ULong.MIN..-1..=ULong.MIN, ULong.MIN, ULong.MIN, -1, 1 )
+    ulongRangeTester.test_range( ULong.MAX-10..1..=ULong.MAX, ULong.MAX-10, ULong.MAX, 1, 11 )
+    ulongRangeTester.test_range( ULong.MAX..-1..=ULong.MAX-10, ULong.MAX, ULong.MAX-10, -1, 11 )
+    ulongRangeTester.test_range( ULong.MIN..1..=ULong.MIN+10, ULong.MIN, ULong.MIN+10, 1, 11 )
+    ulongRangeTester.test_range( ULong.MIN+10..-1..=ULong.MIN, ULong.MIN+10, ULong.MIN, -1, 11 )
+
+    ## Special case for ranges of count ULong.MAX
+    ## full ULong range, exclusive
+    scope:
+        range := 0UL..ULong.MAX
+        assert range.stride == 1
+        assert range.count() == ULong.MAX
+        assert ! range.empty()
+        assert range.has( 0 )
+        assert range.has( 1 )
+        assert range.has( ULong.MAX-1 )
+        assert ! range.has( ULong.MAX )
+        assert range.has_( 0 )
+        assert range.has_( 1 )
+        assert range.has_( Long.MAX )  ## note, not ULong
+        assert range.has_( -1 )
+        assert range.has_( Long.MIN )  ## note, not ULong
+        assert range.get( 0 ) == 0
+        assert range.get( 1 ) == 1
+        assert range.get( ULong.MAX-1 ) == ULong.MAX-1
+        assert range.get_( -2 ) == ULong.MAX-2
+        assert range.get_( -1 ) == ULong.MAX-1
+        assert range.contains( 0 )
+        assert range.contains( 1 )
+        assert range.contains( ULong.MAX-1 )
+        assert ! range.contains( ULong.MAX )
+
+    ## nearly full ULong range, inclusive
+    scope:
+        range := 1UL..=ULong.MAX
+        assert range.stride == 1
+        assert range.count() == ULong.MAX
+        assert ! range.empty()
+        assert range.has( 0 )
+        assert range.has( 1 )
+        assert range.has( ULong.MAX-1 )
+        assert ! range.has( ULong.MAX )
+        assert range.has_( 0 )
+        assert range.has_( 1 )
+        assert range.has_( Long.MAX )  ## note, not ULong
+        assert range.has_( -1 )
+        assert range.has_( Long.MIN )  ## note, not ULong
+        assert range.get( 0 ) == 1
+        assert range.get( 1 ) == 2
+        assert range.get( ULong.MAX-1 ) == ULong.MAX
+        assert range.get_( -2 ) == ULong.MAX-1
+        assert range.get_( -1 ) == ULong.MAX
+        assert ! range.contains( 0 )
+        assert range.contains( 1 )
+        assert range.contains( ULong.MAX-1 )
+        assert range.contains( ULong.MAX )
+
+    ## full ULong range, inclusive - which overflows and becomes the empty range
+    scope:
+        range := 0UL..=ULong.MAX
+        assert range.stride == 1
+        assert range.count() == 0
+        assert range.empty()
+        assert ! range.has( 0 )
+        assert ! range.has( 1 )
+        assert ! range.has( ULong.MAX-1 )
+        assert ! range.has( ULong.MAX )
+        assert ! range.has_( 0 )
+        assert ! range.has_( 1 )
+        assert ! range.has_( Long.MAX )  ## note, not ULong
+        assert ! range.has_( -1 )
+        assert ! range.has_( Long.MIN )  ## note, not ULong
+        assert ! range.contains( 0 )
+        assert ! range.contains( ULong.MAX )
 
     return 0
 

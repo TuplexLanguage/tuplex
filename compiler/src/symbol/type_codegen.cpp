@@ -626,7 +626,8 @@ DIType* TxTupleTypeClassHandler::make_llvm_debug_type_body( const TxActualType* 
         auto fieldDType = context.get_debug_type( fieldTxType );
         unsigned lineNo = memberTxField->get_declaration()->get_definer()->ploc.begin.line;
         if ( fieldDType->getAlignInBits() > 0 )
-            bitSize += bitSize % fieldDType->getAlignInBits();  // ensure bit offset adheres to alignment
+            // ensure bit offset adheres to alignment
+            bitSize += fieldDType->getAlignInBits() - ( bitSize % fieldDType->getAlignInBits() );
         auto memberDType = context.debug_builder()->createMemberType( scope, memberTxField->get_declaration()->get_unique_name(),
                                                                       file, lineNo,
                                                                       fieldDType->getSizeInBits(),

@@ -1,15 +1,15 @@
 module tx
 
 
-interface Collection{E} derives Sequenceable{E} :
+interface Collection{E} derives Iterable{E} :
     abstract empty() -> Bool
 
     abstract count() -> ULong
 
     abstract capacity() -> ULong
 
-    abstract clear() ~
-
     abstract contains( val : E ) -> Bool
 
     abstract add( val : E ) ~ -> Bool
+
+    abstract clear() ~

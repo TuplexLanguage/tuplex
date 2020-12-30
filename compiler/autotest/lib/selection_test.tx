@@ -57,11 +57,9 @@ main() :
             ##t := [ c, '\0' ] ; tx.c.puts( t )
         assert res == [ 0, '5', '3' ]
 
-/* TODO: support ..= for inclusive ranges
     scope:
         res := ~[10]UByte()
         for c in Selection{UInt,UByte}( &strA, 6UI..-2..=0 ):
             res.add( c )
-            t := [ c, '\0' ] ; tx.c.puts( t )
+            ##t := [ c, '\0' ] ; tx.c.puts( t )
         assert res == [ 0, '5', '3', '1' ]
-*/

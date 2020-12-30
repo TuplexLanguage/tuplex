@@ -780,6 +780,7 @@ const std::vector<TxTokenDef> TxTopScanner::topTokenDefinitions =
                 TOKDEF( TxTokenId::COLON, new TxFixedMatcher( ":" )),
                 TOKDEF( TxTokenId::DOT, new TxFixedMatcher( "." )),
                 TOKDEF( TxTokenId::DOTDOT, new TxFixedMatcher( ".." )),
+                TOKDEF( TxTokenId::DOTDOTEQ, new TxFixedMatcher( "..=" )),
                 TOKDEF( TxTokenId::ELLIPSIS, new TxFixedMatcher( "..." )),
                 TOKDEF( TxTokenId::ASTERISK, new TxFixedMatcher( "*" )),
                 TOKDEF( TxTokenId::PLUS, new TxFixedMatcher( "+" )),

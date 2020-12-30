@@ -1,7 +1,8 @@
 module tx
 
 
-interface Range{ E } <: Indicable{ ULong, E } :
+interface Range{ E } <: Indicable{ ULong, E }, Collection{ E } :
+    ## FUTURE: inherit Map{ ULong, E } instead?
 
     abstract override sequencer() -> Ref{ ~Iterator{E} }
 
@@ -14,8 +15,14 @@ interface Range{ E } <: Indicable{ ULong, E } :
 
 
 /** A range between two values of an Enumerable type.
+ * A range "provides" a subset of the values of the Enumerable type, in natural order,
+ * ascending or descending, contiguously or with a fixed "stride".
+ * This subset may be empty. It may also encompass the full set of values of the Enumerable type.
+ * An ERange instance is immutable.
+ * An ERange can also be viewed as a mapping between a contiguous interval of integer indexes, starting from 0,
+ * to a (possibly non-contiguous) sequence of values of the Enumerable type.
  */
-type ERange{ E derives Enumerable } <: Tuple, Range{ E }, Stringer :
+type ERange{ E derives Enumerable } <: Tuple, Range{ E } :
 
     /** The ERange iterator. */
     type ~ ERangeIterator <: Tuple, Iterator{ E } :
@@ -32,7 +39,7 @@ type ERange{ E derives Enumerable } <: Tuple, Range{ E }, Stringer :
             if self._nextIndex >= self._range.count():
                 panic( "No next() element in ERangeIterator" )
             ix := self._nextIndex
-            self._nextIndex = self._nextIndex + 1
+            self._nextIndex = ix + 1
             return self._range._get_abs_ix( ix )
 
         override prev()~ -> E :
@@ -58,7 +65,7 @@ type ERange{ E derives Enumerable } <: Tuple, Range{ E }, Stringer :
         #init: _indexLimit( indexLimit ), start( start ), limit( limit ), stride( 1 )
 
     /** Constructs a range [ start, limit ) with the specified stride if inclusive is FALSE,
-    *   or a range [ start, limit ] with the specified stride if inclusive is TRUE. */
+     *   or a range [ start, limit ] with the specified stride if inclusive is TRUE. */
     self( start : E, limit : E, stride : Long, inclusive : Bool ) :
         if stride == 0:
             panic ( "Zero stride in ERange" )
@@ -66,12 +73,12 @@ type ERange{ E derives Enumerable } <: Tuple, Range{ E }, Stringer :
         if limit.ordinal() < minIndex:
             minIndex = limit.ordinal()
         indexLimit : ~ULong = 0
-        if inclusive:
-            indexLimit = 1
         if stride > 0:
-            indexLimit = indexLimit + ( limit.ordinal() - minIndex + ULong(stride) - 1 ) / ULong(stride)
+            indexLimit = ( ULong( inclusive & limit.ordinal() >= start.ordinal() )
+                           + ( limit.ordinal() - minIndex + ULong(stride) - 1 ) / ULong(stride) )
         else:  ## stride < 0
-            indexLimit = indexLimit + ( start.ordinal() - minIndex + ULong(-stride) - 1 ) / ULong(-stride)
+            indexLimit = ( ULong( inclusive & start.ordinal() >= limit.ordinal() )
+                           + ( start.ordinal() - minIndex + ULong(-stride) - 1 ) / ULong(-stride) )
         #init: _indexLimit( indexLimit ), start( start ), limit( limit ), stride( stride )
 
     /** Constructs a range [ start, limit ) with the specified stride. */
@@ -86,24 +93,61 @@ type ERange{ E derives Enumerable } <: Tuple, Range{ E }, Stringer :
         iter._nextIndex = self._indexLimit
         return iter
 
+    /** Returns true if this range is empty. */
+    override empty() -> Bool :
+        return self._indexLimit == 0
+
+    /** Returns the number of elements provided by this range, same as count(). */
+    override capacity() -> ULong :
+        return self.count()
+
+    /** Returns the number of elements provided by this range. */
     override count() -> ULong :
         return self._indexLimit
 
+    /** Returns true if this range contains (provides) the specified value.
+     * Note that for non-contiguous ranges, only the values actually provided by this range are "contained". */
+    override contains( val : E ) -> Bool :
+        ord := val.ordinal()
+        if self.stride >= 0:
+            if ord < self.start.ordinal():
+                return FALSE
+            dist := ord - self.start.ordinal()
+            steps := dist / ULong( self.stride )
+            if steps >= self._indexLimit:
+                return FALSE
+            rem := dist - steps * ULong( self.stride )
+            return rem == 0
+        else:
+            if ord > self.start.ordinal():
+                return FALSE
+            dist := self.start.ordinal() - ord
+            steps := dist / ULong( -self.stride )
+            if steps >= self._indexLimit:
+                return FALSE
+            rem := dist - steps * ULong( -self.stride )
+            return rem == 0
+
+    /** Returns true if this range has the specified index. */
     override has( index : ULong ) -> Bool :
         return ULong(index) < self._indexLimit
 
+    /** Returns the range value at the specified index. */
     override get( index : ULong ) -> E :
         if ULong( index ) >= self._indexLimit:
             panic "Invalid range index: " %d index %% " >= " %d self._indexLimit
         return self._get_abs_ix( ULong( index ) )
 
-    ## TODO: When overloading of virtual methods supported, let these override has() and get()
+    ## FUTURE: When overloading of virtual methods supported, let these override has() and get()
+
+    /** Returns true if this range has the specified index. If index is negative, it is relative to range's end. */
     has_( index : Long ) -> Bool :
         if index < 0:
             return ULong(-index) <= self._indexLimit
         else
             return ULong(index) < self._indexLimit
 
+    /** Returns the range value at the specified index. If index is negative, it is relative to range's end. */
     get_( index : Long ) -> E :
         if index < 0 :
             if ULong( -index ) > self._indexLimit :
@@ -124,8 +168,16 @@ type ERange{ E derives Enumerable } <: Tuple, Range{ E }, Stringer :
     is_ascending() -> Bool :
         return self.stride > 0
 
-    override string( writer : &~tx.ByteWriter ) :
-        ## TODO: Either support duck-typing in generic types or provide "unchecked { ... }" mechanism (or similar)
-        ## str := %s self.start %% ".." %s self.stride %% ".." %s self.limit
-        str := "{ERange}"
-        str.string( writer )
+    /** Returns TRUE if this range is inclusive of its end limit. */
+    is_inclusive() -> Bool :
+        minIndex : ~ULong = self.start.ordinal()
+        if self.limit.ordinal() < minIndex:
+            minIndex = self.limit.ordinal()
+        if self.stride > 0:
+            stri := ULong(self.stride)
+            diff := self._indexLimit - ( self.limit.ordinal() - minIndex + stri - 1 ) / stri
+            return Bool( diff )
+        else:  ## stride < 0
+            stri := ULong(-self.stride)
+            diff := self._indexLimit - ( self.start.ordinal() - minIndex + stri - 1 ) / stri
+            return Bool( diff )

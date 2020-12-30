@@ -16,7 +16,7 @@ interface Iterable{ E } derives Sequenceable{ E } :
 
 
 /** An indicable sequence is finite and supports random-access.
- * Sequences, sets, and maps are Indicable.
+ * Arrays, ranges, and maps are Indicable.
  */
 interface Indicable{ K, E } derives Iterable{ E } :
 

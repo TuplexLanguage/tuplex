@@ -18,15 +18,6 @@ interface Enumerable{ E derives Enumerable{E} } <: Comparable{ E } :
         return 0
 
 
-/*
-    virtual first() -> E :
-        return E.value( 0 )
-
-
-    virtual last() -> E :
-        return E.value( E.limit()-1 )
-*/
-
     /** returns the last (highest) ordinal for this type */
     virtual abstract last_ordinal() -> Ordinal
 

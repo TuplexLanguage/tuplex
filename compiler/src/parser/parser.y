@@ -128,7 +128,7 @@ YY_DECL;
 %token WHITESPACE COMMENT  // needed for ids, will not be produced
 %token INDENT DEDENT
 %token NEWLINE SEMICOLON // statement separator
-%token DOT COLON COMMA DOTDOT ELLIPSIS ASTERISK PLUS MINUS FSLASH BSLASH AAND
+%token DOT COLON COMMA DOTDOT DOTDOTEQ ELLIPSIS ASTERISK PLUS MINUS FSLASH BSLASH AAND
 %token PIPE CARET TILDE AT PERCENT DOLLAR EURO LPAREN RPAREN LBRACE
 %token RBRACE LBRACKET RBRACKET QMARK EMARK DASHGT LTCOLON COLONGT
 %token EQUAL EEQUAL NEQUAL EEEQUAL NEEQUAL LT GT LEQUAL GEQUAL
@@ -198,8 +198,8 @@ YY_DECL;
 %type <TxTypeExpressionNode*> reference_type array_type
 
 %type <TxFunctionTypeNode*> function_signature
-%type <TxExpressionNode*> val_expr gen_val_expr lambda_expr value_literal array_dimensions intrinsics_expr make_expr
-%type <TxExpressionNode*> array_literal //tuple_literal
+%type <TxExpressionNode*> gen_val_expr val_expr range_expr lambda_expr array_dimensions intrinsics_expr make_expr
+%type <TxExpressionNode*> value_literal array_literal //tuple_literal
 %type <TxFunctionCallNode*> call_expr
 %type <std::vector<TxExpressionNode*> *> expression_list min2_expr_list call_params
 %type <std::vector<TxStatementNode*> *> statement_list
@@ -237,7 +237,7 @@ YY_DECL;
 %left EEQUAL NEQUAL
 %left LT GT LEQUAL GEQUAL
 %left EEEQUAL NEEQUAL
-%right DOTDOT           // range has lower priority than arithmetic but higher than boolen operators
+%right DOTDOT DOTDOTEQ  // range has lower priority than arithmetic but higher than boolen operators
 %left LTLT GTGT GTGTGT  // bit-shift har lower priority than arithmetic but higher than range and boolen operators
 %left PLUS MINUS
 %left ASTERISK FSLASH
@@ -591,6 +591,11 @@ array_dimensions : LBRACKET val_expr RBRACKET  { $$ = $2; }
 
 gen_val_expr
     :   val_expr                           { $$ = $1; }
+
+    |   range_expr                         { $$ = $1; }
+    |   range_expr DOT identifier          { $$ = new TxNamedFieldNode(@$, new TxFieldValueNode(@$, $1, $3)); }
+    |   range_expr LBRACKET val_expr RBRACKET  { $$ = new TxElemDerefNode(@$, $1, $3); }
+
     |   AAND gen_val_expr   %prec ADDR     { $$ = new TxReferenceToNode(@$, $2); }
 
     |   gen_val_expr EEQUAL gen_val_expr   { $$ = new TxEqualityOperatorNode(@$, $1, $3); }
@@ -603,6 +608,13 @@ gen_val_expr
     |   gen_val_expr KW_XOR gen_val_expr   { $$ = new TxBinaryElemOperatorNode(@$, $1, TXOP_XOR,  $3); }
 
     |   mut_token gen_val_expr %prec TILDE { $$ = new TxModifiableValueNode(@$, $2); }
+    ;
+
+range_expr
+    :   val_expr DOTDOT val_expr                    { $$ = new TxERangeLitNode(@$, $1, $3); }
+    |   val_expr DOTDOT val_expr DOTDOT   val_expr  { $$ = new TxERangeLitNode(@$, $1, $5, $3); }
+    |   val_expr DOTDOTEQ val_expr                  { $$ = new TxERangeLitNode(@$, $1, $3, NULL, true); }
+    |   val_expr DOTDOT val_expr DOTDOTEQ val_expr  { $$ = new TxERangeLitNode(@$, $1, $5, $3, true); }
     ;
 
 val_expr
@@ -620,8 +632,6 @@ val_expr
 
     |   call_expr                    { $$ = $1; }
     |   make_expr                    { $$ = $1; }
-
-    |   val_expr DOTDOT val_expr     { $$ = TxERangeLitNode::make_range_node(@$, $1, $3); }
 
     |   MINUS val_expr  %prec NEG    { $$ = new TxUnaryMinusNode(@$, $2); }  // unary minus
     |   val_expr PLUS val_expr       { $$ = new TxBinaryElemOperatorNode(@$, $1, TXOP_PLUS, $3); }
