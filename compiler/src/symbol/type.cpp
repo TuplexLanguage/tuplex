@@ -517,8 +517,12 @@ void TxActualType::autogenerate_constructors() {
                 }
                 if ( !hasCopyConstructor ) {
                     // can't auto-generate constructor
-                    LOG_NOTE( this->LOGGER(), "Can't auto-generate constructor since field type has no copy constructor: "
-                              << instanceFieldDecl->get_unique_full_name() << " : " << fieldType );
+                    Level logLvl = ( this->get_declaration()->get_decl_flags() & TXD_EXPERROR )
+                                   || instanceFieldDecl->get_definer()->context().exp_error()
+                                   ? INFO : ALERT;
+                    LOG( this->LOGGER(), logLvl,
+                         "Can't auto-generate constructor since field type has no copy constructor: "
+                         << instanceFieldDecl->get_unique_full_name() << " : " << fieldType );
                     return;
                 }
             }
