@@ -4,6 +4,7 @@
 #include <vector>
 #include <deque>
 #include <unordered_map>
+#include <unordered_set>
 
 #include "util/logging.hpp"
 #include "identifier.hpp"
@@ -14,6 +15,8 @@ class LLVMContext;
 }
 
 class TxPackage;
+class TxNode;
+class TxDeclarationNode;
 class TxParsingUnitNode;
 class TxParserContext;
 class BuiltinTypes;
@@ -64,6 +67,15 @@ class TxDriver {
     /** The source files already parsed.
      * The value is the top level root node of the AST. */
     std::unordered_map<std::string, TxParsingUnitNode*> parsedSourceFiles;
+
+    /** The ASTs for the reachable non-local declarations/entities. */
+    std::vector<TxDeclarationNode*> reachableASTsQueue;
+    std::unordered_set<unsigned long> reachableASTs;
+
+    /** Performs resolution and verification passes by traversing *all* parsed entities in lexical order */
+    void compile_lexical();
+    /** Performs resolution and verification passes by only traversing reachable entities */
+    void compile_reachable();
 
     /** Generate LLVM IR and/or bytecode. */
     int llvm_compile( const std::string& outputFilename );
@@ -121,4 +133,7 @@ public:
      * @return 0 on success
      */
     int compile( const std::vector<std::string>& startSourceFiles, const std::string& outputFileName );
+
+    /** Adds a node to the reachable graph. Typically called from a resolving AST node that references the node. */
+    void add_reachable( TxNode* node );
 };

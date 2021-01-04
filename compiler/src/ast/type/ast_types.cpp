@@ -71,7 +71,7 @@ TxQualType TxMemberTypeNode::define_type( TxPassInfo passInfo ) {
 TxActualType* TxGenSpecTypeNode::create_type( TxPassInfo passInfo ) {
     // copy vector because of const conversion:
     std::vector<const TxTypeArgumentNode*> bindings( this->typeArgs->cbegin(), this->typeArgs->cend() );
-    return this->registry().instantiate_type( this, this->genTypeExpr, bindings, this->requires_mutable_type() );
+    return this->registry().get_specialized_type( this, this->genTypeExpr, bindings, this->requires_mutable_type());
 }
 
 
@@ -126,7 +126,8 @@ TxActualType* TxDerivedTypeNode::create_type( TxPassInfo passInfo ) {
 
     // copy vector because of const conversion:
     std::vector<const TxTypeExpressionNode*> ifNodes( this->interfaces->cbegin(), this->interfaces->cend() );
-    return this->registry().instantiate_type( this->get_declaration(), this->baseTypeNode, ifNodes, this->requires_mutable_type() );
+    return this->registry().create_type( this->get_declaration(), this->baseTypeNode,
+                                         std::move( ifNodes ), this->requires_mutable_type());
 }
 
 void TxDerivedTypeNode::set_requires_mutable( bool mut ) {
@@ -183,14 +184,14 @@ TxActualType* TxFunctionTypeNode::create_type( TxPassInfo passInfo ) {
     }
     TxActualType* type;
     if ( this->context().enclosing_lambda() && this->context().enclosing_lambda()->get_constructed() )
-        type = this->registry().get_constructor_type( this->get_declaration(), argumentTypes, this->context().enclosing_lambda()->get_constructed() );
+        type = this->registry().create_constructor_type( this->get_declaration(), argumentTypes, this->context().enclosing_lambda()->get_constructed());
     else if ( this->get_declaration()->get_decl_flags() & TXD_EXTERNC ) {
-        type = this->registry().get_externc_function_type( this->get_declaration(), argumentTypes,
-                                                           ( this->returnField ? this->returnField->resolve_type( passInfo ).type() : nullptr ) );
+        type = this->registry().create_externc_function_type( this->get_declaration(), argumentTypes,
+                                                              ( this->returnField ? this->returnField->resolve_type( passInfo ).type() : nullptr ));
     }
     else if ( this->returnField )
-        type = this->registry().get_function_type( this->get_declaration(), argumentTypes, this->returnField->resolve_type( passInfo ).type(), modifying );
+        type = this->registry().create_function_type( this->get_declaration(), argumentTypes, this->returnField->resolve_type( passInfo ).type(), modifying );
     else
-        type = this->registry().get_function_type( this->get_declaration(), argumentTypes, modifying );
+        type = this->registry().create_function_type( this->get_declaration(), argumentTypes, modifying );
     return type;
 }

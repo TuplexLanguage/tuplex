@@ -1,5 +1,36 @@
 ## tests nested generic types and handling of "concreteness" of their code generation
 
+main()->Int :
+    ## can't instantiate non-concrete types:
+    #experr: ve : Outer
+    #experr: ve : Outer{Array}
+    #experr: ve : Outer.Inner
+    #experr: ve : Outer{Array}.Inner
+
+    v1a := Outer{Float}( 3.14, 17 )
+    v2a := v1a.Inner( 3.14, 17, v1a )
+    v3a : Outer{Float}.Inner = v2a
+
+    type OuterFl <: Outer{Float}
+    v1b := OuterFl( 3.14, 17 )
+    v2b := v1b.Inner( 3.14, 17, v1b )
+    v3b : OuterFl.Inner = v3a
+
+    ## explicitly named type is considered distinct:
+    #experr 1: ve : OuterFl = v1a
+
+    ## an equivalent, implicit parent type of an explicitly named type is more forgiving:
+    v4 : Outer{Float} = v1b
+
+    #experr: ve : Outer.Indep
+    v11 := OuterFl.Indep( 3.14, 17 )
+    v12 := &v11;  ##FIXME: '.' inherited type name resolution
+    ## we currently treat all entities enclosed by a generic type as distinct per specialization:
+    #experr 1: ve : &Outer.Indep = &v11
+
+    return 0
+
+
 type Outer{S} :
     #experr 1: virtual statErrMemb : S;  ## virtual members dependent on type parameters not supported (how would they be initialized?)
     virtual statMemb : Byte = 14B
@@ -46,42 +77,10 @@ type Outer{S} :
         funcU() -> U : { return self.instU; }
 
 
-
 test_nested() :
     n1 := Outer{Long}.Nested{Byte, Short}( 3L, 3B, 3S )
-    
+
     type Redecl{W} <: Outer{Long}.Nested{Byte,W}
     n2 := Redecl{Short}( 3L, 3B, 3S )
     n3 := n2.T( 3B )
     assert _typeid{n2.T} == _typeid{Byte}
-
-
-main()->Int :
-    ## can't instantiate non-concrete types:
-    #experr: ve : Outer
-    #experr: ve : Outer{Array}
-    #experr: ve : Outer.Inner
-    #experr: ve : Outer{Array}.Inner
-
-    v1a := Outer{Float}( 3.14, 17 )
-    v2a := v1a.Inner( 3.14, 17, v1a )
-    v3a : Outer{Float}.Inner = v2a
-
-    type OuterFl <: Outer{Float}
-    v1b := OuterFl( 3.14, 17 )
-    v2b := v1b.Inner( 3.14, 17, v1b )
-    v3b : OuterFl.Inner = v3a
-    
-    ## explicitly named type is considered distinct:
-    #experr 1: ve : OuterFl = v1a
-
-    ## an equivalent, implicit parent type of an explicitly named type is more forgiving:
-    v4 : Outer{Float} = v1b
-
-    #experr: ve : Outer.Indep
-    v11 := OuterFl.Indep( 3.14, 17 )
-    v12 := &v11;  ##FIXME: '.' inherited type name resolution
-    ## we currently treat all entities enclosed by a generic type as distinct per specialization:
-    #experr 1: ve : &Outer.Indep = &v11
-
-    return 0

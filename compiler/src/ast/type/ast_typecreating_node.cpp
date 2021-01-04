@@ -59,5 +59,5 @@ void TxGenParamTypeNode::set_requires_mutable( bool mut ) {
 
 TxActualType* TxGenParamTypeNode::create_type( TxPassInfo passInfo ) {
     // create empty specialization (uniquely named but identical type)
-    return this->registry().instantiate_type( this->get_declaration(), this->constraintTypeNode, {}, true /*this->requires_mutable_type()*/ );
+    return this->registry().create_type( this->get_declaration(), this->constraintTypeNode, {}, true /*this->requires_mutable_type()*/ );
 }

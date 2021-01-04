@@ -1,7 +1,5 @@
 module my
 
-import tx.*
-import tx.c.puts
 import test.modul.*
 
 main() :

@@ -3,6 +3,7 @@
 #include "builtin/builtin_types.hpp"
 
 #include "parsercontext.hpp"
+#include "driver.hpp"
 
 void TxFieldDeclNode::declaration_pass() {
     TxDeclarationFlags flags = this->get_decl_flags();

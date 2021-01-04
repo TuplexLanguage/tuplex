@@ -377,7 +377,7 @@ static TxActualType* get_existing_type( const TxActualType* genBaseType, const s
                 const TxQualType bindingQType = binding->type_expr_node()->qtype();
                 if ( bindingQType->get_declaration()->get_decl_flags() & TXD_GENPARAM ) {
                     auto bindingDecl = bindingQType->get_declaration();
-                    if ( bindingDecl == constraintQType.type()->get_declaration() ) {
+                    if ( bindingDecl == constraintQType->get_declaration() ) {
                         //std::cerr << "binding refers to 'itself' (its parameter declaration): " << bindingDecl << std::endl;
                         continue;  // binding refers to "itself" (its parameter declaration)
                     }
@@ -404,6 +404,7 @@ static TxActualType* get_existing_type( const TxActualType* genBaseType, const s
             existingSpecDeclI != genBaseType->get_declaration()->get_symbol()->type_spec_cend();
             existingSpecDeclI++ ) {
         auto existingType = (*existingSpecDeclI)->get_definer()->qtype().type();
+        // FIXME: not guaranteed to know type class here (since not guaranteed to be integrated):
         if (( genBaseType->get_type_class() == TXTC_INTERFACE  // interfaces are implicitly mutable
               || existingType->is_mutable() == mutableType )
             && bool( existingType->get_decl_flags() & TXD_EXPERROR ) == expError
@@ -432,8 +433,10 @@ TxActualType* TypeRegistry::get_inner_type_specialization( const TxTypeResolving
         expErrCtx = baseDecl->get_definer()->exp_err_ctx();
 
     std::stringstream typeSpecTypeName;
-    if ( expErrCtx && genBaseType->get_type_class() != TXTC_REFERENCE )
-        typeSpecTypeName << "$EE$";
+    if ( expErrCtx ) {
+        //if ( genBaseType->get_type_class() != TXTC_REFERENCE )
+            typeSpecTypeName << "$EE$";
+    }
     typeSpecTypeName << trim_base_type_name( baseDecl->get_unique_name() );
     std::stringstream valueSpecTypeName;
     valueSpecTypeName << typeSpecTypeName.str();
@@ -632,6 +635,12 @@ TxActualType* TypeRegistry::make_type_specialization( const TxTypeResolvingNode*
 
     TxActualType* specializedType = const_cast<TxActualType*>( specTypeExpr->resolve_type( TXP_TYPE ).type() );
     baseDecl->get_symbol()->add_type_specialization( specializedType->get_declaration() );
+    if ( !specializedType->is_initialized() ) {  // FIXME: review
+        if ( genBaseType->is_initialized() )
+            specializedType->initialize_with_type_class( genBaseType->type_class_handler());
+//        else
+//            std::cerr << "new specialized type not yet initialized: " << specializedType << std::endl;
+    }
     LOG_DEBUG( this->LOGGER(), "Created new specialized type " << specializedType << " with base type " << genBaseType );
     // Invoking the type resolution pass here can cause infinite recursion
     // (since the same source text construct may be recursively reprocessed),
@@ -644,19 +653,18 @@ TxActualType* TypeRegistry::make_type_specialization( const TxTypeResolvingNode*
 }
 
 
-TxActualType* TypeRegistry::instantiate_type( const TxTypeDeclaration* declaration, const TxTypeExpressionNode* baseTypeExpr,
-                                              const std::vector<const TxTypeExpressionNode*>& interfaces, bool mutableType ) {
+TxActualType* TypeRegistry::create_type( const TxTypeDeclaration* declaration, const TxTypeExpressionNode* baseTypeExpr,
+                                         std::vector<const TxTypeExpressionNode*>&& interfaces, bool mutableType ) {
     auto type = new TxActualType( declaration, mutableType, baseTypeExpr, std::move( interfaces ) );
     this->add_type( type );
     return type;
 }
 
-TxActualType* TypeRegistry::instantiate_type( const TxTypeResolvingNode* definer, const TxTypeExpressionNode* baseTypeExpr,
-                                              const std::vector<const TxTypeArgumentNode*>& typeArguments, bool mutableType ) {
+TxActualType* TypeRegistry::get_specialized_type( const TxTypeResolvingNode* definer, const TxTypeExpressionNode* baseTypeExpr,
+                                                  const std::vector<const TxTypeArgumentNode*>& typeArguments, bool mutableType ) {
     const TxActualType* genBaseType = const_cast<TxTypeExpressionNode*>( baseTypeExpr )->resolve_type( TXP_TYPE ).type();
     return this->get_inner_type_specialization( definer, genBaseType, typeArguments, mutableType );
 }
-
 
 
 
@@ -665,7 +673,6 @@ TxActualType* TypeRegistry::get_reference_type( TxTypeResolvingNode* definer, co
     auto baseType = this->get_builtin_type( TXBT_REFERENCE );
     auto type = this->get_inner_type_specialization( definer, baseType,
                                                      { targetTypeBinding }, true );
-    type->set_type_class( baseType->type_class_handler() );
     return type;
 }
 
@@ -674,7 +681,6 @@ TxActualType* TypeRegistry::get_array_type( TxTypeResolvingNode* definer, const 
     auto baseType = this->get_builtin_type( TXBT_ARRAY );
     auto type = this->get_inner_type_specialization( definer, baseType,
                                                      { elemTypeBinding, capBinding }, mutableType );
-    type->set_type_class( baseType->type_class_handler() );
     return type;
 }
 
@@ -682,36 +688,35 @@ TxActualType* TypeRegistry::get_array_type( TxTypeResolvingNode* definer, const 
     auto baseType = this->get_builtin_type( TXBT_ARRAY );
     auto type = this->get_inner_type_specialization( definer, baseType,
                                                      { elemTypeBinding }, mutableType );
-    type->set_type_class( baseType->type_class_handler() );
     return type;
 }
 
-TxActualType* TypeRegistry::get_function_type( const TxTypeDeclaration* declaration, const std::vector<const TxActualType*>& argumentTypes,
-                                               const TxActualType* returnType, bool modifiableClosure ) {
+TxActualType* TypeRegistry::create_function_type( const TxTypeDeclaration* declaration, const std::vector<const TxActualType*>& argumentTypes,
+                                                  const TxActualType* returnType, bool modifying ) {
     auto funcType = new TxFunctionType( declaration, this->get_builtin_type( TXBT_FUNCTION ),
-                                        argumentTypes, returnType, modifiableClosure );
+                                        argumentTypes, returnType, modifying );
     this->add_type( funcType );
     return funcType;
 }
 
-TxActualType* TypeRegistry::get_function_type( const TxTypeDeclaration* declaration, const std::vector<const TxActualType*>& argumentTypes,
-                                               bool modifiableClosure ) {
+TxActualType* TypeRegistry::create_function_type( const TxTypeDeclaration* declaration, const std::vector<const TxActualType*>& argumentTypes,
+                                                  bool modifying ) {
     auto funcType = new TxFunctionType( declaration, this->get_builtin_type( TXBT_FUNCTION ),
-                                        argumentTypes, modifiableClosure );
+                                        argumentTypes, modifying );
     this->add_type( funcType );
     return funcType;
 }
 
-TxActualType* TypeRegistry::get_constructor_type( const TxTypeDeclaration* declaration, const std::vector<const TxActualType*>& argumentTypes,
-                                                  const TxTypeDeclaration* objectTypeDecl ) {
+TxActualType* TypeRegistry::create_constructor_type( const TxTypeDeclaration* declaration, const std::vector<const TxActualType*>& argumentTypes,
+                                                     const TxTypeDeclaration* constructedObjTypeDecl ) {
     auto type = new TxConstructorType( declaration, this->get_builtin_type( TXBT_FUNCTION ),
-                                       argumentTypes, objectTypeDecl );
+                                       argumentTypes, constructedObjTypeDecl );
     this->add_type( type );
     return type;
 }
 
-TxActualType* TypeRegistry::get_externc_function_type( const TxTypeDeclaration* declaration, const std::vector<const TxActualType*>& argumentTypes,
-                                                       const TxActualType* returnType ) {
+TxActualType* TypeRegistry::create_externc_function_type( const TxTypeDeclaration* declaration, const std::vector<const TxActualType*>& argumentTypes,
+                                                          const TxActualType* returnType ) {
     TxActualType* acttype;
     if ( returnType )
         acttype = new TxExternCFunctionType( declaration, this->get_builtin_type( TXBT_FUNCTION ),

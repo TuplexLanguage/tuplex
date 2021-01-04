@@ -177,14 +177,6 @@ Document array behavior, rules, and syntax
 
 Array 'fill' constructor
 
-Array remove/pop/reduce support (removing elements)
-
-Array initialization from sequence; sequence expansion
- - requires custom modifiability handling
-    arr := []Int( seq );  ## of type Sequencable<Int>
-    arr := [ seq ... ];
-    arr := [ 0..2 ... ];
-
 Basic working Matrix type
 
 
@@ -202,9 +194,14 @@ LLVM 11 update - DONE
 
 Improve debugging info so that tuples' members can be inspected - DONE
 
+Inclusive ranges syntax, e.g. 1..=10 for [1,10] inclusive - DONE
+
+
 !! NEXT:  Arrays and Ranges site pages
 
 !! NEXT:  Change keyword from 'virtual' to 'static'
+
+!! NEXT:  Colon after sub-module header
 
 Improved FFI support
  - opaque 64b pointer type
@@ -239,7 +236,13 @@ becomes unclear.
 
 Advanced array and range features
 ---------------------------------
-Inclusive ranges syntax, e.g. 1..=10 for [1,10] inclusive
+Array remove/pop/reduce support (removing elements)
+
+Array initialization from sequence; sequence expansion
+ - requires custom modifiability handling
+    arr := []Int( seq );  ## of type Sequencable<Int>
+    arr := [ seq ... ];
+    arr := [ 0..2 ... ];
 
 Sub-range production:  arr[2..5] and sequencable[ 0..2..8 ]
  - syntactic sugar for Selection

@@ -1,16 +1,16 @@
 #include "ast_field.hpp"
 
-#include "ast_exprs.hpp"
 #include "ast_constexpr.hpp"
 #include "ast_ref.hpp"
 #include "ast_conv.hpp"
-#include "inner_conv.hpp"
 
 #include "ast/ast_util.hpp"
 
 #include "symbol/qual_type.hpp"
 #include "symbol/symbol_lookup.hpp"
 
+#include "parsercontext.hpp"
+#include "driver.hpp"
 #include "tx_error.hpp"
 
 
@@ -267,22 +267,26 @@ TxScopeSymbol* TxFieldValueNode::resolve_symbol() {
 const TxEntityDeclaration* TxFieldValueNode::resolve_decl() {
     if ( this->declaration )
         return this->declaration;
-//    if ( get_node_id() == 19306 )
+//    if ( get_node_id() == 6442 )
 //        std::cerr << "HERE " << this << std::endl;
     if ( auto symbol = this->resolve_symbol() ) {
         if ( auto entitySymbol = dynamic_cast<TxEntitySymbol*>( symbol ) ) {
             // if symbol can be resolved to actual field, then do so
             if ( entitySymbol->field_count() ) {
                 this->declaration = resolve_field( this, entitySymbol, this->appliedFuncArgs );
+                this->ploc.parserCtx->driver().add_reachable( this->declaration->get_definer() );
                 return this->declaration;
             }
 
             // if symbol is a type, and arguments are applied, and they match a constructor, then resolve to that constructor
             if ( auto typeDecl = entitySymbol->get_type_decl() ) {
+                this->ploc.parserCtx->driver().add_reachable( typeDecl->get_definer() );
                 if ( this->appliedFuncArgs ) {
                     auto allocType = typeDecl->get_definer()->resolve_type( TXP_RESOLUTION );
-                    // find the constructor (note, constructors aren't inherited):
+                    // find the constructor (note, constructors aren't inherited, except for certain empty and VALUE derivations):
                     this->declaration = resolve_constructor( this, allocType.type(), this->appliedFuncArgs );
+                    if ( this->declaration != typeDecl )
+                        this->ploc.parserCtx->driver().add_reachable( this->declaration->get_definer() );
                     this->constructedType = allocType.type();
                     return this->declaration;
                 }
@@ -315,7 +319,7 @@ const TxEntityDeclaration* TxFieldValueNode::resolve_decl() {
 }
 
 TxQualType TxFieldValueNode::define_type( TxPassInfo passInfo ) {
-//    if (get_node_id()==3740)
+//    if ( get_node_id() = =6442 )
 //        std::cerr << "HERE " << this << std::endl;
     if ( auto decl = this->resolve_decl() ) {
         if ( auto fieldDecl = dynamic_cast<const TxFieldDeclaration*>( decl ) ) {

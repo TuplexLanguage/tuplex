@@ -7,7 +7,7 @@
 
 
 /** Returns the builtins' source file name (the C++ source file name). Used for builtins' debug info. */
-const std::string& get_builtins_file_name();
+std::string get_builtins_file_name();
 
 class TxParsingUnitNode;
 class TxModuleNode;

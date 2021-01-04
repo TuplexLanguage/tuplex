@@ -25,6 +25,7 @@ int main( int argc, const char **argv )
     options.run_verifier = true;
     options.run_jit = true;
     options.no_bc_output = true;
+    //options.compile_all_source = true;
 #endif
 
     bool explicit_jit = false;
@@ -61,6 +62,7 @@ int main( int argc, const char **argv )
                 printf( "  %-22s %s\n", "-nobc", "Don't output bitcode (and if also running in JIT mode, exit with program's return code)" );
                 printf( "  %-22s %s\n", "-bc", "Output bitcode file (default if release build)" );
                 printf( "  %-22s %s\n", "-onlyparse", "Stop after grammar parse" );
+                printf( "  %-22s %s\n", "-compileall", "Compile all source, rather than just the reachable graph" );
                 printf( "  %-22s %s\n", "-sepjobs", "Compile each command line source file as a separate compilation job" );
                 printf( "  %-22s %s\n", "-cnoassert", "Suppress code generation for assert statements" );
                 // unofficial option  printf( "  %-22s %s\n", "-allowtx", "Permit source code to declare within the tx namespace" );
@@ -117,6 +119,8 @@ int main( int argc, const char **argv )
                 explicit_bc = true;
             else if ( !strcmp( argv[a], "-onlyparse" ) )
                 options.only_parse = true;
+            else if ( !strcmp( argv[a], "-compileall" ) )
+                options.compile_all_source = true;
             else if ( !strcmp( argv[a], "-sepjobs" ) )
                 separateJobs = true;
             else if ( !strcmp( argv[a], "-cnoassert" ) )

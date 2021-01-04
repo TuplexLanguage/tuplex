@@ -1,4 +1,5 @@
 #include <string>
+#include <symbol/symbol_lookup.hpp>
 
 #include "tinydir/tinydir.h"
 
@@ -19,6 +20,7 @@
 #include "ast/ast_modbase.hpp"
 #include "ast/ast_declpass.hpp"
 #include "ast/ast_entitydecls.hpp"
+#include "ast/ast_wrappers.hpp"
 
 
 const char* CORE_TX_SOURCE_STR =
@@ -105,7 +107,11 @@ int TxDriver::compile( const std::vector<std::string>& startSourceFiles, const s
     }
 
     {  // parse the intrinsic source:
-        auto* parserContext = new TxParserContext( *this, TxIdentifier( "" ), __FILE__,
+        std::string thisSrcFileName( __FILE__ );
+        auto slashPos = thisSrcFileName.find_last_of( '/' );
+        if ( slashPos != std::string::npos )
+            thisSrcFileName = thisSrcFileName.substr( slashPos+1, thisSrcFileName.size() );
+        auto* parserContext = new TxParserContext( *this, TxIdentifier( "" ), thisSrcFileName,
                                                    TxSourceBuffer( CORE_TX_SOURCE_STR ), TxParserContext::BUILTINS );
         int ret = parse( parserContext );
         if ( ret ) {
@@ -186,17 +192,18 @@ int TxDriver::compile( const std::vector<std::string>& startSourceFiles, const s
         _LOG.info( "+ Grammar parse OK" );
     if ( this->options.only_parse )
         return error_count;
-    int prev_error_count = error_count;
 
     /*--- perform declaration pass ---*/
 
+    auto prev_error_count = error_count;
     for ( auto parserContext : this->parsedASTs ) {
         // by processing root node here we avoid root checking in visitor implementation
         parserContext->parsingUnit->set_context( this->package );
         run_declaration_pass( parserContext->parsingUnit->module, parserContext->parsingUnit, "module" );
     }
 
-    this->builtinTypes->resolveBuiltinSymbols();  // TODO: review, maybe remove
+    // So that builtins are resolved first and in the proper order  FUTURE - maybe add to queue instead?
+    this->builtinTypes->resolveBuiltinSymbols();
 
     this->package->prepare_modules();  // (prepares the declared imports)
 
@@ -208,100 +215,17 @@ int TxDriver::compile( const std::vector<std::string>& startSourceFiles, const s
         _LOG.info( "+ Declaration pass OK" );
 
 
-    /*--- perform type definition pass - instantiation and integration ---*/
-
-    for ( auto parserContext : this->parsedASTs ) {
-        run_type_pass( parserContext->parsingUnit->module, "module" );
-    }
-
-    auto& reinterpretedASTs = this->package->registry().get_enqueued_specializations();
-    unsigned nextSpecIx = 0;
-    unsigned specCount = reinterpretedASTs.size();
-
-    for ( unsigned specIx = nextSpecIx; specIx < specCount; specIx++ ) {
-        auto node = reinterpretedASTs.at( specIx );
-        run_type_pass( node, "reinterpretation" );
-    }
-
-    this->package->registry().integrate_types();
-
-    if ( error_count != prev_error_count ) {
-        _LOG.error( "- Type definition pass encountered %d errors", error_count - prev_error_count );
-        prev_error_count = error_count;
-    }
+    /*--- type creation / integration / resolution passes ---*/
+    if ( this->options.compile_all_source )
+        this->compile_lexical();
     else
-        _LOG.info( "+ Type definition pass OK" );
-
-
-    /*--- perform resolution pass ---*/
-
-    for ( auto parserContext : this->parsedASTs ) {
-        run_resolution_pass( parserContext->parsingUnit->module, "module" );
-    }
-    for ( unsigned specIx = nextSpecIx; specIx < specCount; specIx++ ) {
-        auto node = reinterpretedASTs.at( specIx );
-        run_resolution_pass( node, "reinterpretation" );
-    }
-
-    if ( error_count != prev_error_count ) {
-        _LOG.error( "- Resolution pass encountered %d errors", error_count - prev_error_count );
-        prev_error_count = error_count;
-    }
-    else {
-        _LOG.info( "+ Resolution pass OK" );
-    }
-
-
-    /*--- perform type definition and full resolution passes on trailing types ---*/
-
-    while ( specCount != reinterpretedASTs.size()) {
-        nextSpecIx = specCount;
-        specCount = reinterpretedASTs.size();
-
-        for ( unsigned specIx = nextSpecIx; specIx < specCount; specIx++ ) {
-            auto node = reinterpretedASTs.at( specIx );
-            run_type_pass( node, "reinterpretation" );
-        }
-
-        this->package->registry().integrate_types();
-
-        for ( unsigned specIx = nextSpecIx; specIx < specCount; specIx++ ) {
-            auto node = reinterpretedASTs.at( specIx );
-            run_resolution_pass( node, "reinterpretation" );
-        }
-    }
-    this->package->registry().integrate_types( true );
-
-    if ( error_count != prev_error_count ) {
-        _LOG.error( "- Deferred resolution pass encountered %d errors", error_count - prev_error_count );
-        prev_error_count = error_count;
-    }
-    else {
-        _LOG.info( "+ Deferred resolution pass OK" );
-    }
-
-
-    /*--- perform verification pass ---*/
-
-    for ( auto parserContext : this->parsedASTs ) {
-        run_verification_pass( parserContext->parsingUnit->module, "module" );
-    }
-    for ( auto node : this->package->registry().get_enqueued_specializations()) {
-        run_verification_pass( node, "reinterpretation" );
-    }
-
-    if ( error_count != prev_error_count ) {
-        _LOG.error( "- Verification pass encountered %d errors", error_count - prev_error_count );
-        prev_error_count = error_count;
-    }
-    else {
-        _LOG.info( "+ Verfication pass OK" );
-    }
+        this->compile_reachable();
 
 
     /*--- type preparation / layout pass ---*/
 
     {
+        prev_error_count = error_count;
         this->package->registry().prepare_types();
 
         for ( auto parserContext : this->parsedASTs ) {
@@ -310,7 +234,6 @@ int TxDriver::compile( const std::vector<std::string>& startSourceFiles, const s
 
         if ( error_count != prev_error_count ) {
             _LOG.error( "- Type preparation pass encountered %d errors", error_count - prev_error_count );
-            //prev_error_count = error_count;
         }
         else
             _LOG.info( "+ Type preparation pass OK" );
@@ -364,6 +287,210 @@ int TxDriver::compile( const std::vector<std::string>& startSourceFiles, const s
         return 3;
 
     return 0;
+}
+
+void TxDriver::compile_lexical() {
+    auto prev_error_count = error_count;
+
+    /*--- perform type definition pass - instantiation and integration ---*/
+
+    for ( auto parserContext : this->parsedASTs ) {
+        run_type_pass( parserContext->parsingUnit->module, "module" );
+    }
+
+    auto& reinterpretedASTs = this->package->registry().get_enqueued_specializations();
+    unsigned specCount = reinterpretedASTs.size();
+
+    for ( unsigned specIx = 0; specIx < specCount; specIx++ ) {
+        auto node = reinterpretedASTs.at( specIx );
+        run_type_pass( node, "reinterpretation" );
+    }
+
+    this->package->registry().integrate_types();
+
+    if ( error_count != prev_error_count ) {
+        _LOG.error( "- Type definition pass encountered %d errors", error_count - prev_error_count );
+        prev_error_count = error_count;
+    }
+    else
+        _LOG.info( "+ Type definition pass OK" );
+
+
+    /*--- perform resolution pass ---*/
+
+    for ( auto parserContext : this->parsedASTs ) {
+        run_resolution_pass( parserContext->parsingUnit->module, "module" );
+    }
+    for ( unsigned specIx = 0; specIx < specCount; specIx++ ) {
+        auto node = reinterpretedASTs.at( specIx );
+        run_resolution_pass( node, "reinterpretation" );
+    }
+
+    if ( error_count != prev_error_count ) {
+        _LOG.error( "- Resolution pass encountered %d errors", error_count - prev_error_count );
+        prev_error_count = error_count;
+    }
+    else {
+        _LOG.info( "+ Resolution pass OK" );
+    }
+
+
+    /*--- perform type definition and full resolution passes on trailing types ---*/
+
+    while ( specCount != reinterpretedASTs.size()) {
+        unsigned nextSpecIx = specCount;
+        specCount = reinterpretedASTs.size();
+
+        for ( unsigned specIx = nextSpecIx; specIx < specCount; specIx++ ) {
+            auto node = reinterpretedASTs.at( specIx );
+            run_type_pass( node, "reinterpretation" );
+        }
+
+        this->package->registry().integrate_types();
+
+        for ( unsigned specIx = nextSpecIx; specIx < specCount; specIx++ ) {
+            auto node = reinterpretedASTs.at( specIx );
+            run_resolution_pass( node, "reinterpretation" );
+        }
+    }
+    this->package->registry().integrate_types( true );
+
+    if ( error_count != prev_error_count ) {
+        _LOG.error( "- Deferred resolution pass encountered %d errors", error_count - prev_error_count );
+        prev_error_count = error_count;
+    }
+    else {
+        _LOG.info( "+ Deferred resolution pass OK" );
+    }
+
+
+    /*--- perform verification pass ---*/
+
+    for ( auto parserContext : this->parsedASTs ) {
+        run_verification_pass( parserContext->parsingUnit->module, "module" );
+    }
+    for ( auto node : this->package->registry().get_enqueued_specializations()) {
+        run_verification_pass( node, "reinterpretation" );
+    }
+    this->package->determine_main_func();
+    if ( error_count != prev_error_count ) {
+        _LOG.error( "- Verification pass encountered %d errors", error_count - prev_error_count );
+        prev_error_count = error_count;
+    }
+    else {
+        _LOG.info( "+ Verfication pass OK" );
+    }
+}
+
+void TxDriver::compile_reachable() {
+    // add main() and other possible external-linkage entities, this is the starting point for the reachable graph
+    for ( auto decl : this->package->get_extlink_declarations() ) {
+        this->add_reachable( decl->get_definer() );
+    }
+    {  // add built-ins referenced by hardcoded code-gen
+        auto symbol = dynamic_cast<TxEntitySymbol*>( search_symbol( this->package, "tx.c.memcmp" ) );
+        for ( auto fi = symbol->fields_cbegin(); fi != symbol->fields_cend(); fi++ )
+            this->add_reachable( (*fi)->get_definer() );
+
+        symbol = dynamic_cast<TxEntitySymbol*>( search_symbol( this->package, "tx.panic" ) );
+        for ( auto fi = symbol->fields_cbegin(); fi != symbol->fields_cend(); fi++ )
+            this->add_reachable( (*fi)->get_definer() );
+
+        symbol = dynamic_cast<TxEntitySymbol*>( search_symbol( this->package, "tx.isa" ) );
+        for ( auto fi = symbol->fields_cbegin(); fi != symbol->fields_cend(); fi++ )
+            this->add_reachable( (*fi)->get_definer() );
+    }
+    {  // add built-ins that may have only been referenced implicitly, i.e. not by name
+        auto symbol = dynamic_cast<TxEntitySymbol*>( search_symbol( this->package, "tx.Interface" ) );
+        this->add_reachable( symbol->get_type_decl()->get_definer() );
+
+        symbol = dynamic_cast<TxEntitySymbol*>( search_symbol( this->package, "tx.Tuple" ) );
+        this->add_reachable( symbol->get_type_decl()->get_definer() );
+    }
+    {  // add ExpErr clauses
+        for ( auto parserContext : this->parsedASTs ) {
+            for ( auto n : parserContext->get_exp_error_nodes() ) {
+                this->add_reachable( n );
+            }
+        }
+    }
+
+    /*--- resolve by traversing the reachable graph ---*/
+    {
+        auto prev_error_count = error_count;
+        auto& reinterpretedASTs = this->package->registry().get_enqueued_specializations();
+        unsigned specIx = 0;
+
+        for ( unsigned i = 0; i < this->reachableASTsQueue.size(); i++ ) {
+            TxDeclarationNode* reachedNode = reachableASTsQueue[i];
+            //std::cerr << "====Reaching " << reachedNode->get_declaration()->get_unique_full_name()
+            //          << "    " << reachedNode << std::endl;
+
+            run_type_pass( reachedNode, "reachable" );
+
+            this->package->registry().integrate_types();
+
+            run_resolution_pass( reachedNode, "reachable" );
+
+            for ( ; specIx < reinterpretedASTs.size(); specIx++ ) {
+                auto specNode = reinterpretedASTs.at( specIx );
+                this->add_reachable( specNode );
+            }
+        }
+        this->package->registry().integrate_types( true );
+
+        if ( error_count != prev_error_count )
+            _LOG.error( "- Resolution pass encountered %d errors", error_count - prev_error_count );
+        else
+            _LOG.info( "+ Resolution pass OK" );
+    }
+
+    /*--- perform verification pass ---*/
+    {
+        auto prev_error_count = error_count;
+        for ( unsigned i = 0; i < this->reachableASTsQueue.size(); i++ ) {
+            TxDeclarationNode* reachedNode = reachableASTsQueue[i];
+            run_verification_pass( reachedNode, "reachable" );
+        }
+        this->package->determine_main_func();
+        if ( error_count != prev_error_count )
+            _LOG.error( "- Verification pass encountered %d errors", error_count - prev_error_count );
+        else
+            _LOG.info( "+ Verfication pass OK" );
+    }
+}
+
+void TxDriver::add_reachable( TxNode* node ) {
+    //unsigned indent = 0;
+    for ( TxNode* n = node; n != nullptr; n = const_cast<TxNode*>( n->parent() ) ) {
+        auto ret = this->reachableASTs.insert( n->get_node_id() );
+        if ( !ret.second )
+            return;
+        else {
+            //std::cerr << std::string( indent, ' ' ) << "Adding reachable: " << n << std::endl;  indent += 2;
+            if ( auto dn = dynamic_cast<TxDeclarationNode*>( n ) ) {
+                if ( dynamic_cast<const TxExpErrDeclNode*>( dn->parent() ) ) {
+                    continue;
+                }
+                else if ( dynamic_cast<const TxModuleNode*>( dn->parent() ) ) {
+                    // module-level declaration - add to queue
+                    this->reachableASTsQueue.push_back( dn );
+                    return;
+                }
+                else if ( dynamic_cast<TxModule*>( dn->get_declaration()->get_symbol()->get_outer() ) ) {
+                    // module-level declaration - add to queue
+                    if ( !dynamic_cast<const TxInternalRootNode*>(dn->parent()))
+                        std::cerr << "!!! Quazi-orphan top level decl for " << dn->get_declaration()->get_unique_full_name()
+                                  << "    parent is " << dn->parent() << std::endl;
+                    this->reachableASTsQueue.push_back( dn );
+                    return;
+                }
+            }
+        }
+    }
+    // probably a TxGenBindingAliasTypeNode, with TxInternalRootNode at the top
+//    if ( !dynamic_cast<const TxGenBindingAliasTypeNode*>( node ) )
+//        std::cerr << "!!! Orphan top level decl for " << node << std::endl;
 }
 
 bool TxDriver::add_import( const TxIdentifier& moduleName ) {
@@ -457,15 +584,29 @@ int TxDriver::llvm_compile( const std::string& outputFilename ) {
 
     int codegen_errors = 0;
 
-    // generate the code for the program in lexical order:
-    for ( auto parserContext : this->parsedASTs ) {
-        codegen_errors += this->genContext->generate_code( parserContext->parsingUnit );
-    }
+    if ( this->options.compile_all_source ) {
+        // generate the code for the program in lexical order:
+        for ( auto parserContext : this->parsedASTs ) {
+            codegen_errors += this->genContext->generate_code( parserContext->parsingUnit );
+        }
 
-    // generate the code for the type specializations that are defined by reinterpreted source:
-    for ( auto specNode : this->package->registry().get_enqueued_specializations()) {
-        _LOG.debug( "Generating code for enqueued specialization: %s", specNode->get_declaration()->str().c_str());
-        codegen_errors += this->genContext->generate_code( specNode );
+        // generate the code for the type specializations that are defined by reinterpreted source:
+        for ( auto specNode : this->package->registry().get_enqueued_specializations()) {
+            _LOG.debug( "Generating code for enqueued specialization: %s", specNode->get_declaration()->str().c_str());
+            codegen_errors += this->genContext->generate_code( specNode );
+        }
+    }
+    else {
+        // generate the code for the program by traversing the reachable graph:
+        for ( auto reachableASTNode : this->reachableASTsQueue ) {
+            try {
+                reachableASTNode->code_gen( *this->genContext );
+            }
+            catch ( const codecheck_error& err ) {
+                _LOG.warning( "Caught code check error in reachable node %s: %s", reachableASTNode->str().c_str(), err.what());
+                codegen_errors++;
+            }
+        }
     }
 
     if ( codegen_errors ) {
@@ -477,7 +618,7 @@ int TxDriver::llvm_compile( const std::string& outputFilename ) {
     this->genContext->generate_runtime_vtables();
 
     bool mainGenerated = false;
-    if ( auto funcDecl = this->package->getMainFunc()) {
+    if ( auto funcDecl = this->package->get_main_func()) {
         auto funcField = funcDecl->get_definer()->field();
         this->genContext->generate_main( funcDecl->get_unique_full_name(), funcField->qtype().type());
         mainGenerated = true;

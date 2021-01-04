@@ -25,21 +25,25 @@
 
 ## wrong return type:
 
-#experr 1: main( args : &[]&[]UByte ) -> Bool : { return FALSE; }
+module submod1
+    #experr 1: main( args : &[]&[]UByte ) -> Bool : { return FALSE; }
 
-#experr 1: main( args : &[]&[]UByte ) -> Float : { return 0.0; }
+module submod2
+    #experr 1: main( args : &[]&[]UByte ) -> Float : { return 0.0; }
 
-#experr 1: main( args : &[]&[]UByte ) -> &Int : { return new Int(); }
+module submod3
+    #experr 1: main( args : &[]&[]UByte ) -> &Int : { return new Int(); }
 
-#experr 1: main( args : &[]&[]UByte ) -> [1]Int : { return \[ 0I ]; }
+module submod4
+    #experr 1: main( args : &[]&[]UByte ) -> [1]Int : { return \[ 0I ]; }
 
 
 ## correct signature:
 
-main( args : &[]&[]UByte ) -> Int :
-    assert args.L == 0
-    return 0
-
+module chosenmainsubmod
+    main( args : &[]&[]UByte ) -> Int :
+        assert args.L == 0
+        return 0
 
 
 /* Note: these are also correct signatures but implicitly tested in the other tests:

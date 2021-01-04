@@ -16,6 +16,7 @@ class TxDriver;
 class TxPackage : public TxModule {
     TxDriver& _driver;
     TypeRegistry* typeRegistry;
+    std::vector<const TxFieldDeclaration*> mainFuncCandidates;
     const TxFieldDeclaration* mainFunc;
 
 public:
@@ -34,11 +35,20 @@ public:
         return this->origin;
     }
 
-    bool registerMainFunc( const TxFieldDeclaration* mainFunc );
+    /** Gets the declarations with external linkage (included in binary even if unused).
+     * Typically for main() and API functions. */
+    const std::vector<const TxFieldDeclaration*>& get_extlink_declarations();
 
-    const TxFieldDeclaration* getMainFunc() const;
+    /** register candidate main function declaration */
+    void register_main_func( const TxFieldDeclaration* mainFuncCand );
 
-    virtual std::string description_string() const override {
+    /** Verify main function candidates' signatures, and determine which one to use */
+    void determine_main_func();
+
+    /** get main function declaration */
+    const TxFieldDeclaration* get_main_func() const;
+
+    std::string description_string() const override {
         return "package";
     }
 

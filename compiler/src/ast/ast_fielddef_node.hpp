@@ -153,15 +153,10 @@ public:
 class TxNonLocalFieldDefNode : public TxFieldDefiningNode {
     void inner_code_gen_field( LlvmGenerationContext& context, bool genBody ) const;
 
-    bool is_main_signature_valid( const TxActualType* funcType ) const;
-
     TxNonLocalFieldDefNode( const TxLocation& ploc, TxIdentifierNode* fieldName,
                             TxTypeExpressionNode* typeExpression, TxExpressionNode* initExpression, bool modifiable )
             : TxFieldDefiningNode( ploc, fieldName, typeExpression, initExpression, modifiable, false ) {
     }
-
-protected:
-    virtual void resolution_pass() override;
 
 public:
     TxNonLocalFieldDefNode( const TxLocation& ploc, TxIdentifierNode* fieldName,

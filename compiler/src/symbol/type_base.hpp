@@ -97,6 +97,10 @@ bool is_concrete_floating_type( const TxActualType* type );
 
 /** An instance of this class represents a type definition.
  *
+ * Type instances are not to be constructed directly, they may only by created from the built-in
+ * type definitions and from the type registry.
+ *
+ *
  * In a specialization of a generic base type, the base type's type parameters must either have a binding,
  * or be redeclared with the same name and matching constraints in the specialized type
  * (keeping the parameter open for further specialization, with identical or narrowed type parameter
@@ -188,12 +192,6 @@ class TxActualType : public TxEntity { //public virtual TxParseOrigin, public Pr
     /** False unless this type is generic and has at least one unbound VALUE type parameter. */
     bool valueGeneric = false;
 
-//    bool typeGenDependent = false;
-//    bool valueGenDependent = false;
-
-    /** true when initialize_type() has completed its initializations */
-    bool hasInitialized = false;
-
     /** true when integrate() has completed */
     bool hasIntegrated = false;
 
@@ -205,7 +203,7 @@ class TxActualType : public TxEntity { //public virtual TxParseOrigin, public Pr
     /** Examines the members of this type and identifies generic parameters and bindings. Called from constructor. */
     void examine_members();
 
-    /** Initializes this type, called upon integration of this type with its super types. */
+    /** Initializes this type, determines the kind of derivation. Called when the type class is known. */
     void initialize_type();
 
     void autogenerate_constructors();
@@ -215,10 +213,6 @@ class TxActualType : public TxEntity { //public virtual TxParseOrigin, public Pr
 
     /** Performs basic validation. */
     void validate_type() const;
-
-    /** used to prevent infinite recursion when compiler is processing erroneously defined recursive types */
-    mutable bool recursionGuard = false;
-    friend class ScopedRecursionGuardClause;
 
     const TxTypeExpressionNode* baseTypeNode;
     const std::vector<const TxTypeExpressionNode*> interfaceNodes;
@@ -246,17 +240,16 @@ protected:
 
     /** Construction of type with known type class and super types; invoked from subclasses. */
     TxActualType( const TxTypeClassHandler* typeClassHandler, const TxTypeDeclaration* declaration, bool mutableType,
-                  const TxActualType* baseType,
-                  const std::vector<const TxActualType*>& interfaces = std::vector<const TxActualType*>() )
+                  const TxActualType* baseType )
             : TxEntity( declaration),
               builtin( declaration->get_decl_flags() & TXD_BUILTIN ),
               mutableType( mutableType ),
-              baseType( baseType ), interfaces( interfaces ),
+              baseType( baseType ), interfaces(),
               baseTypeNode(), interfaceNodes()
     {
         ASSERT( typeClassHandler, "null typeClassHandler for type with declaration: " << declaration );
         this->examine_members();
-        this->set_type_class( typeClassHandler );
+        this->initialize_with_type_class( typeClassHandler );
     }
 
 public:
@@ -274,44 +267,48 @@ public:
     {
         ASSERT( typeClassHandler, "null typeClassHandler for type with declaration: " << declaration );
         this->examine_members();
-        this->set_type_class( typeClassHandler );
+        this->initialize_with_type_class( typeClassHandler );
     }
 
     /** Construction of type-class-root-types. (Although the base type may be already known, the interfaces may not be.) */
     TxActualType( const TxTypeClassHandler* typeClassHandler, const TxTypeDeclaration* declaration, bool mutableType,
                   const TxTypeExpressionNode* baseTypeNode,
-                  const std::vector<const TxTypeExpressionNode*>& interfaceNodes )
+                  std::vector<const TxTypeExpressionNode*>  interfaceNodes )
             : TxEntity( declaration),
               builtin( declaration->get_decl_flags() & TXD_BUILTIN ),
               mutableType( mutableType ),
               baseType(), interfaces(),
-              baseTypeNode( baseTypeNode ), interfaceNodes( interfaceNodes )
+              baseTypeNode( baseTypeNode ), interfaceNodes( std::move( interfaceNodes ) )
     {
         ASSERT( typeClassHandler, "null typeClassHandler for type with declaration: " << declaration );
         this->examine_members();
-        this->set_type_class( typeClassHandler );
+        this->initialize_with_type_class( typeClassHandler );
     }
 
-    /** Construction of type whose type class and super types are not yet resolved. */
+    /** Construction of type whose type class and super types are not yet resolved.
+     * This is called from type registry.
+     * Note that this creation & resolution order is necessary in order to handle constructs such as:
+     *   interface Number{N derives Number{N}}
+     */
     TxActualType( const TxTypeDeclaration* declaration, bool mutableType,
                   const TxTypeExpressionNode* baseTypeNode,
-                  const std::vector<const TxTypeExpressionNode*>& interfaceNodes )
+                  std::vector<const TxTypeExpressionNode*> interfaceNodes )
             : TxEntity( declaration),
               builtin( declaration->get_decl_flags() & TXD_BUILTIN ),
               mutableType( mutableType ),
               baseType(), interfaces(),
-              baseTypeNode( baseTypeNode ), interfaceNodes( interfaceNodes )
+              baseTypeNode( baseTypeNode ), interfaceNodes( std::move( interfaceNodes ) )
     {
         this->examine_members();
     }
 
     /** virtual, default destructor */
-    virtual ~TxActualType() = default;
+    ~TxActualType() override = default;
 
-    virtual const TxNode* get_origin_node() const override;
+    const TxNode* get_origin_node() const override;
 
     inline bool is_initialized() const {
-        return this->hasInitialized;
+        return this->typeClassHandler;
     }
 
     inline bool is_integrated() const {
@@ -322,8 +319,11 @@ public:
         return this->hasPrepared;
     }
 
-    void set_type_class( const TxTypeClassHandler* typeClassInstance );
+    /** Initializes this type and sets its type class. */
+    void initialize_with_type_class( const TxTypeClassHandler* typeClassInstance );
 
+    /** Integrates this type with its declaration dependencies - base class, interfaces, generic parameters/bindings.
+     * Will also initialize this type with its type class if is isn't already. */
     void integrate();
 
     /** Prepares this type's members, including data layout. Called after resolution phase has completed.
@@ -358,7 +358,7 @@ public:
         return this->typeClassHandler;
     }
 
-    virtual inline const TxTypeDeclaration* get_declaration() const override {
+    inline const TxTypeDeclaration* get_declaration() const override {
         return static_cast<const TxTypeDeclaration*>( TxEntity::get_declaration() );
     }
 
@@ -430,7 +430,7 @@ public:
 
     /** Returns the type class this type belongs to. */
     inline TxTypeClass get_type_class() const {
-        ASSERT( this->hasInitialized, "Can't get type class of uninitialized type " << this->get_declaration() );
+        ASSERT( this->typeClassHandler, "Can't get type class of uninitialized type " << this->get_declaration() );
         return this->typeClass;
     }
 
@@ -534,13 +534,13 @@ public:
 
     /** Returns true if this type has the same vtable as its base type. */
     inline bool is_same_vtable_type() const {
-        ASSERT( this->hasInitialized, "Can't determine same vtable type of uninitialized type " << this->get_declaration() );
+        ASSERT( this->is_initialized(), "Can't determine same vtable type of uninitialized type " << this->get_declaration() );
         return this->has_base_type() && !this->modifiesVTable;
     }
 
     /** Returns true if this type has the same instance data type as its base type. */
     inline bool is_same_instance_type() const {
-        ASSERT( this->hasInitialized, "Can't determine same instance type of uninitialized type " << this->get_declaration() );
+        ASSERT( this->is_initialized(), "Can't determine same instance type of uninitialized type " << this->get_declaration() );
         return this->has_base_type() && !this->modifiesInstanceDatatype;
     }
 

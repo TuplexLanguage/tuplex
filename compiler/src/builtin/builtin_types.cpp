@@ -58,8 +58,12 @@ static Logger& _LOGGER = Logger::get( "BUILTINS" );
 
 static std::string thisSrcFileName( __FILE__ );
 
-const std::string& get_builtins_file_name() {
-    return thisSrcFileName;
+std::string get_builtins_file_name() {
+    auto slashPos = thisSrcFileName.find_last_of( '/' );
+    if ( slashPos == std::string::npos )
+        return thisSrcFileName;
+    else
+        return thisSrcFileName.substr( slashPos+1, thisSrcFileName.size() );
 }
 
 #define PLOC(parserContext)  (TxLocation( __LINE__, 0, (parserContext) ))
@@ -85,11 +89,11 @@ class TxBuiltinTypeDefiningNode : public TxTypeCreatingNode {
         }
     }
 
-    void merge_builtin_type_definers( TxDerivedTypeNode* sourcecodeDefiner ) {
+    void merge_builtin_type_definers( TxDerivedTypeNode* sourcecodeDef ) {
         ASSERT( this->is_context_set(), "Builtin type node hasn't run declaration pass: " << this );
         ASSERT( !this->attempt_qtype(), "Builtin type already resolved: " << this );
-        sourcecodeDefiner->set_builtin_type_definer( this );
-        this->sourcecodeDefiner = sourcecodeDefiner;
+        sourcecodeDef->set_builtin_type_definer( this );
+        this->sourcecodeDefiner = sourcecodeDef;
     }
 
     friend void merge_builtin_type_definers( TxDerivedTypeNode* sourcecodeDefiner, TxTypeResolvingNode* builtinDefiner );
@@ -117,14 +121,14 @@ protected:
             sourcecodeDefiner->set_builtin_type_definer( this );
     }
 
-    virtual void typeexpr_declaration_pass() override {
+    void typeexpr_declaration_pass() override {
         if ( this->sourcecodeDefiner ) {
             // "pass through" entity declaration to the source code definer
             this->sourcecodeDefiner->set_declaration( this->get_declaration() );
         }
     }
 
-    virtual TxActualType* create_type( TxPassInfo passInfo ) override final {
+    TxActualType* create_type( TxPassInfo passInfo ) final {
         TxActualType* actType;
         if ( this->sourcecodeDefiner ) {
             // copy vector because of const conversion:
@@ -146,20 +150,20 @@ protected:
 public:
     TxBuiltinTypeDefiningNode( const TxLocation& ploc, BuiltinTypeId builtinTypeId,
                                TxTypeExpressionNode* baseTypeNode,
-                               const std::vector<TxDeclarationNode*>& declNodes )
+                               std::vector<TxDeclarationNode*> declNodes )
             : TxTypeCreatingNode( ploc ), builtinTypeId( builtinTypeId ), original( nullptr ),
               baseTypeNode( baseTypeNode ),
-              declNodes( declNodes ) {
+              declNodes(std::move( declNodes )) {
         make_super_type_node();
     }
 
-    virtual TxBuiltinTypeDefiningNode* make_ast_copy() const override {
+    TxBuiltinTypeDefiningNode* make_ast_copy() const override {
         // (only valid for Ref and Array, which override this method)
         ASSERT( false, "Can't make AST copy of built-in type definer " << this );
         return nullptr;
     }
 
-    virtual void code_gen_type( LlvmGenerationContext& context ) const override {
+    void code_gen_type( LlvmGenerationContext& context ) const override {
         if ( this->baseTypeNode ) {
             this->baseTypeNode->code_gen_type( context );
         }
@@ -172,7 +176,7 @@ public:
             implConstr->code_gen( context );
     }
 
-    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         if ( this->baseTypeNode ) {
             this->baseTypeNode->visit_ast( visitor, thisCursor, "basetype", context );
         }
@@ -187,7 +191,7 @@ public:
         }
     }
 
-    virtual const std::string& get_descriptor() const override {
+    const std::string& get_descriptor() const override {
         return this->parent()->get_descriptor();  // the descriptor of the type declaration
     }
 };
@@ -203,13 +207,13 @@ void merge_builtin_type_definers( TxDerivedTypeNode* sourcecodeDefiner, TxTypeRe
 /** Single-purpose node that defines the Any root type. */
 class TxAnyTypeDefNode final : public TxBuiltinTypeDefiningNode {
 protected:
-    virtual TxActualType* make_builtin_type( const TxTypeDeclaration* declaration, const std::vector<const TxTypeExpressionNode*>& ifNodes,
+    TxActualType* make_builtin_type( const TxTypeDeclaration* declaration, const std::vector<const TxTypeExpressionNode*>& ifNodes,
                                              bool mutableType ) override {
         return new TxActualType( get_type_class_handler( TXTC_ANY ), declaration, true );
     }
 
 public:
-    TxAnyTypeDefNode( const TxLocation& ploc, const std::vector<TxDeclarationNode*>& declNodes = { } )
+    TxAnyTypeDefNode( const TxLocation& ploc, const std::vector<TxDeclarationNode*>& declNodes )
             : TxBuiltinTypeDefiningNode( ploc, TXBT_ANY, nullptr, declNodes ) {
     }
 };
@@ -217,7 +221,7 @@ public:
 /** Single-purpose node that defines the Void type. */
 class TxVoidTypeDefNode final : public TxBuiltinTypeDefiningNode {
 protected:
-    virtual TxActualType* make_builtin_type( const TxTypeDeclaration* declaration, const std::vector<const TxTypeExpressionNode*>& ifNodes,
+    TxActualType* make_builtin_type( const TxTypeDeclaration* declaration, const std::vector<const TxTypeExpressionNode*>& ifNodes,
                                              bool mutableType ) override {
         return new TxActualType( get_type_class_handler( TXTC_VOID ), declaration, false );
     }
@@ -233,7 +237,7 @@ class TxBuiltinAbstractTypeDefNode final : public TxBuiltinTypeDefiningNode {
     const TxTypeClass typeClass;
 
 protected:
-    virtual TxActualType* make_builtin_type( const TxTypeDeclaration* declaration, const std::vector<const TxTypeExpressionNode*>& ifNodes,
+    TxActualType* make_builtin_type( const TxTypeDeclaration* declaration, const std::vector<const TxTypeExpressionNode*>& ifNodes,
                                              bool mutableType ) override {
 //        return new TxBuiltinBaseType( this->typeClass, declaration, baseType, ifSpecs );
         return new TxActualType( get_type_class_handler( this->typeClass ),
@@ -248,7 +252,7 @@ public:
 
 class TxIntegerTypeDefNode final : public TxBuiltinTypeDefiningNode {
 protected:
-    virtual TxActualType* make_builtin_type( const TxTypeDeclaration* declaration, const std::vector<const TxTypeExpressionNode*>& ifNodes,
+    TxActualType* make_builtin_type( const TxTypeDeclaration* declaration, const std::vector<const TxTypeExpressionNode*>& ifNodes,
                                              bool mutableType ) override {
         return new TxIntegerType( declaration, this->baseTypeNode, ifNodes, this->size, this->sign );
     }
@@ -263,7 +267,7 @@ public:
 
 class TxFloatingTypeDefNode final : public TxBuiltinTypeDefiningNode {
 protected:
-    virtual TxActualType* make_builtin_type( const TxTypeDeclaration* declaration,
+    TxActualType* make_builtin_type( const TxTypeDeclaration* declaration,
                                              const std::vector<const TxTypeExpressionNode*>& ifNodes, bool mutableType ) override {
         return new TxFloatingType( declaration, this->baseTypeNode, ifNodes, this->size );
     }
@@ -277,7 +281,7 @@ public:
 
 class TxBoolTypeDefNode final : public TxBuiltinTypeDefiningNode {
 protected:
-    virtual TxActualType* make_builtin_type( const TxTypeDeclaration* declaration,
+    TxActualType* make_builtin_type( const TxTypeDeclaration* declaration,
                                              const std::vector<const TxTypeExpressionNode*>& ifNodes, bool mutableType ) override {
         return new TxBoolType( declaration, this->baseTypeNode, ifNodes );
     }
@@ -290,7 +294,7 @@ public:
 
 class TxTupleTypeDefNode final : public TxBuiltinTypeDefiningNode {
 protected:
-    virtual TxActualType* make_builtin_type( const TxTypeDeclaration* declaration,
+    TxActualType* make_builtin_type( const TxTypeDeclaration* declaration,
                                              const std::vector<const TxTypeExpressionNode*>& ifNodes, bool mutableType ) override {
         return new TxActualType( get_type_class_handler( TXTC_TUPLE ), declaration, mutableType, this->baseTypeNode, ifNodes );
     }
@@ -303,7 +307,7 @@ public:
 
 class TxInterfaceTypeDefNode final : public TxBuiltinTypeDefiningNode {
 protected:
-    virtual TxActualType* make_builtin_type( const TxTypeDeclaration* declaration,
+    TxActualType* make_builtin_type( const TxTypeDeclaration* declaration,
                                              const std::vector<const TxTypeExpressionNode*>& ifNodes, bool mutableType ) override {
         return new TxActualType( get_type_class_handler( TXTC_INTERFACE ), declaration, mutableType, this->baseTypeNode, ifNodes );
     }
@@ -320,7 +324,7 @@ class TxFunctionTypeDefNode final : public TxBuiltinTypeDefiningNode {
     public:
         TxAbstractFunctionTypeClassHandler() : TxTypeClassHandler( TXTC_FUNCTION )  { }
 
-        virtual llvm::Type* make_llvm_type( const TxActualType* type, LlvmGenerationContext& context ) const override {
+        llvm::Type* make_llvm_type( const TxActualType* type, LlvmGenerationContext& context ) const override {
             return llvm::StructType::get( context.get_voidPtrT(), context.get_closureRefT() );
         }
     };
@@ -328,7 +332,7 @@ class TxFunctionTypeDefNode final : public TxBuiltinTypeDefiningNode {
     static const TxAbstractFunctionTypeClassHandler abstrFunctionTypeClassHandler;
 
     protected:
-    virtual TxActualType* make_builtin_type( const TxTypeDeclaration* declaration,
+    TxActualType* make_builtin_type( const TxTypeDeclaration* declaration,
                                              const std::vector<const TxTypeExpressionNode*>& ifNodes, bool mutableType ) override {
         return new TxActualType( &abstrFunctionTypeClassHandler,
                                  declaration, mutableType, this->baseTypeNode, ifNodes );
@@ -349,7 +353,7 @@ class TxRefTypeDefNode final : public TxBuiltinTypeDefiningNode {
             : TxBuiltinTypeDefiningNode( ploc, original, baseTypeNode, declNodes, sourcecodeDefiner ) {
     }
 protected:
-    virtual TxActualType* make_builtin_type( const TxTypeDeclaration* declaration,
+    TxActualType* make_builtin_type( const TxTypeDeclaration* declaration,
                                              const std::vector<const TxTypeExpressionNode*>& ifNodes, bool mutableType ) override {
         return new TxActualType( get_type_class_handler( TXTC_REFERENCE ), declaration, mutableType, this->baseTypeNode, ifNodes );
     }
@@ -359,7 +363,7 @@ public:
             : TxBuiltinTypeDefiningNode( ploc, TXBT_REFERENCE, baseTypeNode, declNodes ) {
     }
 
-    virtual TxRefTypeDefNode* make_ast_copy() const override {
+    TxRefTypeDefNode* make_ast_copy() const override {
         return new TxRefTypeDefNode( this->ploc, this, this->baseTypeNode->make_ast_copy(), make_node_vec_copy( this->declNodes ),
                                      ( this->sourcecodeDefiner ? this->sourcecodeDefiner->make_ast_copy() : nullptr ) );
     }
@@ -371,7 +375,7 @@ class TxArrayTypeDefNode final : public TxBuiltinTypeDefiningNode {
             : TxBuiltinTypeDefiningNode( ploc, original, baseTypeNode, declNodes, sourcecodeDefiner ) {
     }
 protected:
-    virtual TxActualType* make_builtin_type( const TxTypeDeclaration* declaration,
+    TxActualType* make_builtin_type( const TxTypeDeclaration* declaration,
                                              const std::vector<const TxTypeExpressionNode*>& ifNodes, bool mutableType ) override {
         return new TxActualType( get_type_class_handler( TXTC_ARRAY ), declaration, mutableType, this->baseTypeNode, ifNodes );
     }
@@ -381,7 +385,7 @@ public:
             : TxBuiltinTypeDefiningNode( ploc, TXBT_ARRAY, baseTypeNode, declNodes ) {
     }
 
-    virtual TxArrayTypeDefNode* make_ast_copy() const override {
+    TxArrayTypeDefNode* make_ast_copy() const override {
         return new TxArrayTypeDefNode( this->ploc, this, this->baseTypeNode->make_ast_copy(), make_node_vec_copy( this->declNodes ),
                                        ( this->sourcecodeDefiner ? this->sourcecodeDefiner->make_ast_copy() : nullptr ) );
     }
@@ -397,14 +401,14 @@ public:
             : TxFunctionTypeNode( ploc, false, arguments, returnType ) {
     }
 
-    virtual TxBuiltinConstructorTypeDefNode* make_ast_copy() const override = 0;
+    TxBuiltinConstructorTypeDefNode* make_ast_copy() const override = 0;
 };
 
 class TxDefConstructorTypeDefNode final : public TxBuiltinConstructorTypeDefNode {
 protected:
     TxExpressionNode* initExprNode;
 
-    virtual TxActualType* create_type( TxPassInfo passInfo ) override {
+    TxActualType* create_type( TxPassInfo passInfo ) override {
         auto actType = new TxBuiltinDefaultConstructorType( this->get_declaration(), this->registry().get_builtin_type( TXBT_FUNCTION ),
                                                             this->returnField->resolve_type( passInfo ).type(),
                                                             initExprNode );
@@ -416,12 +420,12 @@ public:
             : TxBuiltinConstructorTypeDefNode( ploc, new std::vector<TxArgTypeDefNode*>(), returnTypeNode ), initExprNode( initExprNode ) {
     }
 
-    virtual TxDefConstructorTypeDefNode* make_ast_copy() const override {
+    TxDefConstructorTypeDefNode* make_ast_copy() const override {
         return new TxDefConstructorTypeDefNode( this->ploc, this->returnField->typeExpression->make_ast_copy(),
                                                 initExprNode->make_ast_copy() );
     }
 
-    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         TxBuiltinConstructorTypeDefNode::visit_descendants( visitor, thisCursor, role, context );
         this->initExprNode->visit_ast( visitor, thisCursor, "initializer", context );
     }
@@ -429,7 +433,7 @@ public:
 
 class TxConvConstructorTypeDefNode final : public TxBuiltinConstructorTypeDefNode {
 protected:
-    virtual TxActualType* create_type( TxPassInfo passInfo ) override {
+    TxActualType* create_type( TxPassInfo passInfo ) override {
         auto actType = new TxBuiltinConversionFunctionType( this->get_declaration(), this->registry().get_builtin_type( TXBT_FUNCTION ),
                                                             this->arguments->at( 0 )->resolve_type( passInfo ).type(),
                                                             this->returnField->resolve_type( passInfo ).type() );
@@ -441,7 +445,7 @@ public:
             : TxBuiltinConstructorTypeDefNode( ploc, new std::vector<TxArgTypeDefNode*>( { fromTypeArg } ), returnTypeNode ) {
     }
 
-    virtual TxConvConstructorTypeDefNode* make_ast_copy() const override {
+    TxConvConstructorTypeDefNode* make_ast_copy() const override {
         return new TxConvConstructorTypeDefNode( this->ploc, this->arguments->at( 0 )->make_ast_copy(),
                                                  this->returnField->typeExpression->make_ast_copy() );
     }
@@ -450,7 +454,7 @@ public:
 /** Assignment initializer, argument type is the same as the return type. */
 class TxAssignmentConstructorTypeDefNode final : public TxBuiltinConstructorTypeDefNode {
 protected:
-    virtual TxActualType* create_type( TxPassInfo passInfo ) override {
+    TxActualType* create_type( TxPassInfo passInfo ) override {
         auto actType = new TxBuiltinAssignInitializerType( this->get_declaration(), this->registry().get_builtin_type( TXBT_FUNCTION ),
                                                            this->arguments->at( 0 )->resolve_type( passInfo ).type() );
         return actType;
@@ -462,7 +466,7 @@ public:
                                                new TxTypeExprWrapperNode( fromTypeArg->typeExpression ) ) {
     }
 
-    virtual TxAssignmentConstructorTypeDefNode* make_ast_copy() const override {
+    TxAssignmentConstructorTypeDefNode* make_ast_copy() const override {
         return new TxAssignmentConstructorTypeDefNode( this->ploc, this->arguments->at( 0 )->make_ast_copy() );
     }
 };
@@ -968,7 +972,7 @@ void BuiltinTypes::resolveBuiltinSymbols() {
     // ensure that all built-in types are created and resolved:
     for ( unsigned id = 0; id < BuiltinTypeId_COUNT; id++ ) {
         ASSERT( this->builtinTypes[id], "Uninitialized built-in type! id=" << id );
-        this->builtinTypes[id]->typeCreatingNode->resolve_type( TXP_RESOLUTION ).type();
+        this->builtinTypes[id]->typeCreatingNode->resolve_type( TXP_RESOLUTION );
     }
 }
 
@@ -989,7 +993,7 @@ const TxActualType* BuiltinTypes::get_builtin_type( const BuiltinTypeId id ) con
 /** Represents the definition of the package, i.e. the root module. */
 class TxPackageDefinerNode : public TxNode {
 protected:
-    virtual void declaration_pass() override {
+    void declaration_pass() override {
         this->lexContext._scope = new TxPackage( this->get_parser_context()->driver(), *this );
     }
 
@@ -998,7 +1002,7 @@ public:
             : TxNode( ploc ) {
     }
 
-    virtual TxNode* make_ast_copy() const override {
+    TxNode* make_ast_copy() const override {
         ASSERT( false, "Can't make AST copy of TxPackageDefinerNode " << this );
         return nullptr;
     }
@@ -1012,7 +1016,7 @@ public:
         this->declaration_pass();
     }
 
-    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
     }
 };
 

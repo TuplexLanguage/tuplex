@@ -172,11 +172,13 @@ public:
 
     /*--- retrievers / creators for derived types ---*/
 
-    TxActualType* instantiate_type( const TxTypeDeclaration* declaration, const TxTypeExpressionNode* baseTypeExpr,
-                                    const std::vector<const TxTypeExpressionNode*>& interfaces, bool mutableType );
+    /** Creates a new type. */
+    TxActualType* create_type( const TxTypeDeclaration* declaration, const TxTypeExpressionNode* baseTypeExpr,
+                               std::vector<const TxTypeExpressionNode*>&& interfaces, bool mutableType );
 
-    TxActualType* instantiate_type( const TxTypeResolvingNode* definer, const TxTypeExpressionNode* baseTypeExpr,
-                                    const std::vector<const TxTypeArgumentNode*>& typeArguments, bool mutableType );
+    /** Gets a type specialization, creating it if it doesn't exist. */
+    TxActualType* get_specialized_type( const TxTypeResolvingNode* definer, const TxTypeExpressionNode* baseTypeExpr,
+                                        const std::vector<const TxTypeArgumentNode*>& typeArguments, bool mutableType );
 
 
     /** Gets a concrete "adapter type" that specializes the interface type and redirects to adaptedType.
@@ -184,28 +186,33 @@ public:
      * @origin the adapter use site (used for error messages) */
     TxActualType* get_interface_adapter( const TxNode* origin, const TxActualType* interfaceType, const TxActualType* adaptedType );
 
+    /** Gets a reference type specialization, creating it if it doesn't exist. */
     TxActualType* get_reference_type( TxTypeResolvingNode* definer, const TxTypeArgumentNode* targetTypeBinding,
                                       const TxIdentifierNode* dataspace );
 
+    /** Gets an array type specialization, creating it if it doesn't exist. */
     TxActualType* get_array_type( TxTypeResolvingNode* definer, const TxTypeArgumentNode* elemTypeBinding,
                                   const TxTypeArgumentNode* capacityBinding, bool mutableType=false );
+
+    /** Gets an array type specialization, creating it if it doesn't exist. */
     TxActualType* get_array_type( TxTypeResolvingNode* definer, const TxTypeArgumentNode* elemTypeBinding, bool mutableType=false );
 
     /** Creates a function type with a return type.
      * @modifying true if functions of this type may modify its closure when run
      */
-    TxActualType* get_function_type( const TxTypeDeclaration* declaration, const std::vector<const TxActualType*>& argumentTypes,
-                                     const TxActualType* returnType, bool modifying );
+    TxActualType* create_function_type( const TxTypeDeclaration* declaration, const std::vector<const TxActualType*>& argumentTypes,
+                                        const TxActualType* returnType, bool modifying );
 
     /** Creates a function type with no return type.
      * @modifying true if functions of this type may modify its closure when run
      */
-    TxActualType* get_function_type( const TxTypeDeclaration* declaration, const std::vector<const TxActualType*>& argumentTypes,
-                                     bool modifying );
+    TxActualType* create_function_type( const TxTypeDeclaration* declaration, const std::vector<const TxActualType*>& argumentTypes,
+                                        bool modifying );
 
-    TxActualType* get_externc_function_type( const TxTypeDeclaration* declaration, const std::vector<const TxActualType*>& argumentTypes,
-                                             const TxActualType* returnType );
+    TxActualType* create_externc_function_type( const TxTypeDeclaration* declaration,
+                                                const std::vector<const TxActualType*>& argumentTypes,
+                                                const TxActualType* returnType );
 
-    TxActualType* get_constructor_type( const TxTypeDeclaration* declaration, const std::vector<const TxActualType*>& argumentTypes,
-                                        const TxTypeDeclaration* constructedObjTypeDecl );
+    TxActualType* create_constructor_type( const TxTypeDeclaration* declaration, const std::vector<const TxActualType*>& argumentTypes,
+                                           const TxTypeDeclaration* constructedObjTypeDecl );
 };

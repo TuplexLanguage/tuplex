@@ -152,6 +152,10 @@ void TxParserContext::finalize_expected_error_clauses() {
     }
 }
 
+const std::vector<TxNode*>& TxParserContext::get_exp_error_nodes() const {
+    return this->expErrorNodes;
+}
+
 void TxParserContext::cerror( const TxParseOrigin* origin, const std::string& msg ) {
     auto str = format_location_message( origin, msg.c_str() );
     this->emit_comp_error( str, origin->exp_err_ctx() );

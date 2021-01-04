@@ -225,61 +225,11 @@ void TxNonLocalFieldDefNode::declare_field( const TxNode* declarer, TxScopeSymbo
 
     // Note: Field is processed in the 'outer' scope and not in the 'inner' scope of its declaration.
     this->declaration = scope->declare_field( declName, declarer, this, declFlags, storage, TxIdentifier() );
-}
-
-bool TxNonLocalFieldDefNode::is_main_signature_valid( const TxActualType* funcType ) const {
-    auto retType = funcType->return_type();
-    bool retOk = bool( retType->get_type_class() == TXTC_VOID
-                       || retType->is_a( *this->context().package()->registry().get_builtin_type( TXBT_INTEGER ) ) );
-    if ( !retOk )
-        CERROR( this, "main() method has non-integer return type (must be void or integer): " << retType );
-
-    auto & argTypes = funcType->argument_types();
-    if ( argTypes.size() == 0 )
-        return retOk;
-    else if ( argTypes.size() == 1 ) {
-        const TxActualType* argsType = argTypes.at( 0 );
-        if ( argsType->get_type_class() == TXTC_REFERENCE ) {
-            auto targetType = argsType->target_type();
-            if ( targetType->get_type_class() == TXTC_ARRAY ) {
-                auto elemType = targetType->element_type();
-                if ( elemType->get_type_class() == TXTC_REFERENCE ) {
-                    auto elemTargetType = elemType->target_type();
-                    if ( elemTargetType->get_type_class() == TXTC_ARRAY ) {
-                        auto elemTargetElemType = elemTargetType->element_type();
-                        if ( elemTargetElemType->is_builtin( TXBT_UBYTE ) )
-                            return retOk;
-                    }
-                }
-            }
-        }
-        CERROR( this, "main() method has invalid argument [required signature is  main()  or  main( &[]&[]UByte )] : " << argsType );
-    }
-    else
-        CERROR( this, "main() method has too many arguments [required signature is  main()  or  main( &[]&[]UByte )]" );
-    return false;
-}
-
-void TxNonLocalFieldDefNode::resolution_pass() {
-    TxFieldDefiningNode::resolution_pass();
 
     // handle main() function declarations:
-    if ( this->fieldName->ident() == "main" ) {
-        auto funcField = this->field();
-        if ( funcField->qtype()->get_type_class() == TXTC_FUNCTION ) {
-            // verify main program function candidate
-            if ( !( funcField->get_storage() == TXS_GLOBAL || funcField->get_storage() == TXS_STATIC ) )
-                CERROR( this, "main() method must have global or static storage: " << funcField->get_storage() );
-            if ( is_main_signature_valid( funcField->qtype().type() ) ) {
-                // register main program function candidate
-                bool first = this->context().package()->registerMainFunc( this->declaration );
-                if ( first ) {
-                    ASSERT( dynamic_cast<TxLambdaExprNode*>( this->initExpression->originalExpr ),
-                            "Not a lambda expr: " << this->initExpression->originalExpr );
-                    static_cast<TxLambdaExprNode*>( this->initExpression->originalExpr )->add_function_attribute(
-                            llvm::Attribute::AttrKind::NoInline );
-                }
-            }
+    if ( declName == "main" ) {
+        if ( dynamic_cast<TxLambdaExprNode*>( this->initExpression->originalExpr ) ) {
+            scope->get_root_scope()->register_main_func( this->declaration );
         }
         // non-function symbols declared with the name 'main' are allowed
     }

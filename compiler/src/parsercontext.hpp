@@ -103,6 +103,8 @@ public:
     /** Checks all expected-error nodes of this parser context if the expected errors have occurred. */
     void finalize_expected_error_clauses();
 
+    const std::vector<TxNode*>& get_exp_error_nodes() const;
+
     // Compilation error handling.
     void cerror( const TxParseOrigin* origin, const std::string& msg );
     void cwarning( const TxParseOrigin* origin, const std::string& msg );

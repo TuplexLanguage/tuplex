@@ -45,7 +45,7 @@ run_cmd( """echo "" | txc -nojit """ + options)
 run_cmd( """echo "unrecoverably bad syntax {" | txc -nojit """ + options + """ 2>/dev/null""", 1 )
 
 # minimal source file containing semantic error, should return 2
-run_cmd( """echo "X : Int = 1.1;" | txc -nojit """ + options + """ 2>/dev/null""", 2 )
+run_cmd( """echo "X : Int = 1.1;" | txc -nojit -compileall """ + options + """ 2>/dev/null""", 2 )
 
 # run minimal source file (implicit 'return 0')
 run_cmd( """echo "main() : ;" | txc -jit """ + options )

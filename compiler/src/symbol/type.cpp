@@ -84,18 +84,6 @@ std::string TxTypeClassHandler::str() const {
 
 /*=== TxActualType implementation ===*/
 
-/** Used to ensure proper resetting recursionGuard in type (RAII style). */
-class ScopedRecursionGuardClause {
-    const TxActualType* type;
-public:
-    ScopedRecursionGuardClause( const TxActualType* type ) : type( type ) {
-        this->type->recursionGuard = true;
-    }
-    ~ScopedRecursionGuardClause() {
-        this->type->recursionGuard = false;
-    }
-};
-
 Logger& TxActualType::_LOG = Logger::get( "ENTITY" );
 
 const TxNode* TxActualType::get_origin_node() const {
@@ -189,8 +177,8 @@ void TxActualType::examine_members() {
 void TxActualType::initialize_type() {
     LOG_TRACE( this->LOGGER(), "Initializing type " << this );
 
-    ASSERT( !baseType || baseType->hasInitialized, "baseType of " << this->get_declaration() << " has not initialized: " << baseType );
-    ASSERT( !genericBaseType || genericBaseType->hasInitialized, "genericBaseType of " << this->get_declaration() << " has not initialized: " << genericBaseType );
+    ASSERT( !baseType || baseType->is_initialized(), "baseType of " << this->get_declaration() << " has not initialized: " << baseType );
+    ASSERT( !genericBaseType || genericBaseType->is_initialized(), "genericBaseType of " << this->get_declaration() << " has not initialized: " << genericBaseType );
 
     if ( !hasExplicitFieldMembers ) {
         if ( !this->bindings.empty() ) {
@@ -244,13 +232,12 @@ void TxActualType::initialize_type() {
             this->modifiesVTable = true;
         }
     }
-
-    this->hasInitialized = true;
 }
 
-void TxActualType::set_type_class( const TxTypeClassHandler* typeClassHandler ) {
-    this->typeClassHandler = typeClassHandler;
-    this->typeClass = typeClassHandler->type_class();
+void TxActualType::initialize_with_type_class( const TxTypeClassHandler* typeClassInstance ) {
+    ASSERT( !this->typeClassHandler, "type class already set for " << this );
+    this->typeClassHandler = typeClassInstance;
+    this->typeClass = typeClassInstance->type_class();
     this->initialize_type();
 }
 
@@ -278,9 +265,8 @@ void TxActualType::integrate() {
 
         // initialize this type:
         if ( !this->typeClassHandler ) {
-            this->set_type_class( this->baseType->type_class_handler() );
+            this->initialize_with_type_class( this->baseType->type_class_handler());
         }
-        ASSERT( this->hasInitialized, "Integrated but not initialized: " << this->get_declaration() );
         this->hasIntegrated = true;  // (setting it here allows params/bindings to refer back and integrate this type)
 
         // integrate type parameters, bindings:
@@ -656,7 +642,8 @@ bool TxActualType::inner_prepare_members() {
                 if ( expErrField || expErrWholeType )
                     LOG_TRACE( this->LOGGER(), "Skipping preparation of EXPERR unresolved field " << fieldDecl );
                 else
-                    LOG( this->LOGGER(), ERROR, "Skipping preparation of unresolved field (without EXPERR context): " << fieldDecl );
+                    LOG( this->LOGGER(), ERROR, "Skipping preparation of unresolved field (without EXPERR context): " << fieldDecl
+                        << ", " << fieldDecl->get_definer() );
                 continue;
             }
 
@@ -993,7 +980,7 @@ bool TxActualType::is_type_generic_dependent() const {
 */
 
 bool TxActualType::is_empty_derivation() const {
-    ASSERT( this->hasInitialized, "Can't determine derivation characteristics of uninitialized type " << this->get_declaration() );
+    ASSERT( this->is_initialized(), "Can't determine derivation characteristics of uninitialized type " << this->get_declaration() );
     return this->emptyDerivation;
 }
 
@@ -1006,7 +993,7 @@ bool TxActualType::is_virtual_derivation() const {
 }
 
 bool TxActualType::is_leaf_derivation() const {
-    ASSERT( this->hasInitialized, "Can't determine derivation characteristics of uninitialized type " << this->get_declaration() );
+    ASSERT( this->is_initialized(), "Can't determine derivation characteristics of uninitialized type " << this->get_declaration() );
     switch ( this->typeClass ) {
     case TXTC_ANY:
         return false;
@@ -1056,7 +1043,7 @@ bool TxActualType::is_leaf_derivation() const {
 
 
 bool TxActualType::is_scalar() const {
-    ASSERT( this->hasInitialized, "Can't determine derivation characteristics of uninitialized type " << this->get_declaration() );
+    ASSERT( this->is_initialized(), "Can't determine derivation characteristics of uninitialized type " << this->get_declaration() );
     if ( this->typeClass != TXTC_ELEMENTARY )
         return false;
     if ( this->runtimeTypeId >= BuiltinTypeId_COUNT ) {
@@ -1089,7 +1076,7 @@ bool TxActualType::is_scalar() const {
 
 
 uint32_t TxActualType::get_elementary_type_id() const {
-    ASSERT( this->hasInitialized, "Can't determine derivation characteristics of uninitialized type " << this->get_declaration() );
+    ASSERT( this->is_initialized(), "Can't determine derivation characteristics of uninitialized type " << this->get_declaration() );
     if ( this->typeClass != TXTC_ELEMENTARY )
         return UINT32_MAX;
     auto type = this;
@@ -1415,7 +1402,7 @@ std::string TxActualType::str( bool brief ) const {
         if ( this->is_mutable() )
             str << " MUT";
     }
-    else if ( this->is_mutable() && this->hasInitialized && this->get_type_class() == TXTC_TUPLE )
+    else if ( this->is_mutable() && this->is_initialized() && this->get_type_class() == TXTC_TUPLE )
         str << " MUT";
     return str.str();
 }
@@ -1424,7 +1411,7 @@ void TxActualType::self_string( std::stringstream& str, bool brief ) const {
     bool expl = !( this->get_declaration()->get_decl_flags() & ( TXD_IMPLICIT | TXD_GENPARAM | TXD_GENBINDING ) );
     str << this->get_declaration()->get_unique_full_name();
 
-    if ( !this->hasInitialized ) {
+    if ( !this->is_initialized() ) {
         str << " -uninitialized-";
         return;
     }

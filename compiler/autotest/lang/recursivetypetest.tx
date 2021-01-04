@@ -44,15 +44,17 @@ type B :
 ## data type can't contain itself, directly or indirectly:
 
 type AA :
-    bbobj : BB
+    #experr 0: bbobj : BB
 
-    self( aaref : &AA ) :
-        #init: bbobj( aaref )
-
+##    self( aaref : &AA ) :
+##        #init: bbobj( aaref )
 
 type BB :
     aaref : &AA
     #experr 1: aaobj : AA
+
+    self( aaref : &AA ) :
+        #init: aaref( aaref )
 
 
 type CC :
