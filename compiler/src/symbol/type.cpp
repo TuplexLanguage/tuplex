@@ -86,6 +86,64 @@ std::string TxTypeClassHandler::str() const {
 
 Logger& TxActualType::_LOG = Logger::get( "ENTITY" );
 
+TxActualType::TxActualType( const TxTypeClassHandler* typeClassHandler, const TxTypeDeclaration* declaration, bool mutableType,
+                            const TxActualType* baseType )
+        : TxEntity( declaration ),
+          builtin( declaration->get_decl_flags() & TXD_BUILTIN ),
+          mutableType( mutableType ),
+          baseType( baseType ), interfaces(),
+          baseTypeNode(), interfaceNodes() {
+    ASSERT( typeClassHandler, "null typeClassHandler for type with declaration: " << declaration );
+    this->examine_members();
+    this->resolve_params( TXP_TYPE );
+    this->initialize_with_type_class( typeClassHandler );
+}
+
+TxActualType::TxActualType( const TxTypeClassHandler* typeClassHandler, const TxTypeDeclaration* declaration, bool mutableType )
+        : TxEntity( declaration ),
+          builtin( declaration->get_decl_flags() & TXD_BUILTIN ),
+          mutableType( mutableType ),
+          baseType(), interfaces(),
+          baseTypeNode(), interfaceNodes() {
+    ASSERT( typeClassHandler, "null typeClassHandler for type with declaration: " << declaration );
+    this->examine_members();
+    this->resolve_params( TXP_TYPE );
+    this->initialize_with_type_class( typeClassHandler );
+}
+
+TxActualType::TxActualType( const TxTypeClassHandler* typeClassHandler, const TxTypeDeclaration* declaration, bool mutableType,
+                            const TxTypeExpressionNode* baseTypeNode,
+                            std::vector<const TxTypeExpressionNode*> interfaceNodes )
+        : TxEntity( declaration ),
+          builtin( declaration->get_decl_flags() & TXD_BUILTIN ),
+          mutableType( mutableType ),
+          baseType(), interfaces(),
+          baseTypeNode( baseTypeNode ), interfaceNodes( std::move( interfaceNodes )) {
+    ASSERT( typeClassHandler, "null typeClassHandler for type with declaration: " << declaration );
+    this->examine_members();
+    this->resolve_params( TXP_TYPE );
+    this->initialize_with_type_class( typeClassHandler );
+}
+
+TxActualType::TxActualType( const TxTypeDeclaration* declaration, bool mutableType,
+                            const TxTypeExpressionNode* baseTypeNode,
+                            std::vector<const TxTypeExpressionNode*> interfaceNodes )
+        : TxEntity( declaration ),
+          builtin( declaration->get_decl_flags() & TXD_BUILTIN ),
+          mutableType( mutableType ),
+          baseType(), interfaces(),
+          baseTypeNode( baseTypeNode ), interfaceNodes( std::move( interfaceNodes )) {
+    this->examine_members();
+    this->resolve_params( TXP_TYPE );
+
+    // an attempt to make types resolve base types immediately, while postponing resolving parameters till later:
+    //this->baseType = const_cast<TxTypeExpressionNode*>(this->baseTypeNode)->resolve_type( TXP_TYPE ).type();
+    //this->initialize_with_type_class( this->baseType->type_class_handler());
+
+    // It may be possible to resolve the type class of the base type without causing infinite recursion.
+    // This would however probably require some parallel method hierarchy to resolve_type().
+}
+
 const TxNode* TxActualType::get_origin_node() const {
     return this->get_declaration()->get_definer();
 }
@@ -106,12 +164,10 @@ void TxActualType::examine_members() {
         if ( auto entitySym = dynamic_cast<TxEntitySymbol*>( typeDeclNamespace->get_member_symbol( *symname ) ) ) {
             if ( auto typeDecl = entitySym->get_type_decl() ) {
                 if ( typeDecl->get_decl_flags() & TXD_GENPARAM ) {
-                    typeDecl->get_definer()->resolve_type( TXP_TYPE );  // make sure generic params/bindings are resolved
                     this->params.emplace_back( typeDecl );
                     this->typeGeneric = true;
                 }
                 else if ( typeDecl->get_decl_flags() & TXD_GENBINDING ) {
-                    typeDecl->get_definer()->resolve_type( TXP_TYPE );  // make sure generic params/bindings are resolved
                     this->bindings.emplace_back( typeDecl );
                     hasTypeBindings = true;
                 }
@@ -124,12 +180,10 @@ void TxActualType::examine_members() {
                 auto fieldDecl = *fieldDeclI;
 
                 if ( fieldDecl->get_decl_flags() & TXD_GENPARAM ) {
-                    fieldDecl->get_definer()->resolve_type( TXP_TYPE );  // make sure generic params/bindings are resolved
                     this->params.emplace_back( fieldDecl );
                     this->valueGeneric = true;
                 }
                 else if ( fieldDecl->get_decl_flags() & TXD_GENBINDING ) {
-                    fieldDecl->get_definer()->resolve_type( TXP_TYPE );  // make sure generic params/bindings are resolved
                     this->bindings.emplace_back( fieldDecl );
                     hasValueBindings = true;
                 }
@@ -143,7 +197,6 @@ void TxActualType::examine_members() {
                 }
 
                 if ( fieldDecl->get_decl_flags() & ( TXD_CONSTRUCTOR | TXD_INITIALIZER ) ) {
-                    //std::cerr << "storage of constr/init: " << fieldDecl << " " << fieldDecl->get_storage() << std::endl;
                     this->constructors.push_back( fieldDecl );
                     continue;
                 }
@@ -241,12 +294,26 @@ void TxActualType::initialize_with_type_class( const TxTypeClassHandler* typeCla
     this->initialize_type();
 }
 
+void TxActualType::resolve_params( TxPassInfo pass ) {
+    // resolve type parameters, bindings:
+    for ( auto paramDecl : this->params ) {
+        paramDecl->get_definer()->resolve_type( pass );
+    }
+    for ( auto bindingDecl : this->bindings ) {
+        bindingDecl->get_definer()->resolve_type( pass );
+    }
+}
+
 void TxActualType::integrate() {
     if ( !this->hasIntegrated ) {
         LOG_TRACE( this->LOGGER(), "Integrating type " << this );
         // connect with super types:
-        if ( !this->baseType && this->baseTypeNode ) {
-            this->baseType = const_cast<TxTypeExpressionNode*>(this->baseTypeNode)->resolve_type( TXP_RESOLUTION ).type();
+        //if ( !this->baseType && this->baseTypeNode ) {
+        if ( this->baseTypeNode ) {
+            if ( ! this->baseType )
+                this->baseType = const_cast<TxTypeExpressionNode*>(this->baseTypeNode)->resolve_type( TXP_RESOLUTION ).type();
+            else
+                const_cast<TxTypeExpressionNode*>(this->baseTypeNode)->resolve_type( TXP_RESOLUTION );
             std::transform( this->interfaceNodes.cbegin(), this->interfaceNodes.cend(), std::back_inserter( this->interfaces ),
                             []( const TxTypeExpressionNode* n ) {
                                 auto t = const_cast<TxTypeExpressionNode*>(n)->resolve_type( TXP_RESOLUTION ).type();

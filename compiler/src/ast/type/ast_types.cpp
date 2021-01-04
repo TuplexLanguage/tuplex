@@ -9,48 +9,12 @@
 #include "tx_error.hpp"
 
 
-//TxIdentifiedSymbolNode* TxIdentifiedSymbolNode::make_ident_sym_node( const TxLocation& ploc, const std::string& compoundName ) {
-//    TxIdentifier ci( compoundName );
-//    TxIdentifiedSymbolNode* symNode = nullptr;
-//    for ( auto it = ci.segments_cbegin(); it != ci.segments_cend(); it++ ) {
-//        symNode = new TxIdentifiedSymbolNode( ploc, symNode, new TxIdentifierNode( ploc, *it ) );
-//    }
-//    return symNode;
-//}
-//
-//TxScopeSymbol* TxIdentifiedSymbolNode::resolve_symbol() {
-//    if ( !this->symbol ) {
-//        TxScopeSymbol* vantageScope = this->context().scope();
-//        if ( this->baseSymbolNode ) {
-//            if ( auto baseSymbol = this->baseSymbolNode->resolve_symbol() ) {
-//                // baseSymbol may refer to a namespace, type, or field
-//                this->symbol = lookup_inherited_member( vantageScope, baseSymbol, this->symbolName->ident() );
-//            }
-//        }
-//        else {
-//            this->symbol = search_name( vantageScope, this->symbolName->ident() );
-//        }
-//    }
-//    return this->symbol;
-//}
-
-
 TxNamedTypeNode::TxNamedTypeNode( const TxLocation& ploc, const std::string& compoundName )
         : TxTypeExpressionNode( ploc ), exprNode( make_compound_symbol_expression( ploc, compoundName ) ) {
 }
 
 TxQualType TxNamedTypeNode::define_type( TxPassInfo passInfo ) {
     return this->exprNode->resolve_type( passInfo );
-//    if ( auto symbol = this->symbolNode->resolve_symbol() ) {
-//        if ( auto entitySym = dynamic_cast<const TxEntitySymbol*>( symbol) ) {
-//            if ( auto typeDecl = entitySym->get_type_decl() ) {
-//                return typeDecl->get_definer()->resolve_type( passInfo );
-//            }
-//        }
-//        // Symbol is not a field or type
-//        CERR_THROWRES( this, "Not a type: '" << this->symbolNode->get_full_identifier() << "'" );
-//    }
-//    CERR_THROWRES( this, "Unknown symbol: '" << this->symbolNode->get_full_identifier() << "'" );
 }
 
 TxQualType TxMemberTypeNode::define_type( TxPassInfo passInfo ) {

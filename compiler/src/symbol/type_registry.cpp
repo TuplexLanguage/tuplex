@@ -451,13 +451,9 @@ TxActualType* TypeRegistry::get_inner_type_specialization( const TxTypeResolving
     for ( unsigned ix = 0; ix < bindings.size(); ix++ ) {
         auto binding = bindings.at( ix );
         ASSERT( binding->is_context_set(), "Binding must have run declaration pass before being used in type specialization: " << binding );
-//        auto paramDecl = baseTypeParams.at( ix );
-//        paramDecl->get_definer()->resolve_type( passInfo );  // ensure param is resolved (and verify that it does resolve)
+        // Note: Base type's parameters cannot be resolved at this point, since that can cause infinite recursion.
 
         if ( !binding->is_value() ) {
-//            if ( !dynamic_cast<const TxTypeDeclaration*>( paramDecl ) )
-//                CERR_THROWRES( binding, "Can't bind a VALUE base type parameter using a TYPE: " << paramDecl->get_unique_full_name() );
-
             // ensure binding is resolved (and verify that it does resolve):
             binding->type_expr_node()->resolve_type( TXP_TYPE );
             typeSpecTypeName << ( typeBindings.empty() ? "$" : ",$" );
@@ -465,9 +461,6 @@ TxActualType* TypeRegistry::get_inner_type_specialization( const TxTypeResolving
             typeBindings.push_back( binding );
         }
         else {  // binding is TxTypeArgumentNode
-//            if ( !dynamic_cast<const TxFieldDeclaration*>( paramDecl ) )
-//                CERR_THROWRES( binding, "Can't bind a TYPE base type parameter using a VALUE: " << paramDecl->get_unique_full_name() );
-
             binding->value_expr_node()->resolve_type( TXP_TYPE );  // ensure binding is resolved (and verify that it does resolve)
             if ( ix > 0 )
                 valueSpecTypeName << ",";
@@ -635,11 +628,12 @@ TxActualType* TypeRegistry::make_type_specialization( const TxTypeResolvingNode*
 
     TxActualType* specializedType = const_cast<TxActualType*>( specTypeExpr->resolve_type( TXP_TYPE ).type() );
     baseDecl->get_symbol()->add_type_specialization( specializedType->get_declaration() );
-    if ( !specializedType->is_initialized() ) {  // FIXME: review
+    if ( !specializedType->is_initialized() ) {
+        // Note, we can't force initialization of genBaseType here, or there can be infinite recursion
         if ( genBaseType->is_initialized() )
             specializedType->initialize_with_type_class( genBaseType->type_class_handler());
-//        else
-//            std::cerr << "new specialized type not yet initialized: " << specializedType << std::endl;
+        //else
+        //    std::cerr << "new specialized type not yet initialized: " << specializedType << " \tgenBaseType: " << genBaseType << std::endl;
     }
     LOG_DEBUG( this->LOGGER(), "Created new specialized type " << specializedType << " with base type " << genBaseType );
     // Invoking the type resolution pass here can cause infinite recursion

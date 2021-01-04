@@ -20,14 +20,14 @@ class Constant;
  */
 class TxEntityResolvingNode : public TxNode {
 protected:
-    TxQualType _type;  // TODO: make private
+    TxQualType _type;
 
 public:
-    TxEntityResolvingNode( const TxLocation& ploc )
+    explicit TxEntityResolvingNode( const TxLocation& ploc )
             : TxNode( ploc ) {
     }
 
-    virtual TxEntityResolvingNode* make_ast_copy() const override = 0;
+    TxEntityResolvingNode* make_ast_copy() const override = 0;
 
     /** Resolves and returns the type of the entity/value this node produces/uses.
      * If this node's entity has not already been resolved, it will be resolved in this invocation.
@@ -40,8 +40,6 @@ public:
      * This method never returns NULL, provided this node has been successfully resolved. */
     TxQualType qtype() const {
         ASSERT( this->_type, "entity not resolved: " << this );
-//        if ( !this->_type )
-//            throw resolution_error( this, "Entity not resolved, likely that previous type resolution failed in " + this->str() );
         return this->_type;
     }
 
@@ -64,16 +62,16 @@ protected:
      * @return a valid type pointer (exception must be thrown upon failure) */
     virtual TxQualType define_type( TxPassInfo passInfo ) = 0;
 
-    virtual void resolution_pass() override {
+    void resolution_pass() override {
         this->resolve_type( TXP_RESOLUTION );
     }
 
 public:
-    TxTypeResolvingNode( const TxLocation& ploc )
+    explicit TxTypeResolvingNode( const TxLocation& ploc )
             : TxEntityResolvingNode( ploc ) {
     }
 
-    virtual TxTypeResolvingNode* make_ast_copy() const override = 0;
+    TxTypeResolvingNode* make_ast_copy() const override = 0;
 
     /** Returns true if this node resolves/evaluates to a value. */
     virtual bool is_value() const {
@@ -82,5 +80,5 @@ public:
 
     /** Returns the type of the value this node produces/uses.
      * @return a valid type pointer (exception is thrown upon failure) */
-    virtual TxQualType resolve_type( TxPassInfo passInfo ) override;
+    TxQualType resolve_type( TxPassInfo passInfo ) override;
 };

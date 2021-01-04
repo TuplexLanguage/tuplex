@@ -1,10 +1,12 @@
 #include "ast_entitydefs.hpp"
 #include "symbol/type_base.hpp"
 
+static unsigned indent = 0;
 
 TxQualType TxTypeResolvingNode::resolve_type( TxPassInfo passInfo ) {
     ASSERT( this->is_context_set(), "Declaration pass has not been run (lexctx not set) before resolving " << this );
     if ( !this->_type ) {
+        //std::cerr << std::string( indent, ' ' ) << "starting resolve of " << this << ", pass " << passInfo << std::endl; indent += 2;
         if ( this->hasResolved ) {
             throw resolution_error( this, "Previous type resolution failed in " + this->str() );
         }
@@ -16,6 +18,7 @@ TxQualType TxTypeResolvingNode::resolve_type( TxPassInfo passInfo ) {
         this->startedRslv = true;
         try {
             this->_type = this->define_type( passInfo );
+            //indent -= 2; std::cerr << std::string( indent, ' ' ) << "completed resolve, type: " << this->_type << std::endl;
         }
         catch ( const resolution_error& err ) {
             this->hasResolved = true;

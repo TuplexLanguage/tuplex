@@ -25,24 +25,13 @@ TxQualType TxTypeCreatingNode::define_type( TxPassInfo passInfo ) {
     return this->create_type( passInfo );
 }
 
-
-//void TxEmptyDerivedTypeNode::set_requires_mutable( bool mut ) {
-//    TxTypeExpressionNode::set_requires_mutable( mut );
-//    this->baseTypeNode->set_requires_mutable( mut );
-//}
-//
-//TxActualType* TxEmptyDerivedTypeNode::create_type( TxPassInfo passInfo ) {
-//    // create empty specialization (uniquely named but identical type)
-//    return this->registry().instantiate_type( this->get_declaration(), this->baseTypeNode, {}, this->requires_mutable_type() );
-//}
-//
-//void TxEmptyDerivedTypeNode::visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) {
-//    this->baseTypeNode->visit_ast( visitor, thisCursor, "basetype", context );
-//
-//    if ( auto qtype = this->attempt_qtype() ) {
-//        for ( auto implConstr : qtype->get_implicit_constructors() )
-//            implConstr->visit_ast( visitor, thisCursor, "initializer", context );
-//    }
+// an attempt to make types resolve base types immediately, and parameters later (here):
+//TxQualType TxTypeCreatingNode::resolve_type( TxPassInfo passInfo ) {
+//    bool previouslyCreated = bool( this->_type );
+//    auto type = TxTypeExpressionNode::resolve_type( passInfo );
+//    if ( !previouslyCreated && passInfo == TXP_TYPE )
+//        const_cast<TxActualType*>(type.type())->resolve_params( TXP_TYPE );
+//    return type;
 //}
 
 

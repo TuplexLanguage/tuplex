@@ -240,17 +240,7 @@ protected:
 
     /** Construction of type with known type class and super types; invoked from subclasses. */
     TxActualType( const TxTypeClassHandler* typeClassHandler, const TxTypeDeclaration* declaration, bool mutableType,
-                  const TxActualType* baseType )
-            : TxEntity( declaration),
-              builtin( declaration->get_decl_flags() & TXD_BUILTIN ),
-              mutableType( mutableType ),
-              baseType( baseType ), interfaces(),
-              baseTypeNode(), interfaceNodes()
-    {
-        ASSERT( typeClassHandler, "null typeClassHandler for type with declaration: " << declaration );
-        this->examine_members();
-        this->initialize_with_type_class( typeClassHandler );
-    }
+                  const TxActualType* baseType );
 
 public:
     inline Logger* LOGGER() const {
@@ -258,32 +248,12 @@ public:
     }
 
     /** Construction of type without base types, i.e. Any and Void. */
-    TxActualType( const TxTypeClassHandler* typeClassHandler, const TxTypeDeclaration* declaration, bool mutableType )
-            : TxEntity( declaration),
-              builtin( declaration->get_decl_flags() & TXD_BUILTIN ),
-              mutableType( mutableType ),
-              baseType(), interfaces(),
-              baseTypeNode(), interfaceNodes()
-    {
-        ASSERT( typeClassHandler, "null typeClassHandler for type with declaration: " << declaration );
-        this->examine_members();
-        this->initialize_with_type_class( typeClassHandler );
-    }
+    TxActualType( const TxTypeClassHandler* typeClassHandler, const TxTypeDeclaration* declaration, bool mutableType );
 
     /** Construction of type-class-root-types. (Although the base type may be already known, the interfaces may not be.) */
     TxActualType( const TxTypeClassHandler* typeClassHandler, const TxTypeDeclaration* declaration, bool mutableType,
                   const TxTypeExpressionNode* baseTypeNode,
-                  std::vector<const TxTypeExpressionNode*>  interfaceNodes )
-            : TxEntity( declaration),
-              builtin( declaration->get_decl_flags() & TXD_BUILTIN ),
-              mutableType( mutableType ),
-              baseType(), interfaces(),
-              baseTypeNode( baseTypeNode ), interfaceNodes( std::move( interfaceNodes ) )
-    {
-        ASSERT( typeClassHandler, "null typeClassHandler for type with declaration: " << declaration );
-        this->examine_members();
-        this->initialize_with_type_class( typeClassHandler );
-    }
+                  std::vector<const TxTypeExpressionNode*> interfaceNodes );
 
     /** Construction of type whose type class and super types are not yet resolved.
      * This is called from type registry.
@@ -292,15 +262,7 @@ public:
      */
     TxActualType( const TxTypeDeclaration* declaration, bool mutableType,
                   const TxTypeExpressionNode* baseTypeNode,
-                  std::vector<const TxTypeExpressionNode*> interfaceNodes )
-            : TxEntity( declaration),
-              builtin( declaration->get_decl_flags() & TXD_BUILTIN ),
-              mutableType( mutableType ),
-              baseType(), interfaces(),
-              baseTypeNode( baseTypeNode ), interfaceNodes( std::move( interfaceNodes ) )
-    {
-        this->examine_members();
-    }
+                  std::vector<const TxTypeExpressionNode*> interfaceNodes );
 
     /** virtual, default destructor */
     ~TxActualType() override = default;
@@ -321,6 +283,9 @@ public:
 
     /** Initializes this type and sets its type class. */
     void initialize_with_type_class( const TxTypeClassHandler* typeClassInstance );
+
+    /** resolve type parameters and bindings */
+    void resolve_params( TxPassInfo pass );
 
     /** Integrates this type with its declaration dependencies - base class, interfaces, generic parameters/bindings.
      * Will also initialize this type with its type class if is isn't already. */

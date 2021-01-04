@@ -11,55 +11,13 @@
 #include "symbol/type_registry.hpp"
 #include "symbol/qual_type.hpp"
 
-/*
-class TxIdentifiedSymbolNode : public TxNode {
-    TxIdentifierNode* symbolName;
-    TxScopeSymbol* symbol = nullptr;
-
-    friend class TxNamedTypeNode;
-
-protected:
-    TxScopeSymbol* resolve_symbol();
-
-public:
-    TxIdentifiedSymbolNode* baseSymbolNode;
-
-    TxIdentifiedSymbolNode( const TxLocation& ploc, TxIdentifiedSymbolNode* baseSymbol, TxIdentifierNode* name )
-            : TxNode( ploc ), symbolName( name ), baseSymbolNode( baseSymbol ) {
-    }
-
-    static TxIdentifiedSymbolNode* make_ident_sym_node( const TxLocation& ploc, const std::string& compoundName );
-
-    virtual TxIdentifiedSymbolNode* make_ast_copy() const override {
-        return new TxIdentifiedSymbolNode( this->ploc, ( this->baseSymbolNode ? this->baseSymbolNode->make_ast_copy() : nullptr ),
-                                           this->symbolName->make_ast_copy() );
-    }
-
-    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
-        if ( this->baseSymbolNode )
-            this->baseSymbolNode->visit_ast( visitor, thisCursor, "basesym", context );
-    }
-
-    / ** Returns the full identifier (dot-separated full name) as specified in the program text, up to and including this name. * /
-    std::string get_full_identifier() const {
-        if ( this->baseSymbolNode )
-            return this->baseSymbolNode->get_full_identifier() + '.' + this->symbolName->ident();
-        else
-            return this->symbolName->ident();
-    }
-
-    virtual const std::string& get_descriptor() const override {
-        return this->symbolName->get_descriptor();
-    }
-};
-*/
 
 /** Identifies a type via name or value expression. */
 class TxNamedTypeNode : public TxTypeExpressionNode {
     TxExpressionNode* exprNode;
 
 protected:
-    virtual TxQualType define_type( TxPassInfo passInfo ) override;
+    TxQualType define_type( TxPassInfo passInfo ) override;
 
 public:
 
@@ -70,17 +28,17 @@ public:
     TxNamedTypeNode( const TxLocation& ploc, const std::string& compoundName );
 
 
-    virtual TxNamedTypeNode* make_ast_copy() const override {
+    TxNamedTypeNode* make_ast_copy() const override {
         return new TxNamedTypeNode( this->ploc, exprNode->make_ast_copy() );
     }
 
-    virtual void code_gen_type( LlvmGenerationContext& context ) const override;
+    void code_gen_type( LlvmGenerationContext& context ) const override;
 
-    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->exprNode->visit_ast( visitor, thisCursor, "expr", context );
     }
 
-    virtual const std::string& get_descriptor() const override {
+    const std::string& get_descriptor() const override {
         return this->exprNode->get_descriptor();
     }
 };
@@ -88,7 +46,7 @@ public:
 /** Identifies a type that is a member of another type, which is determined by an arbitrary type expression. */
 class TxMemberTypeNode : public TxTypeExpressionNode {
 protected:
-    virtual TxQualType define_type( TxPassInfo passInfo ) override;
+    TxQualType define_type( TxPassInfo passInfo ) override;
 
 public:
     TxTypeExpressionNode* baseTypeExpr;
@@ -98,17 +56,17 @@ public:
             : TxTypeExpressionNode( ploc ), baseTypeExpr( baseTypeExpr ), memberName( memberName ) {
     }
 
-    virtual TxMemberTypeNode* make_ast_copy() const override {
+    TxMemberTypeNode* make_ast_copy() const override {
         return new TxMemberTypeNode( this->ploc, baseTypeExpr->make_ast_copy(), memberName->make_ast_copy() );
     }
 
-    virtual void code_gen_type( LlvmGenerationContext& context ) const override;
+    void code_gen_type( LlvmGenerationContext& context ) const override;
 
-    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->baseTypeExpr->visit_ast( visitor, thisCursor, "type-expr", context );
     }
 
-    virtual const std::string& get_descriptor() const override {
+    const std::string& get_descriptor() const override {
         return this->memberName->get_descriptor();
     }
 };
@@ -118,9 +76,9 @@ public:
  */
 class TxGenSpecTypeNode : public TxTypeCreatingNode {
 protected:
-    virtual TxActualType* create_type( TxPassInfo passInfo ) override;
+    TxActualType* create_type( TxPassInfo passInfo ) override;
 
-    virtual void verification_pass() const override {
+    void verification_pass() const override {
         for ( TxTypeArgumentNode* ta : *this->typeArgs ) {
             if (this->genTypeExpr->qtype()->get_type_class() != TXTC_REFERENCE) {
                 if ( !ta->is_value() ) {
@@ -141,19 +99,19 @@ public:
         ASSERT( typeArgs && !typeArgs->empty(), "NULL or empty typeargs" );
     }
 
-    virtual TxGenSpecTypeNode* make_ast_copy() const override {
+    TxGenSpecTypeNode* make_ast_copy() const override {
         return new TxGenSpecTypeNode( this->ploc, this->genTypeExpr->make_ast_copy(), make_node_vec_copy( this->typeArgs ) );
     }
 
-    virtual void code_gen_type( LlvmGenerationContext& context ) const override;
+    void code_gen_type( LlvmGenerationContext& context ) const override;
 
-    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->genTypeExpr->visit_ast( visitor, thisCursor, "gentype", context );
         for ( auto typeArg : *this->typeArgs )
             typeArg->visit_ast( visitor, thisCursor, "typearg", context );
     }
 
-    virtual const std::string& get_descriptor() const override {
+    const std::string& get_descriptor() const override {
         return this->genTypeExpr->get_descriptor();
     }
 };
@@ -161,7 +119,7 @@ public:
 /** Common superclass for specializations of the built-in types Ref and Array. */
 class TxBuiltinTypeSpecNode : public TxTypeCreatingNode {
 public:
-    TxBuiltinTypeSpecNode( const TxLocation& ploc )
+    explicit TxBuiltinTypeSpecNode( const TxLocation& ploc )
             : TxTypeCreatingNode( ploc ) {
     }
 };
@@ -179,7 +137,7 @@ class TxReferenceTypeNode : public TxBuiltinTypeSpecNode {
     }
 
 protected:
-    virtual TxActualType* create_type( TxPassInfo passInfo ) override;
+    TxActualType* create_type( TxPassInfo passInfo ) override;
 
 public:
 
@@ -190,13 +148,13 @@ public:
             : TxReferenceTypeNode( ploc, dataspace, new TxTypeArgumentNode( targetType ) ) {
     }
 
-    virtual TxReferenceTypeNode* make_ast_copy() const override {
+    TxReferenceTypeNode* make_ast_copy() const override {
         return new TxReferenceTypeNode( this->ploc, this->dataspace, this->targetTypeNode->make_ast_copy() );
     }
 
-    virtual void code_gen_type( LlvmGenerationContext& context ) const override;
+    void code_gen_type( LlvmGenerationContext& context ) const override;
 
-    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->refBaseNode->visit_ast( visitor, thisCursor, "refbase", context );
         this->targetTypeNode->visit_ast( visitor, thisCursor, "target", context );
     }
@@ -213,9 +171,9 @@ class TxArrayTypeNode : public TxBuiltinTypeSpecNode {
     }
 
 protected:
-    virtual TxActualType* create_type( TxPassInfo passInfo ) override;
+    TxActualType* create_type( TxPassInfo passInfo ) override;
 
-    virtual void verification_pass() const override {
+    void verification_pass() const override {
         auto elemType = this->elementTypeNode->type_expr_node()->qtype();
         if ( is_not_properly_concrete( this, elemType ) ) {
             CERROR( this, "Array element type is not concrete: " << elemType );
@@ -234,14 +192,14 @@ public:
                                ( capacityExpr ? new TxTypeArgumentNode( new TxMaybeConversionNode( capacityExpr ) ) : nullptr ) ) {
     }
 
-    virtual TxArrayTypeNode* make_ast_copy() const override {
+    TxArrayTypeNode* make_ast_copy() const override {
         return new TxArrayTypeNode( this->ploc, this->elementTypeNode->make_ast_copy(),
                                     ( this->capacityNode ? this->capacityNode->make_ast_copy() : nullptr ) );
     }
 
-    virtual void code_gen_type( LlvmGenerationContext& context ) const override;
+    void code_gen_type( LlvmGenerationContext& context ) const override;
 
-    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->arrayBaseNode->visit_ast( visitor, thisCursor, "arraybase", context );
         this->elementTypeNode->visit_ast( visitor, thisCursor, "elementtype", context );
         if ( this->capacityNode )
@@ -263,30 +221,23 @@ class TxDerivedTypeNode : public TxTypeCreatingNode {
 
     friend class TxBuiltinTypeDefiningNode;
 
-    void set_builtin_type_definer( TxTypeResolvingNode* builtinTypeDefiner ) {
-        this->builtinTypeDefiner = builtinTypeDefiner;
+    void set_builtin_type_definer( TxTypeResolvingNode* builtinTypeDef ) {
+        this->builtinTypeDefiner = builtinTypeDef;
     }
 
     void code_gen_builtin_type( LlvmGenerationContext& context ) const;
 
     void inner_code_gen_type( LlvmGenerationContext& context ) const;
 
-    /** used by make_ast_copy() */
-    TxDerivedTypeNode( const TxLocation& ploc, TxTypeExpressionNode* baseType,
-                       std::vector<TxTypeExpressionNode*>* interfaces, std::vector<TxDeclarationNode*>* members,
-                       bool interfaceKW, bool mutableType )
-            : TxTypeCreatingNode( ploc ), baseTypeNode( baseType ), interfaces( interfaces ), members( members ) {
-    }
-
 protected:
-    virtual void typeexpr_declaration_pass() override {
+    void typeexpr_declaration_pass() override {
         this->init_implicit_types();  // (can't run this before interfaceKW is known)
     }
 
-    virtual TxActualType* create_type( TxPassInfo passInfo ) override;
+    TxActualType* create_type( TxPassInfo passInfo ) override;
 
 public:
-    TxTypeExpressionNode* baseTypeNode;
+    TxTypeExpressionNode* baseTypeNode;  // (set in declaration pass, if not explicitly provided)
     std::vector<TxTypeExpressionNode*>* interfaces;
     std::vector<TxDeclarationNode*>* members;
 
@@ -310,16 +261,16 @@ public:
     TxDerivedTypeNode( const TxLocation& ploc, TxTypeExpressionNode* baseType )
         : TxDerivedTypeNode(ploc, baseType, new std::vector<TxTypeExpressionNode*>(), new std::vector<TxDeclarationNode*>()) { }
 
-    virtual void set_requires_mutable( bool mut ) override;
+    void set_requires_mutable( bool mut ) override;
 
-    virtual TxDerivedTypeNode* make_ast_copy() const override {
+    TxDerivedTypeNode* make_ast_copy() const override {
         return new TxDerivedTypeNode( this->ploc, this->baseTypeNode->make_ast_copy(),
                                       make_node_vec_copy( this->interfaces ), make_node_vec_copy( this->members ) );
     }
 
-    virtual void code_gen_type( LlvmGenerationContext& context ) const override;
+    void code_gen_type( LlvmGenerationContext& context ) const override;
 
-    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override;
+    void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override;
 };
 
 /** Defines a function type. */
@@ -336,11 +287,11 @@ class TxFunctionTypeNode : public TxTypeCreatingNode {
     }
 
 protected:
-    virtual void typeexpr_declaration_pass() override;
+    void typeexpr_declaration_pass() override;
 
-    virtual TxActualType* create_type( TxPassInfo passInfo ) override;
+    TxActualType* create_type( TxPassInfo passInfo ) override;
 
-    virtual void verification_pass() const override {
+    void verification_pass() const override {
         for ( auto argField : *this->arguments ) {
             auto argType = argField->qtype();
             if ( is_not_properly_concrete( this, argType ) )
@@ -366,14 +317,14 @@ public:
               returnField( make_return_field( returnType ) ) {
     }
 
-    virtual TxFunctionTypeNode* make_ast_copy() const override {
+    TxFunctionTypeNode* make_ast_copy() const override {
         return new TxFunctionTypeNode( this->ploc, this->modifying, make_node_vec_copy( this->arguments ),
                                        ( this->returnField ? this->returnField->typeExpression->make_ast_copy() : nullptr ) );
     }
 
-    virtual void code_gen_type( LlvmGenerationContext& context ) const override;
+    void code_gen_type( LlvmGenerationContext& context ) const override;
 
-    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->baseTypeNode->visit_ast( visitor, thisCursor, "basetype", context );
         for ( auto argField : *this->arguments )
             argField->visit_ast( visitor, thisCursor, "arg", context );
