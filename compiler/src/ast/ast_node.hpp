@@ -28,7 +28,7 @@ struct AstCursor {
     AstCursor( const AstCursor* parent, const TxNode* node )
             : parent( parent ), node( node ), depth( parent->depth + 1 ) {
     }
-};
+} __attribute__((aligned(32)));
 
 /** type of the AST visitor callable */
 typedef std::function<void( TxNode* node, const AstCursor& parent, const std::string& role, void* context )> AstVisitorFunc;
@@ -36,7 +36,7 @@ typedef std::function<void( TxNode* node, const AstCursor& parent, const std::st
 typedef struct {
     AstVisitorFunc preFunc;
     AstVisitorFunc postFunc;
-} AstVisitor;
+} __attribute__((aligned(64))) AstVisitor;
 
 
 //enum TxPass {
@@ -48,19 +48,17 @@ typedef struct {
  * get_constructed_type(), insert_conversion(), insert_qual_conversion()
  */
 enum TxPassInfo {
-    TXP_TYPE, TXP_RESOLUTION
+    TXP_TYPE_CREATION, TXP_FULL_RESOLUTION
 };
 
 //typedef unsigned TxPassInfo;
 
-inline bool is_full_resolution( TxPassInfo pi) { return ( pi >= TXP_RESOLUTION ); }
+inline bool is_full_resolution( TxPassInfo pi) { return ( pi >= TXP_FULL_RESOLUTION ); }
 
 
 class TxNode : public virtual TxParseOrigin, public Printable {
-    friend class TxDriver;
-
     static const std::string EMPTY_STRING;
-    static Logger& _LOG;
+    static Logger& ASTLOGGER;
     static unsigned nextNodeId;
 
     const unsigned nodeId;
@@ -71,6 +69,14 @@ class TxNode : public virtual TxParseOrigin, public Printable {
     /** indicates whether this node has encountered compilation errors in previous passes */
     unsigned compilationErrors = 0;
 
+    /** sets the parent node reference of this node and copies the parent's context to this node */
+    inline void set_context( const TxNode* parent ) {
+        // FIXME: Should be possible to call for inserted nodes (& review insertions)
+        ASSERT( !this->is_context_set(), "lexicalContext already initialized in " << this->str() );
+        this->parentNode = parent;
+        this->lexContext = this->parentNode->context();
+    }
+
 protected:
     /** the semantic context this node represents/produces for its sub-AST, this is set in the declaration pass */
     LexicalContext lexContext;
@@ -80,18 +86,6 @@ protected:
     }
 
     ~TxNode() override = default;
-
-    inline void set_context( LexicalContext&& context ) {
-        ASSERT( !this->is_context_set(), "lexicalContext already initialized in " << this->str() );
-        this->lexContext = context;
-    }
-
-    /** sets the parent node reference of this node and copies the parent's context to this node */
-    inline void set_context( const TxNode* parentNode ) {
-        ASSERT( !this->is_context_set(), "lexicalContext already initialized in " << this->str() );
-        this->parentNode = parentNode;
-        this->lexContext = this->parentNode->context();
-    }
 
     /** Performs the declaration pass operations specific to this node.
      * The default implementation does nothing; to be overridden by subclasses as necessary.
@@ -125,15 +119,15 @@ protected:
 public:
     const TxLocation ploc;
 
-    virtual const TxNode* get_origin_node() const override final {
+    inline const TxNode* get_origin_node() const final {
         return this;
     }
 
-    virtual const TxLocation& get_parse_location() const override final {
+    inline const TxLocation& get_parse_location() const final {
         return this->ploc;
     }
 
-    virtual ExpectedErrorClause* exp_err_ctx() const override final {
+    inline ExpectedErrorClause* exp_err_ctx() const final {
         return this->lexContext.exp_error();
     }
 
@@ -173,7 +167,7 @@ public:
     /** Visits this node and its subtree with the provided visitor and context object. */
     void visit_ast( const AstVisitor& visitor, void* context );
 
-    /** Invoked from visit_descendants() of parent node. */
+    /** Invoked from the visit_descendants() implementation of the parent node. */
     void visit_ast( const AstVisitor& visitor, const AstCursor& parent, const std::string& role, void* context );
 
     /** To be implemented by subclasses. */
@@ -181,9 +175,9 @@ public:
 
     /** Runs the declaration pass on this specific node (its subtree is not processed).
      * @parentNode the parent of node; must not be null */
-    inline void node_declaration_pass( const TxNode* parentNode ) {
-        ASSERT( parentNode, "NULL parentNode" );
-        this->set_context( parentNode );
+    inline void node_declaration_pass( const TxNode* parent ) {
+        ASSERT( parent, "NULL parentNode" );
+        this->set_context( parent );
         this->declaration_pass();
     }
 
@@ -207,13 +201,17 @@ public:
         return EMPTY_STRING;
     }
 
-    virtual std::string str() const override;
+    std::string str() const override;
 
     std::string parse_loc_string() const;
 
     TypeRegistry& registry() const;
 
-    inline Logger* LOGGER() const {
-        return &this->_LOG;
+    inline static Logger* LOGGER() {
+        return &TxNode::ASTLOGGER;
+    }
+
+    static unsigned nodes_created_count() {
+        return TxNode::nextNodeId;
     }
 };

@@ -95,7 +95,7 @@ TxActualType::TxActualType( const TxTypeClassHandler* typeClassHandler, const Tx
           baseTypeNode(), interfaceNodes() {
     ASSERT( typeClassHandler, "null typeClassHandler for type with declaration: " << declaration );
     this->examine_members();
-    this->resolve_params( TXP_TYPE );
+    this->resolve_params( TXP_TYPE_CREATION );
     this->initialize_with_type_class( typeClassHandler );
 }
 
@@ -107,7 +107,7 @@ TxActualType::TxActualType( const TxTypeClassHandler* typeClassHandler, const Tx
           baseTypeNode(), interfaceNodes() {
     ASSERT( typeClassHandler, "null typeClassHandler for type with declaration: " << declaration );
     this->examine_members();
-    this->resolve_params( TXP_TYPE );
+    this->resolve_params( TXP_TYPE_CREATION );
     this->initialize_with_type_class( typeClassHandler );
 }
 
@@ -121,7 +121,7 @@ TxActualType::TxActualType( const TxTypeClassHandler* typeClassHandler, const Tx
           baseTypeNode( baseTypeNode ), interfaceNodes( std::move( interfaceNodes )) {
     ASSERT( typeClassHandler, "null typeClassHandler for type with declaration: " << declaration );
     this->examine_members();
-    this->resolve_params( TXP_TYPE );
+    this->resolve_params( TXP_TYPE_CREATION );
     this->initialize_with_type_class( typeClassHandler );
 }
 
@@ -134,7 +134,7 @@ TxActualType::TxActualType( const TxTypeDeclaration* declaration, bool mutableTy
           baseType(), interfaces(),
           baseTypeNode( baseTypeNode ), interfaceNodes( std::move( interfaceNodes )) {
     this->examine_members();
-    this->resolve_params( TXP_TYPE );
+    this->resolve_params( TXP_TYPE_CREATION );
 
     // an attempt to make types resolve base types immediately, while postponing resolving parameters till later:
     //this->baseType = const_cast<TxTypeExpressionNode*>(this->baseTypeNode)->resolve_type( TXP_TYPE ).type();
@@ -172,7 +172,7 @@ void TxActualType::examine_members() {
                     hasTypeBindings = true;
                 }
                 else if ( *symname == "$GenericBase" ) {
-                    this->genericBaseType = typeDecl->get_definer()->resolve_type( TXP_TYPE ).type();
+                    this->genericBaseType = typeDecl->get_definer()->resolve_type( TXP_TYPE_CREATION ).type();
                 }
             }
 
@@ -311,12 +311,12 @@ void TxActualType::integrate() {
         //if ( !this->baseType && this->baseTypeNode ) {
         if ( this->baseTypeNode ) {
             if ( ! this->baseType )
-                this->baseType = const_cast<TxTypeExpressionNode*>(this->baseTypeNode)->resolve_type( TXP_RESOLUTION ).type();
+                this->baseType = const_cast<TxTypeExpressionNode*>(this->baseTypeNode)->resolve_type( TXP_FULL_RESOLUTION ).type();
             else
-                const_cast<TxTypeExpressionNode*>(this->baseTypeNode)->resolve_type( TXP_RESOLUTION );
+                const_cast<TxTypeExpressionNode*>(this->baseTypeNode)->resolve_type( TXP_FULL_RESOLUTION );
             std::transform( this->interfaceNodes.cbegin(), this->interfaceNodes.cend(), std::back_inserter( this->interfaces ),
                             []( const TxTypeExpressionNode* n ) {
-                                auto t = const_cast<TxTypeExpressionNode*>(n)->resolve_type( TXP_RESOLUTION ).type();
+                                auto t = const_cast<TxTypeExpressionNode*>(n)->resolve_type( TXP_FULL_RESOLUTION ).type();
                                 return t;
                             } );
         }
@@ -338,10 +338,10 @@ void TxActualType::integrate() {
 
         // integrate type parameters, bindings:
         for ( auto paramDecl : this->params ) {
-            const_cast<TxActualType*>( paramDecl->get_definer()->resolve_type( TXP_RESOLUTION ).type() )->integrate();
+            const_cast<TxActualType*>( paramDecl->get_definer()->resolve_type( TXP_FULL_RESOLUTION ).type() )->integrate();
         }
         for ( auto bindingDecl : this->bindings ) {
-            const_cast<TxActualType*>( bindingDecl->get_definer()->resolve_type( TXP_RESOLUTION ).type() )->integrate();
+            const_cast<TxActualType*>( bindingDecl->get_definer()->resolve_type( TXP_FULL_RESOLUTION ).type() )->integrate();
         }
 
         this->autogenerate_constructors();
@@ -566,13 +566,13 @@ void TxActualType::autogenerate_constructors() {
 
     for ( auto instanceFieldDecl : instanceFieldsToInitialize ) {
         if ( !instanceFieldDecl->get_definer()->initExpression ) {
-            auto fieldType = instanceFieldDecl->get_definer()->resolve_type( TXP_TYPE );
+            auto fieldType = instanceFieldDecl->get_definer()->resolve_type( TXP_TYPE_CREATION );
             if ( !fieldType->is_generic_param() ) {
                 // check if instance field has a constructor that accepts a single argument of its own type
                 bool hasCopyConstructor = false;
                 auto fieldConstrType = fieldType->get_construction_type();
                 for ( auto fieldConstr : fieldConstrType->constructors ) {
-                    auto constrType = fieldConstr->get_definer()->resolve_type( TXP_TYPE );
+                    auto constrType = fieldConstr->get_definer()->resolve_type( TXP_TYPE_CREATION );
                     if ( constrType->argument_types().size() == 1 ) {
                         // FUTURE: Perhaps accept copy constructors that take reference to own type
                         //         (probably requires dataspaces design to be detailed first)
@@ -842,7 +842,7 @@ bool TxActualType::inner_prepare_members() {
 static bool has_nonref_params( const TxActualType* type, bool allowValueParams ) {
     for ( auto & paramDecl : type->get_type_params() ) {
         if ( auto paramTypeDecl = dynamic_cast<const TxTypeDeclaration*>( paramDecl ) ) {
-            auto constraintType = paramTypeDecl->get_definer()->resolve_type( TXP_RESOLUTION );
+            auto constraintType = paramTypeDecl->get_definer()->resolve_type( TXP_FULL_RESOLUTION );
             ASSERT( constraintType, "NULL constraint type for param " << paramDecl << " of " << type );
             if ( constraintType->get_type_class() != TXTC_REFERENCE )
                 return true;
@@ -883,7 +883,7 @@ static bool is_dynamic_binding_dependent( const TxActualType* type ) {
         }
         else {  // const TxTypeDeclaration*
             // a bound TYPE type parameter is always concrete (unless this is declared within a generic outer scope), but may be dynamic
-            if ( is_dynamic_binding_dependent( static_cast<const TxTypeDeclaration*>( b )->get_definer()->resolve_type( TXP_RESOLUTION ).type() ) )
+            if ( is_dynamic_binding_dependent( static_cast<const TxTypeDeclaration*>( b )->get_definer()->resolve_type( TXP_FULL_RESOLUTION ).type() ) )
                 return true;
         }
     }
@@ -1376,8 +1376,8 @@ bool TxTypeClassHandler::inner_is_a( const TxActualType* thisType, const TxActua
                         bool staticEqual = false;
                         auto thatFieldBinding = static_cast<const TxFieldDeclaration*>( thatBinding );
                         if ( auto thisFieldBinding = dynamic_cast<const TxFieldDeclaration*>( thisType->lookup_param_binding( paramDecl ) ) ) {
-                            thisFieldBinding->get_definer()->resolve_type( TXP_RESOLUTION );
-                            thatFieldBinding->get_definer()->resolve_type( TXP_RESOLUTION );
+                            thisFieldBinding->get_definer()->resolve_type( TXP_FULL_RESOLUTION );
+                            thatFieldBinding->get_definer()->resolve_type( TXP_FULL_RESOLUTION );
                             if ( auto thisInitExpr = thisFieldBinding->get_definer()->get_init_expression() ) {
                                 if (auto thatInitExpr = thatFieldBinding->get_definer()->get_init_expression() ) {
                                     staticEqual = is_static_equal( thisInitExpr, thatInitExpr );

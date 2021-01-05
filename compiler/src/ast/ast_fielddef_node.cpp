@@ -22,7 +22,7 @@ const TxField* TxFieldDefiningNode::resolve_field() {
         }
         this->startedRslv = true;
         try {
-            this->_type = this->define_type( TXP_RESOLUTION );
+            this->_type = this->define_type( TXP_FULL_RESOLUTION );
             this->_field = this->define_field();
         }
         catch ( const resolution_error& err ) {
@@ -99,11 +99,11 @@ TxQualType TxFieldDefiningNode::define_type( TxPassInfo passInfo ) {
             if ( qtype->get_type_class() == TXTC_ARRAY ) {
                 // This implementation relaxes the auto-conversion check to allow assignment of arrays with unknown C.
                 // We only handle auto-dereferencing of the rvalue:
-                auto rtype = this->initExpression->originalExpr->resolve_type( TXP_RESOLUTION );
+                auto rtype = this->initExpression->originalExpr->resolve_type( TXP_FULL_RESOLUTION );
                 if ( rtype->get_type_class() == TXTC_REFERENCE )
-                    this->initExpression->insert_qual_conversion( TXP_RESOLUTION, rtype->target_type() );
+                    this->initExpression->insert_qual_conversion( TXP_FULL_RESOLUTION, rtype->target_type() );
                 else
-                    this->initExpression->resolve_type( TXP_RESOLUTION );
+                    this->initExpression->resolve_type( TXP_FULL_RESOLUTION );
             }
             else {
                 if ( is_not_properly_concrete( this, qtype ) ) {

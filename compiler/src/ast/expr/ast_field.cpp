@@ -25,7 +25,7 @@ TxFieldValueNode* make_compound_symbol_expression( const TxLocation& ploc, const
 
 
 int get_reinterpretation_degree( TxExpressionNode* originalExpr, const TxActualType *requiredType ) {
-    auto originalType = originalExpr->resolve_type( TXP_RESOLUTION );
+    auto originalType = originalExpr->resolve_type( TXP_FULL_RESOLUTION );
 
     if ( *originalType == *requiredType ) {
         //std::cerr << "Types equal: " << originalType << "   ==   " << requiredType << std::endl;
@@ -191,7 +191,7 @@ static const TxFieldDeclaration* resolve_field( const TxExpressionNode* origin, 
     else if ( arguments ) {
         // ensure arguments are resolved (doing it here ensures sensible signatures in error messages)
         for ( auto argNode : *arguments )
-            argNode->resolve_type( TXP_RESOLUTION );
+            argNode->resolve_type( TXP_FULL_RESOLUTION );
         // we expand the CERR_THROWRES macro here so that we can print the candidates before throwing the exception:
         std::stringstream msg;
         msg << entitySymbol->get_full_name() << " has no matching function for args: ";
@@ -232,7 +232,7 @@ TxScopeSymbol* TxFieldValueNode::resolve_symbol() {
     TxScopeSymbol* vantageScope = this->context().scope();
     if ( this->baseExpr ) {
         // baseExpr may or may not refer to a type (e.g. modules don't)
-        auto baseType = this->baseExpr->resolve_type( TXP_RESOLUTION );
+        auto baseType = this->baseExpr->resolve_type( TXP_FULL_RESOLUTION );
 
         if ( baseType->get_type_class() == TXTC_VOID ) {
             if ( auto baseFieldExpr = dynamic_cast<TxFieldValueNode*>( this->baseExpr ) ) {
@@ -250,7 +250,7 @@ TxScopeSymbol* TxFieldValueNode::resolve_symbol() {
                 //std::cerr << "Adding implicit '^' to: " << this->baseExpr << "  six=" << six << std::endl;
                 auto derefNode = new TxReferenceDerefNode( this->baseExpr->ploc, baseValExpr );
                 derefNode->node_declaration_pass( this );
-                derefNode->resolve_type( TXP_RESOLUTION );
+                derefNode->resolve_type( TXP_FULL_RESOLUTION );
                 this->baseExpr = derefNode;
                 }
             }
@@ -282,7 +282,7 @@ const TxEntityDeclaration* TxFieldValueNode::resolve_decl() {
             if ( auto typeDecl = entitySymbol->get_type_decl() ) {
                 this->ploc.parserCtx->driver().add_reachable( typeDecl->get_definer() );
                 if ( this->appliedFuncArgs ) {
-                    auto allocType = typeDecl->get_definer()->resolve_type( TXP_RESOLUTION );
+                    auto allocType = typeDecl->get_definer()->resolve_type( TXP_FULL_RESOLUTION );
                     // find the constructor (note, constructors aren't inherited, except for certain empty and VALUE derivations):
                     this->declaration = resolve_constructor( this, allocType.type(), this->appliedFuncArgs );
                     if ( this->declaration != typeDecl )

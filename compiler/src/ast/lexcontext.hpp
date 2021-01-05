@@ -39,23 +39,26 @@ public:
     /** Copy constructor. */
     LexicalContext( const LexicalContext& context ) = default;
 
+    /** Move constructor. */
+    LexicalContext( LexicalContext&& context ) = default;
+
     /** Constructs a lexical context for the provided module.
      * (A module context does not require a parent context.) */
-    LexicalContext( TxModule* module )
+    explicit LexicalContext( TxModule* module )
             : _scope( (TxScopeSymbol*) module ), reinterpretationDefiner(), expErrCtx(), enclosingLambda(),
               typeGeneric(), valueGeneric(), typeGenDepBindings(), valueGenDepBindings() {
         ASSERT( module, "module is NULL" );
     }
 
-    /** Constructs a lexical context that is a sub-context of the provided context.
-     * The provided scope must be the same or a sub-scope of the parent's scope. */
-    LexicalContext( const LexicalContext& parentContext, TxScopeSymbol* scope )
-            : _scope( scope ), reinterpretationDefiner( parentContext.reinterpretationDefiner ),
-              expErrCtx( parentContext.expErrCtx ), enclosingLambda( parentContext.enclosingLambda ),
-              typeGeneric( parentContext.typeGeneric ), valueGeneric( parentContext.valueGeneric ),
-              typeGenDepBindings( parentContext.typeGenDepBindings ), valueGenDepBindings( parentContext.valueGenDepBindings  ) {
-        ASSERT( scope, "scope is NULL" );
-    }
+//    /** Constructs a lexical context that is a sub-context of the provided context.
+//     * The provided scope must be the same or a sub-scope of the parent's scope. */
+//    LexicalContext( const LexicalContext& parentContext, TxScopeSymbol* scope )
+//            : _scope( scope ), reinterpretationDefiner( parentContext.reinterpretationDefiner ),
+//              expErrCtx( parentContext.expErrCtx ), enclosingLambda( parentContext.enclosingLambda ),
+//              typeGeneric( parentContext.typeGeneric ), valueGeneric( parentContext.valueGeneric ),
+//              typeGenDepBindings( parentContext.typeGenDepBindings ), valueGenDepBindings( parentContext.valueGenDepBindings  ) {
+//        ASSERT( scope, "scope is NULL" );
+//    }
 
     /** Constructs a new lexical context for a given scope, and that may represent a reinterpretationDefiner of a lexical unit. */
     LexicalContext( TxScopeSymbol* scope, ExpectedErrorClause* expErrCtx, const TxTypeResolvingNode* reinterpretationDefiner,
@@ -65,6 +68,12 @@ public:
               typeGenDepBindings( typeGenDepBindings ), valueGenDepBindings( valueGenDepBindings ) {
         ASSERT( scope, "scope is NULL" );
     }
+
+    /** Copy assignment operator. */
+    LexicalContext& operator=( const LexicalContext& ) = default;
+
+    /** Move assignment operator. */
+    LexicalContext& operator=( LexicalContext && ) = default;
 
 
     inline TxScopeSymbol* scope() const {

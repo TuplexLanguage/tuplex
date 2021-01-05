@@ -5,9 +5,9 @@
 #include "symbol/package.hpp"
 #include "parsercontext.hpp"
 
-const std::string TxNode::EMPTY_STRING = "";
+const std::string TxNode::EMPTY_STRING;  // default-initialized to ""
 
-Logger& TxNode::_LOG = Logger::get( "AST" );
+Logger& TxNode::ASTLOGGER = Logger::get( "AST" );
 
 unsigned TxNode::nextNodeId = 0;
 

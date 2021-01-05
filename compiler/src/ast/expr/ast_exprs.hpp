@@ -297,7 +297,7 @@ protected:
         TxExpressionNode::resolution_pass();
 //        this->typeExpr->resolution_pass();
 //        this->constructorCall->resolution_pass();
-        if ( auto calleeType = this->constructorCall->callee->resolve_type( TXP_RESOLUTION ) ) {
+        if ( auto calleeType = this->constructorCall->callee->resolve_type( TXP_FULL_RESOLUTION ) ) {
             if ( auto inlineCalleeType = dynamic_cast<const TxInlineFunctionType*>( calleeType.type() ) ) {
                 // This constructor is an inlineable function that returns the initializer value
                 // (as opposed to a constructor whose code assigns value to the object's members).

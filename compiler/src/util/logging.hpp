@@ -1,8 +1,8 @@
 #pragma once
 
-#include <stdarg.h>
+#include <cstdarg>
 #include <iostream>
-#include <string.h>
+#include <cstring>
 
 enum Level {
     NONE,
@@ -41,8 +41,8 @@ public:
     inline Level get_threshold() const {
         return this->threshold;
     }
-    inline void set_threshold( Level threshold ) {
-        this->threshold = threshold;
+    inline void set_threshold( Level threshld ) {
+        this->threshold = threshld;
     }
 
     void log( Level level, const char *format, va_list ap );

@@ -272,7 +272,7 @@ TxQualType TypeRegistry::get_string_type() {
         stringTypeNode = new TxNamedTypeNode( this->_package.driver().builtins().get_builtin_location(), "tx.String" );
         run_declaration_pass( stringTypeNode, LexicalContext( this->_package.get_member_symbol( "tx" ), nullptr, nullptr,
                                                               false, false, false, false) );
-        return this->stringTypeNode->resolve_type( TXP_RESOLUTION );
+        return this->stringTypeNode->resolve_type( TXP_FULL_RESOLUTION );
     }
     return this->stringTypeNode->qtype();
 }
@@ -455,13 +455,13 @@ TxActualType* TypeRegistry::get_inner_type_specialization( const TxTypeResolving
 
         if ( !binding->is_value() ) {
             // ensure binding is resolved (and verify that it does resolve):
-            binding->type_expr_node()->resolve_type( TXP_TYPE );
+            binding->type_expr_node()->resolve_type( TXP_TYPE_CREATION );
             typeSpecTypeName << ( typeBindings.empty() ? "$" : ",$" );
             valueSpecTypeName << ( ix == 0 ? "$" : ",$" );
             typeBindings.push_back( binding );
         }
         else {  // binding is TxTypeArgumentNode
-            binding->value_expr_node()->resolve_type( TXP_TYPE );  // ensure binding is resolved (and verify that it does resolve)
+            binding->value_expr_node()->resolve_type( TXP_TYPE_CREATION );  // ensure binding is resolved (and verify that it does resolve)
             if ( ix > 0 )
                 valueSpecTypeName << ",";
             if ( binding->value_expr_node()->is_statically_constant() ) {
@@ -626,7 +626,7 @@ TxActualType* TypeRegistry::make_type_specialization( const TxTypeResolvingNode*
                                 bindingsTypeGenDependent, bindingsValueGenDependent );
     run_declaration_pass( newSpecTypeDecl, specContext );
 
-    TxActualType* specializedType = const_cast<TxActualType*>( specTypeExpr->resolve_type( TXP_TYPE ).type() );
+    TxActualType* specializedType = const_cast<TxActualType*>( specTypeExpr->resolve_type( TXP_TYPE_CREATION ).type() );
     baseDecl->get_symbol()->add_type_specialization( specializedType->get_declaration() );
     if ( !specializedType->is_initialized() ) {
         // Note, we can't force initialization of genBaseType here, or there can be infinite recursion
@@ -656,7 +656,7 @@ TxActualType* TypeRegistry::create_type( const TxTypeDeclaration* declaration, c
 
 TxActualType* TypeRegistry::get_specialized_type( const TxTypeResolvingNode* definer, const TxTypeExpressionNode* baseTypeExpr,
                                                   const std::vector<const TxTypeArgumentNode*>& typeArguments, bool mutableType ) {
-    const TxActualType* genBaseType = const_cast<TxTypeExpressionNode*>( baseTypeExpr )->resolve_type( TXP_TYPE ).type();
+    const TxActualType* genBaseType = const_cast<TxTypeExpressionNode*>( baseTypeExpr )->resolve_type( TXP_TYPE_CREATION ).type();
     return this->get_inner_type_specialization( definer, genBaseType, typeArguments, mutableType );
 }
 
@@ -772,7 +772,7 @@ TxActualType* TypeRegistry::get_interface_adapter( const TxNode* origin, const T
 
     if ( auto existingAdapterSymbol = dynamic_cast<TxEntitySymbol*>( scope->get_member_symbol( adapterName ) ) ) {
         if ( auto typeDecl = existingAdapterSymbol->get_type_decl() ) {
-            auto adapterType = typeDecl->get_definer()->resolve_type( TXP_TYPE ).type();
+            auto adapterType = typeDecl->get_definer()->resolve_type( TXP_TYPE_CREATION ).type();
             //std::cerr << "Getting existing interface adapter: " << adapterType << std::endl;
             return const_cast<TxActualType*>(adapterType);
         }
@@ -802,6 +802,6 @@ TxActualType* TypeRegistry::get_interface_adapter( const TxNode* origin, const T
 
     this->add_reinterpretation( adapterDeclNode );
 
-    auto adapterType = const_cast<TxActualType*>( adapterTypeNode->resolve_type( TXP_TYPE ).type() );
+    auto adapterType = const_cast<TxActualType*>( adapterTypeNode->resolve_type( TXP_TYPE_CREATION ).type() );
     return adapterType;
 }

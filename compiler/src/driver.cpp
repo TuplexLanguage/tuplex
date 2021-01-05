@@ -239,7 +239,7 @@ int TxDriver::compile( const std::vector<std::string>& startSourceFiles, const s
             _LOG.info( "+ Type preparation pass OK" );
     }
 
-    _LOG.info( "Number of AST nodes created: %u", TxNode::nextNodeId );
+    _LOG.info( "Number of AST nodes created: %u", TxNode::nodes_created_count() );
 
     if ( this->options.dump_ast ) {
         auto visitorFunc = []( const TxNode* node, const AstCursor& parent, const std::string& role, void* ctx ) {

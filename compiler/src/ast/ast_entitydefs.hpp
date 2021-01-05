@@ -63,7 +63,7 @@ protected:
     virtual TxQualType define_type( TxPassInfo passInfo ) = 0;
 
     void resolution_pass() override {
-        this->resolve_type( TXP_RESOLUTION );
+        this->resolve_type( TXP_FULL_RESOLUTION );
     }
 
 public:

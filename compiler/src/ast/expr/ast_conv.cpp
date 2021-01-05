@@ -114,7 +114,7 @@ static bool statically_converts_to( TxExpressionNode* originalExpr, TxQualType o
 
 
 bool auto_converts_to( TxExpressionNode* originalExpr, TxQualType requiredType ) {
-    auto originalType = originalExpr->resolve_type( TXP_RESOLUTION );
+    auto originalType = originalExpr->resolve_type( TXP_FULL_RESOLUTION );
     return ( originalType->auto_converts_to( *requiredType )
              || ( originalType->is_scalar() && requiredType->is_scalar()
                   && statically_converts_to( originalExpr, originalType.type(), requiredType ) ) );
@@ -190,7 +190,7 @@ static TxExpressionNode* inner_validate_wrap_convert( TxExpressionNode* original
                                                       TxQualType requiredType,
                                                       bool _explicit ) {
     // Note: Resolution pass is not run on the created wrapper nodes.
-    auto originalType = originalExpr->resolve_type( TXP_RESOLUTION );
+    auto originalType = originalExpr->resolve_type( TXP_FULL_RESOLUTION );
 
     if ( auto newExpr = inner_wrap_conversion( originalExpr, originalType, requiredType, _explicit ) )
         return newExpr;
@@ -215,7 +215,7 @@ static TxExpressionNode* inner_validate_wrap_convert( TxExpressionNode* original
                     auto refConvNode = new TxReferenceConvNode( refToNode, requiredType );
                     refConvNode->node_declaration_pass( originalExpr->parent() );
                     refToNode->node_declaration_pass( refConvNode );
-                    refToNode->resolve_type( TXP_RESOLUTION );  // ensure 'inner' conversion node gets resolved
+                    refToNode->resolve_type( TXP_FULL_RESOLUTION );  // ensure 'inner' conversion node gets resolved
                     return refConvNode;
                 }
             }
@@ -231,7 +231,7 @@ static TxExpressionNode* inner_validate_wrap_convert( TxExpressionNode* original
                 auto derefNode = new TxReferenceDerefNode( originalExpr->ploc, originalExpr );
                 derefNode->node_declaration_pass( originalExpr->parent() );
                 if ( auto newExpr = inner_wrap_conversion( derefNode, origRefTargetType, requiredType, _explicit ) ) {
-                    derefNode->resolve_type( TXP_RESOLUTION );  // ensure 'inner' conversion node gets resolved
+                    derefNode->resolve_type( TXP_FULL_RESOLUTION );  // ensure 'inner' conversion node gets resolved
                     return newExpr;
                 }
             }

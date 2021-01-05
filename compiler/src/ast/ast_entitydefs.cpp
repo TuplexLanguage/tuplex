@@ -1,7 +1,7 @@
 #include "ast_entitydefs.hpp"
 #include "symbol/type_base.hpp"
 
-static unsigned indent = 0;
+//static unsigned indent = 0;
 
 TxQualType TxTypeResolvingNode::resolve_type( TxPassInfo passInfo ) {
     ASSERT( this->is_context_set(), "Declaration pass has not been run (lexctx not set) before resolving " << this );

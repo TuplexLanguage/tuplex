@@ -199,6 +199,8 @@ Inclusive ranges syntax, e.g. 1..=10 for [1,10] inclusive - DONE
 
 !! NEXT:  Arrays and Ranges site pages
 
+!! NEXT:  Make interface required keyword for interface definitions, and make them implicitly mutable
+
 !! NEXT:  Change keyword from 'virtual' to 'static'
 
 !! NEXT:  Colon after sub-module header
@@ -339,6 +341,12 @@ Multi-valued function returns (i.e. return tuple)
 
 Miscellaneous
 -------------
+Optimize codegen by not duplicating equivalent method specializations:
+- Many methods can be shared across specializations - e.g. for mod and non-mod type bindings, and if the method
+  is not directly dependent on the binding's type. Many ref-constrained type paramas will also allow for
+  shared code generation.
+- Possibly, skip methods not used. Note that if a method is used by any specialization, it must be included
+  in vtable layout for all the specializations of that generic base type.
 
 value equals in String
 
