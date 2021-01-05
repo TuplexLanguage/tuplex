@@ -972,7 +972,7 @@ void BuiltinTypes::resolveBuiltinSymbols() {
     // ensure that all built-in types are created and resolved:
     for ( unsigned id = 0; id < BuiltinTypeId_COUNT; id++ ) {
         ASSERT( this->builtinTypes[id], "Uninitialized built-in type! id=" << id );
-        this->builtinTypes[id]->typeCreatingNode->resolve_type( TXP_FULL_RESOLUTION );
+        this->builtinTypes[id]->typeCreatingNode->resolve_type( TXR_FULL_RESOLUTION );
     }
 }
 

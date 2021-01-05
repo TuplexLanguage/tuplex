@@ -79,7 +79,7 @@ void TxMemberInitNode::visit_descendants( const AstVisitor& visitor, const AstCu
         if ( this->constructorCallExpr->callee->is_context_set() ) {
             auto constrCallee = static_cast<TxConstructorCalleeExprNode*>( this->constructorCallExpr->callee );
             try {
-                if ( constrCallee->get_constructed_type( TXP_TYPE_CREATION )->is_generic_param() ) {
+                if ( constrCallee->get_constructed_type( TXR_TYPE_CREATION )->is_generic_param() ) {
                     //std::cerr << this << " skipping visit of " << this->constructorCallExpr << std::endl;
                     return;
                 }
@@ -117,7 +117,7 @@ void TxInitStmtNode::stmt_declaration_pass() {
 }
 
 void TxInitStmtNode::resolution_pass() {
-    auto qtype = this->selfSuperStmt->resolve_type( TXP_FULL_RESOLUTION );
+    auto qtype = this->selfSuperStmt->resolve_type( TXR_FULL_RESOLUTION );
     if ( qtype->is_builtin() )
         return;
 
@@ -132,7 +132,7 @@ void TxInitStmtNode::resolution_pass() {
     if ( initClauseI == this->initClauseList->end() || (*initClauseI)->get_identifier()->ident() != "super" ) {
         auto superType = qtype->get_base_type();
         if ( superType->get_constructors().size() == 1
-             && superType->get_constructors().front()->get_definer()->resolve_type( TXP_FULL_RESOLUTION )->argument_types().empty() ) {
+             && superType->get_constructors().front()->get_definer()->resolve_type( TXR_FULL_RESOLUTION )->argument_types().empty() ) {
             // syntactic sugar to implicitly prepend 'super()' if base type has a single no-args constructor
             LOG_DEBUG( this->LOGGER(), "Implicit invokation of super() from " << this );
             auto implicitSuper = new TxMemberInitNode( ploc, new TxIdentifierNode( ploc, "super" ),
@@ -230,7 +230,7 @@ void TxReturnStmtNode::resolution_pass() {
         auto retField = funcHeader->returnField->resolve_field();
         if ( this->expr ) {
             // strip qualifiers since this only copies value
-            this->expr->insert_conversion( TXP_FULL_RESOLUTION, retField->qtype().type() );
+            this->expr->insert_conversion( TXR_FULL_RESOLUTION, retField->qtype().type() );
         }
         else
             CERROR( this, "Return statement has no value expression although function returns " << retField->qtype() );
@@ -246,19 +246,19 @@ void TxSuiteNode::stmt_declaration_pass() {
 
 
 void TxAssignStmtNode::resolution_pass() {
-    auto ltype = this->lvalue->resolve_type( TXP_FULL_RESOLUTION ).type();  // strip qualifiers since this only copies value
+    auto ltype = this->lvalue->resolve_type( TXR_FULL_RESOLUTION ).type();  // strip qualifiers since this only copies value
     if ( ltype->get_type_class() == TXTC_ARRAY ) {
         // This implementation relaxes the auto-conversion check to allow assignment of arrays with unknown C.
         // (Sufficient capacity is checked in runtime.)
-        auto rtype = this->rvalue->originalExpr->resolve_type( TXP_FULL_RESOLUTION );
+        auto rtype = this->rvalue->originalExpr->resolve_type( TXR_FULL_RESOLUTION );
         if ( rtype->get_type_class() == TXTC_REFERENCE ) {
-            this->rvalue->insert_conversion( TXP_FULL_RESOLUTION, rtype->target_type().type() );
+            this->rvalue->insert_conversion( TXR_FULL_RESOLUTION, rtype->target_type().type() );
         }
         else
-            this->rvalue->resolve_type( TXP_FULL_RESOLUTION );
+            this->rvalue->resolve_type( TXR_FULL_RESOLUTION );
     }
     else
-        this->rvalue->insert_conversion( TXP_FULL_RESOLUTION, ltype );
+        this->rvalue->insert_conversion( TXR_FULL_RESOLUTION, ltype );
 }
 
 void TxAssignStmtNode::verification_pass() const {

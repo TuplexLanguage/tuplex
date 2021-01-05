@@ -39,16 +39,16 @@ typedef struct {
 } __attribute__((aligned(64))) AstVisitor;
 
 
-//enum TxPass {
-//    TXP_NIL, TXP_PARSE, TXP_DECLARATION, TXP_TYPE, TXP_RESOLUTION, TXP_VERIFICATION, TXP_CODEGEN
-//};
+enum TxPass {
+    TXP_NIL, TXP_PARSE, TXP_DECLARATION, TXP_TYPE, TXP_RESOLUTION, TXP_VERIFICATION, TXP_CODEGEN
+};
 
 /** Used as parameter to type resolution methods to specify current / needed resolution level:
  * resolve_type(), define_type()
  * get_constructed_type(), insert_conversion(), insert_qual_conversion()
  */
 enum TxTypeResLevel {
-    TXP_TYPE_CREATION, TXP_FULL_RESOLUTION
+    TXR_TYPE_CREATION, TXR_FULL_RESOLUTION
 };
 
 //typedef unsigned TxPassInfo;

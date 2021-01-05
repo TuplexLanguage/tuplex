@@ -60,7 +60,7 @@ class TxCondClauseNode : public TxFlowHeaderNode {
 
 protected:
     virtual void resolution_pass() override {
-        this->condExpr->insert_conversion( TXP_FULL_RESOLUTION, this->registry().get_builtin_type( TXBT_BOOL ) );
+        this->condExpr->insert_conversion( TXR_FULL_RESOLUTION, this->registry().get_builtin_type( TXBT_BOOL ) );
     }
 
 public:

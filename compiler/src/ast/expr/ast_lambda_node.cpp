@@ -37,7 +37,7 @@ void TxLambdaExprNode::declaration_pass() {
 bool TxLambdaExprNode::is_suppressed_modifying_method() const {
     return ( this->funcHeaderNode->is_modifying()
              && this->context().reinterpretation_definer()
-             && this->selfTypeNode && !this->selfTypeNode->resolve_type( TXP_TYPE_CREATION )->is_mutable() );
+             && this->selfTypeNode && !this->selfTypeNode->resolve_type( TXR_TYPE_CREATION )->is_mutable() );
 }
 
 static unsigned check_initializer_count( const TxStatementNode* stmt, unsigned count ) {

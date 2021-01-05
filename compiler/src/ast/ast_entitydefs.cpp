@@ -28,7 +28,7 @@ TxQualType TxTypeResolvingNode::resolve_type( TxTypeResLevel typeResLevel ) {
         ASSERT( this->_type, "NULL-resolved type but no exception thrown in " << this );
         this->hasResolved = true;
     }
-    if ( typeResLevel == TXP_FULL_RESOLUTION && !this->_type->is_integrated() ) {
+    if ( typeResLevel == TXR_FULL_RESOLUTION && !this->_type->is_integrated() ) {
         const_cast<TxActualType*>(this->_type.type())->integrate();
     }
     return this->_type;
