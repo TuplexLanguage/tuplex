@@ -254,20 +254,20 @@ TxExpressionNode* make_conversion( TxExpressionNode* originalExpr, TxQualType re
 }
 
 
-TxQualType TxMaybeConversionNode::define_type( TxPassInfo passInfo ) {
+TxQualType TxMaybeConversionNode::define_type( TxTypeResLevel typeResLevel ) {
 //    if (get_node_id()==22303)
 //        std::cerr << "HERE " << this << std::endl;
     if ( this->insertedResultType ) {
         this->resolvedExpr = make_conversion( this->originalExpr, this->insertedResultType, this->_explicit );
     }
-    return this->resolvedExpr->resolve_type( passInfo );
+    return this->resolvedExpr->resolve_type( typeResLevel );
 }
 
-void TxMaybeConversionNode::insert_conversion( TxPassInfo passInfo, const TxActualType* resultType, bool _explicit ) {
-    this->insert_qual_conversion( passInfo, resultType, _explicit);
+void TxMaybeConversionNode::insert_conversion( TxTypeResLevel typeResLevel, const TxActualType* resultType, bool _explicit ) {
+    this->insert_qual_conversion( typeResLevel, resultType, _explicit);
 }
 
-void TxMaybeConversionNode::insert_qual_conversion( TxPassInfo passInfo, TxQualType resultType, bool _explicit ) {
+void TxMaybeConversionNode::insert_qual_conversion( TxTypeResLevel typeResLevel, TxQualType resultType, bool _explicit ) {
 //    if (get_node_id()==9308)
 //        std::cerr << "HERE " << this << std::endl;
     ASSERT( this->originalExpr->is_context_set(), "declaration pass not yet run on originalExpr" );
@@ -280,7 +280,7 @@ void TxMaybeConversionNode::insert_qual_conversion( TxPassInfo passInfo, TxQualT
     this->insertedResultType = resultType;
     this->_explicit = _explicit;
 
-    this->resolve_type( passInfo );
+    this->resolve_type( typeResLevel );
 }
 
 
@@ -295,10 +295,10 @@ static bool equivalent_target_types( TxQualType typeA, TxQualType typeB ) {
     return ( *typeA == *typeB );
 }
 
-TxQualType TxReferenceConvNode::define_type( TxPassInfo passInfo ) {
+TxQualType TxReferenceConvNode::define_type( TxTypeResLevel typeResLevel ) {
     auto resultTargetType = this->resultType->target_type();
     if ( resultTargetType->get_type_class() == TXTC_INTERFACE ) {
-        auto origTargetType = this->expr->resolve_type( passInfo )->target_type();
+        auto origTargetType = this->expr->resolve_type( typeResLevel )->target_type();
         if ( origTargetType->get_type_class() == TXTC_INTERFACE ) {
             if ( !origTargetType->is_a_primary_path( *resultTargetType ) )
                 CERR_THROWRES( this, "Can't convert from one interface-ref to another interface-ref that is not a primary derivation" );
@@ -311,5 +311,5 @@ TxQualType TxReferenceConvNode::define_type( TxPassInfo passInfo ) {
             // (earlier we created a reference type to the adapter type, but shouldn't be necessary, doesn't affect code generation)
         }
     }
-    return TxConversionNode::define_type( passInfo );  // returns the required resultType
+    return TxConversionNode::define_type( typeResLevel );  // returns the required resultType
 }

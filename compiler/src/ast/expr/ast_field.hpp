@@ -50,7 +50,7 @@ class TxFieldValueNode : public TxExpressionNode {
     const TxEntityDeclaration* resolve_decl();
 
 protected:
-    virtual TxQualType define_type( TxPassInfo passInfo ) override;
+    virtual TxQualType define_type( TxTypeResLevel typeResLevel ) override;
 
 public:
     TxTypeResolvingNode* baseExpr;
@@ -95,7 +95,7 @@ public:
         return this->declaration;
     }
 
-    virtual const TxActualType* get_constructed_type( TxPassInfo passInfo ) const override {
+    virtual const TxActualType* get_constructed_type( TxTypeResLevel typeResLevel ) const override {
         return constructedType;
     }
 
@@ -118,8 +118,8 @@ public:
 /** Identifies a field via name. */
 class TxNamedFieldNode : public TxExpressionNode {
 protected:
-    virtual TxQualType define_type( TxPassInfo passInfo ) override {
-        return this->exprNode->resolve_type( passInfo );
+    virtual TxQualType define_type( TxTypeResLevel typeResLevel ) override {
+        return this->exprNode->resolve_type( typeResLevel );
     }
 
     virtual void verification_pass() const override;
@@ -146,8 +146,8 @@ public:
         this->exprNode->set_applied_func_args( appliedTypeParameters );
     }
 
-    virtual const TxActualType* get_constructed_type( TxPassInfo passInfo ) const override {
-        return this->exprNode->get_constructed_type( passInfo );
+    virtual const TxActualType* get_constructed_type( TxTypeResLevel typeResLevel ) const override {
+        return this->exprNode->get_constructed_type( typeResLevel );
     }
 
 
@@ -189,8 +189,8 @@ public:
 
 class TxFieldAssigneeNode : public TxAssigneeNode {
 protected:
-    virtual TxQualType define_type( TxPassInfo passInfo ) override {
-        return this->fieldNode->resolve_type( passInfo );
+    virtual TxQualType define_type( TxTypeResLevel typeResLevel ) override {
+        return this->fieldNode->resolve_type( typeResLevel );
     }
 
     virtual void verification_pass() const override;

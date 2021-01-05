@@ -21,23 +21,23 @@ void TxTypeCreatingNode::type_pass() {
     const_cast<TxActualType*>(type.type())->integrate();
 }
 
-TxQualType TxTypeCreatingNode::define_type( TxPassInfo passInfo ) {
-    return this->create_type( passInfo );
+TxQualType TxTypeCreatingNode::define_type( TxTypeResLevel typeResLevel ) {
+    return this->create_type( typeResLevel );
 }
 
 // an attempt to make types resolve base types immediately, and parameters later (here):
-//TxQualType TxTypeCreatingNode::resolve_type( TxPassInfo passInfo ) {
+//TxQualType TxTypeCreatingNode::resolve_type( TxPassInfo typeResLevel ) {
 //    bool previouslyCreated = bool( this->_type );
-//    auto type = TxTypeExpressionNode::resolve_type( passInfo );
-//    if ( !previouslyCreated && passInfo == TXP_TYPE )
+//    auto type = TxTypeExpressionNode::resolve_type( typeResLevel );
+//    if ( !previouslyCreated && typeResLevel == TXP_TYPE )
 //        const_cast<TxActualType*>(type.type())->resolve_params( TXP_TYPE );
 //    return type;
 //}
 
 
-TxActualType* TxAliasTypeNode::create_type( TxPassInfo passInfo ) {
+TxActualType* TxAliasTypeNode::create_type( TxTypeResLevel typeResLevel ) {
     // create alias (a declaration referring to a type already declared and defined elsewhere)
-    return const_cast<TxActualType*>( this->baseTypeNode->resolve_type( passInfo ).type() );
+    return const_cast<TxActualType*>( this->baseTypeNode->resolve_type( typeResLevel ).type() );
 }
 
 
@@ -46,7 +46,7 @@ void TxGenParamTypeNode::set_requires_mutable( bool mut ) {
     this->constraintTypeNode->set_requires_mutable( mut );  // FIXME: investigate how to determine this
 }
 
-TxActualType* TxGenParamTypeNode::create_type( TxPassInfo passInfo ) {
+TxActualType* TxGenParamTypeNode::create_type( TxTypeResLevel typeResLevel ) {
     // create empty specialization (uniquely named but identical type)
     return this->registry().create_type( this->get_declaration(), this->constraintTypeNode, {}, true /*this->requires_mutable_type()*/ );
 }

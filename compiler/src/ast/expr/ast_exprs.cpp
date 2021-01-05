@@ -7,9 +7,9 @@
 #include "symbol/symbol_lookup.hpp"
 
 
-TxQualType TxConstructorCalleeExprNode::define_type( TxPassInfo passInfo ) {
+TxQualType TxConstructorCalleeExprNode::define_type( TxTypeResLevel typeResLevel ) {
     ASSERT( this->appliedFuncArgs, "appliedFuncArgTypes of TxConstructorCalleeExprNode not initialized" );
-    auto allocType = this->objectExpr->resolve_type( passInfo );
+    auto allocType = this->objectExpr->resolve_type( typeResLevel );
     // find the constructor (note, constructors aren't inherited):
     this->declaration = resolve_constructor( this, allocType.type(), this->appliedFuncArgs );
     return this->declaration->get_definer()->resolve_field()->qtype();
@@ -22,13 +22,13 @@ TxFunctionCallNode::TxFunctionCallNode( const TxLocation& ploc, TxExpressionNode
     this->callee->set_applied_func_args( this->origArgsExprList );
 }
 
-TxQualType TxFunctionCallNode::define_type( TxPassInfo passInfo ) {
+TxQualType TxFunctionCallNode::define_type( TxTypeResLevel typeResLevel ) {
     // The resolution here shall resolve to the function signature that *closest* matches the argument types,
     // but also takes automatic (implicit) type conversions into account (if needed).
     // The automatic type conversions thus considered shall then be applied upon function invocation.
     // Prepare for resolving possible function overloading by registering actual function signature with
     // the callee node, BEFORE the callee node type is resolved:
-    auto ctype = this->callee->resolve_type( passInfo ).type();
+    auto ctype = this->callee->resolve_type( typeResLevel ).type();
     if ( ctype->get_type_class() != TXTC_FUNCTION ) {
         CERR_THROWRES( this, "Callee of function call expression is not of function type: " << ctype );
     }
@@ -41,7 +41,7 @@ TxQualType TxFunctionCallNode::define_type( TxPassInfo passInfo ) {
         if ( !dynamic_cast<TxConstructorCalleeExprNode*>( this->callee ) ) {  // (prevents infinite recursion)
             ASSERT( dynamic_cast<TxNamedFieldNode*>( this->callee ), "not a TxNamedFieldNode: " << this->callee );
             auto calleeField = static_cast<TxNamedFieldNode*>( this->callee );
-            auto constructedType = calleeField->get_constructed_type( passInfo );
+            auto constructedType = calleeField->get_constructed_type( typeResLevel );
             auto typeDeclNode = new TxQualTypeExprNode( new TxTypeDeclWrapperNode( this->ploc, constructedType->get_declaration() ) );
 
             // Implementation note: Declaration pass is already run on the args, but we need to run it on the new construction node
@@ -105,7 +105,7 @@ TxQualType TxFunctionCallNode::define_type( TxPassInfo passInfo ) {
                 // note: similar rules to assignment
                 // no qualifiers since this only copies value
                 // TODO: check dataspace rules if function arg is a reference
-                argExpr->insert_conversion( passInfo, argDefType );  // generates compilation error upon mismatch
+                argExpr->insert_conversion( typeResLevel, argDefType );  // generates compilation error upon mismatch
             }
         }
 
@@ -122,7 +122,7 @@ TxQualType TxFunctionCallNode::define_type( TxPassInfo passInfo ) {
         this->inlinedExpression = inlineCalleeType->make_inline_expr( this->callee, this->argsExprList );
     }
 
-    if ( auto constructedType = this->callee->get_constructed_type( passInfo ) ) {
+    if ( auto constructedType = this->callee->get_constructed_type( typeResLevel ) ) {
         // constructor functions return void but the constructor invocation expression yields the constructed type
         return constructedType;
     }
@@ -132,7 +132,7 @@ TxQualType TxFunctionCallNode::define_type( TxPassInfo passInfo ) {
 
 
 
-static const TxActualType* make_mutable_specialization( TxPassInfo passInfo, TxNode* origin, const TxActualType* origType,
+static const TxActualType* make_mutable_specialization( TxTypeResLevel typeResLevel, TxNode* origin, const TxActualType* origType,
                                                         const TxActualType* newSemBase=nullptr ) {
     const TxLocation& loc = origin->ploc;
     auto newbindings = new std::vector<TxTypeArgumentNode*>();
@@ -163,31 +163,31 @@ static const TxActualType* make_mutable_specialization( TxPassInfo passInfo, TxN
     auto mutTypeDef = new TxGenSpecTypeNode( loc, genBaseTypeNode, newbindings );
     mutTypeDef->set_requires_mutable( true );
     run_declaration_pass( mutTypeDef, origin, "mut-type" );
-    auto type = mutTypeDef->resolve_type( passInfo ).type();
+    auto type = mutTypeDef->resolve_type( typeResLevel ).type();
     LOG_DEBUG( origin->LOGGER(), "Created mutable specialization for " << origin << ": " << type );
     return type;
 }
 
-static const TxActualType* get_mutable_specialization( TxPassInfo passInfo, TxNode* origin, const TxActualType* type ) {
+static const TxActualType* get_mutable_specialization( TxTypeResLevel typeResLevel, TxNode* origin, const TxActualType* type ) {
     if ( !type->is_generic_specialization() )
         CERR_THROWRES( origin, "Can't specialize mutable type from base type: " << type );;
     if ( type->get_semantic_base_type()->is_mutable() )
-        return make_mutable_specialization( passInfo, origin, type );
+        return make_mutable_specialization( typeResLevel, origin, type );
     else {
-        auto newSemBase = get_mutable_specialization( passInfo, origin, type->get_semantic_base_type() );
-        return make_mutable_specialization( passInfo, origin, type, newSemBase );
+        auto newSemBase = get_mutable_specialization( typeResLevel, origin, type->get_semantic_base_type() );
+        return make_mutable_specialization( typeResLevel, origin, type, newSemBase );
     }
 }
 
-TxQualType TxModifiableValueNode::define_type( TxPassInfo passInfo ) {
-    TxQualType qtype = this->exprNode->resolve_type( passInfo );
+TxQualType TxModifiableValueNode::define_type( TxTypeResLevel typeResLevel ) {
+    TxQualType qtype = this->exprNode->resolve_type( typeResLevel );
     if ( !qtype.is_modifiable() ) {
         auto typeEnt = qtype.type();
         if ( !typeEnt->is_mutable() ) {
             if ( typeEnt->is_generic_specialization() && typeEnt->get_source_base_type()->is_mutable() ) {
                 // copying an immutable type to a modifiable field is ok if we can obtain the mutable specialization
                 // corresponding to the source's immutable specialization
-                qtype = TxQualType( get_mutable_specialization( passInfo, this->exprNode, typeEnt ), true );
+                qtype = TxQualType( get_mutable_specialization( typeResLevel, this->exprNode, typeEnt ), true );
                 //std::cerr << "Made mutable specialization from " << typeEnt << "  to " << qtype->type() << std::endl;
             }
             else

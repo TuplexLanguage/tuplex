@@ -12,8 +12,8 @@ class TxQualTypeExprNode : public TxTypeExpressionNode {
 protected:
     TxTypeExpressionNode* _typeNode;
 
-    virtual TxQualType define_type( TxPassInfo passInfo ) override {
-        return _typeNode->resolve_type( passInfo );
+    virtual TxQualType define_type( TxTypeResLevel typeResLevel ) override {
+        return _typeNode->resolve_type( typeResLevel );
     }
 
     virtual void verification_pass() const override;
@@ -51,7 +51,7 @@ public:
 class TxSetQualTypeExprNode : public TxQualTypeExprNode {
     bool _modifiable;
 
-    virtual TxQualType define_type( TxPassInfo passInfo ) override;
+    virtual TxQualType define_type( TxTypeResLevel typeResLevel ) override;
 
 public:
     TxSetQualTypeExprNode( const TxLocation& ploc, TxTypeExpressionNode* baseType, bool mod )
@@ -77,7 +77,7 @@ public:
 /** Automatically makes the qualified type modifiable if the actual type is mutable.
  * Used to automatically make constructors modifying (i.e. syntactic sugar). */
 class TxFlexModTypeExprNode : public TxQualTypeExprNode {
-    virtual TxQualType define_type( TxPassInfo passInfo ) override;
+    virtual TxQualType define_type( TxTypeResLevel typeResLevel ) override;
 
 public:
     TxFlexModTypeExprNode( const TxLocation& ploc, TxTypeExpressionNode* baseType )
@@ -98,7 +98,7 @@ protected:
 
     virtual void typeexpr_declaration_pass() override;
 
-    virtual TxQualType define_type( TxPassInfo passInfo ) override;
+    virtual TxQualType define_type( TxTypeResLevel typeResLevel ) override;
 
 public:
     TxModifiableTypeNode( const TxLocation& ploc, TxTypeExpressionNode* typeNode )
@@ -144,8 +144,8 @@ public:
 /** Removes the 'modifiable' modifier on a type. Should only be relevant in combination with TYPE type parameters. */
 class TxConstTypeNode : public TxQualTypeExprNode {
 protected:
-    virtual TxQualType define_type( TxPassInfo passInfo ) override {
-        return TxQualType( _typeNode->resolve_type( passInfo ).type(), false );
+    virtual TxQualType define_type( TxTypeResLevel typeResLevel ) override {
+        return TxQualType( _typeNode->resolve_type( typeResLevel ).type(), false );
     }
 
 public:

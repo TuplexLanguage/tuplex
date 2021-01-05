@@ -14,7 +14,7 @@ protected:
     const std::vector<TxExpressionNode*>* appliedFuncArgs = nullptr;
 
 //    virtual void resolution_pass() override {
-//        this->resolve_type( passInfo );
+//        this->resolve_type( typeResLevel );
 //    }
 
 public:
@@ -68,7 +68,7 @@ public:
     }
 
     /** Returns the constructed type, if this expression resolves to a constructor/initializer invocation, otherwise null. */
-    virtual const TxActualType* get_constructed_type( TxPassInfo passInfo ) const { return nullptr; }
+    virtual const TxActualType* get_constructed_type( TxTypeResLevel typeResLevel ) const { return nullptr; }
 
 
     /** Generates code that produces the type id (as opposed to the value) of this expression.

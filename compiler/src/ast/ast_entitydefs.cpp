@@ -3,10 +3,10 @@
 
 //static unsigned indent = 0;
 
-TxQualType TxTypeResolvingNode::resolve_type( TxPassInfo passInfo ) {
+TxQualType TxTypeResolvingNode::resolve_type( TxTypeResLevel typeResLevel ) {
     ASSERT( this->is_context_set(), "Declaration pass has not been run (lexctx not set) before resolving " << this );
     if ( !this->_type ) {
-        //std::cerr << std::string( indent, ' ' ) << "starting resolve of " << this << ", pass " << passInfo << std::endl; indent += 2;
+        //std::cerr << std::string( indent, ' ' ) << "starting resolve of " << this << ", pass " << typeResLevel << std::endl; indent += 2;
         if ( this->hasResolved ) {
             throw resolution_error( this, "Previous type resolution failed in " + this->str() );
         }
@@ -17,7 +17,7 @@ TxQualType TxTypeResolvingNode::resolve_type( TxPassInfo passInfo ) {
         }
         this->startedRslv = true;
         try {
-            this->_type = this->define_type( passInfo );
+            this->_type = this->define_type( typeResLevel );
             //indent -= 2; std::cerr << std::string( indent, ' ' ) << "completed resolve, type: " << this->_type << std::endl;
         }
         catch ( const resolution_error& err ) {
@@ -28,7 +28,7 @@ TxQualType TxTypeResolvingNode::resolve_type( TxPassInfo passInfo ) {
         ASSERT( this->_type, "NULL-resolved type but no exception thrown in " << this );
         this->hasResolved = true;
     }
-    if ( is_full_resolution( passInfo ) && !this->_type->is_integrated() ) {
+    if ( typeResLevel == TXP_FULL_RESOLUTION && !this->_type->is_integrated() ) {
         const_cast<TxActualType*>(this->_type.type())->integrate();
     }
     return this->_type;

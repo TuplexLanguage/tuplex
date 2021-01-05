@@ -20,7 +20,7 @@ class TxStringLitNode : public TxExpressionNode {
     TxTypeExpressionNode* arrayTypeNode;
 
 protected:
-    virtual TxQualType define_type( TxPassInfo passInfo ) override {
+    virtual TxQualType define_type( TxTypeResLevel typeResLevel ) override {
         return this->registry().get_string_type();
     }
 
@@ -60,8 +60,8 @@ protected:
         auto typeExpr = new TxQualTypeExprNode( new TxNamedTypeNode( this->ploc, "tx.MultiStringer") );
         this->stackConstr = new TxStackConstructionNode( this->ploc, typeExpr, &this->stringNodes );
     }
-    virtual TxQualType define_type( TxPassInfo passInfo ) override {
-        return this->stackConstr->resolve_type( passInfo );
+    virtual TxQualType define_type( TxTypeResLevel typeResLevel ) override {
+        return this->stackConstr->resolve_type( typeResLevel );
     }
 
 public:
@@ -124,8 +124,8 @@ protected:
         this->stackConstr = new TxStackConstructionNode( this->ploc, typeExpr, args );
     }
 
-    virtual TxQualType define_type( TxPassInfo passInfo ) override {
-        return this->stackConstr->resolve_type( passInfo );
+    virtual TxQualType define_type( TxTypeResLevel typeResLevel ) override {
+        return this->stackConstr->resolve_type( typeResLevel );
     }
 
 public:
@@ -165,8 +165,8 @@ private:
 
 
 protected:
-    virtual TxQualType define_type( TxPassInfo passInfo ) override {
-        return this->cstringTypeNode->resolve_type( passInfo );
+    virtual TxQualType define_type( TxTypeResLevel typeResLevel ) override {
+        return this->cstringTypeNode->resolve_type( typeResLevel );
     }
 
 public:

@@ -39,8 +39,8 @@ class TxReferenceDerefNode : public TxExpressionNode {
     mutable llvm::Value* refExprValue = nullptr;
 
 protected:
-    virtual TxQualType define_type( TxPassInfo passInfo ) override {
-        auto refType = this->reference->resolve_type( passInfo );
+    virtual TxQualType define_type( TxTypeResLevel typeResLevel ) override {
+        auto refType = this->reference->resolve_type( typeResLevel );
         if ( refType->get_type_class() != TXTC_REFERENCE )
             CERR_THROWRES( this, "Can't de-reference non-reference expression: " << refType );
         return refType->target_type();
@@ -84,7 +84,7 @@ protected:
         }
     }
 
-    virtual TxQualType define_type( TxPassInfo passInfo ) override {
+    virtual TxQualType define_type( TxTypeResLevel typeResLevel ) override {
         return this->registry().get_reference_type( this, this->targetTypeNode, nullptr );
     }
 
@@ -130,8 +130,8 @@ class TxDerefAssigneeNode : public TxAssigneeNode {
     mutable llvm::Value* refExprValue = nullptr;
 
 protected:
-    virtual TxQualType define_type( TxPassInfo passInfo ) override {
-        auto refType = this->reference->resolve_type( passInfo );
+    virtual TxQualType define_type( TxTypeResLevel typeResLevel ) override {
+        auto refType = this->reference->resolve_type( typeResLevel );
         if ( refType->get_type_class() != TXTC_REFERENCE )
             CERR_THROWRES( this, "Can't de-reference non-reference expression: " << refType );
         return refType->target_type();

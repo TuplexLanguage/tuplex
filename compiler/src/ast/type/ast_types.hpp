@@ -17,7 +17,7 @@ class TxNamedTypeNode : public TxTypeExpressionNode {
     TxExpressionNode* exprNode;
 
 protected:
-    TxQualType define_type( TxPassInfo passInfo ) override;
+    TxQualType define_type( TxTypeResLevel typeResLevel ) override;
 
 public:
 
@@ -46,7 +46,7 @@ public:
 /** Identifies a type that is a member of another type, which is determined by an arbitrary type expression. */
 class TxMemberTypeNode : public TxTypeExpressionNode {
 protected:
-    TxQualType define_type( TxPassInfo passInfo ) override;
+    TxQualType define_type( TxTypeResLevel typeResLevel ) override;
 
 public:
     TxTypeExpressionNode* baseTypeExpr;
@@ -76,7 +76,7 @@ public:
  */
 class TxGenSpecTypeNode : public TxTypeCreatingNode {
 protected:
-    TxActualType* create_type( TxPassInfo passInfo ) override;
+    TxActualType* create_type( TxTypeResLevel typeResLevel ) override;
 
     void verification_pass() const override {
         for ( TxTypeArgumentNode* ta : *this->typeArgs ) {
@@ -137,7 +137,7 @@ class TxReferenceTypeNode : public TxBuiltinTypeSpecNode {
     }
 
 protected:
-    TxActualType* create_type( TxPassInfo passInfo ) override;
+    TxActualType* create_type( TxTypeResLevel typeResLevel ) override;
 
 public:
 
@@ -171,7 +171,7 @@ class TxArrayTypeNode : public TxBuiltinTypeSpecNode {
     }
 
 protected:
-    TxActualType* create_type( TxPassInfo passInfo ) override;
+    TxActualType* create_type( TxTypeResLevel typeResLevel ) override;
 
     void verification_pass() const override {
         auto elemType = this->elementTypeNode->type_expr_node()->qtype();
@@ -234,7 +234,7 @@ protected:
         this->init_implicit_types();  // (can't run this before interfaceKW is known)
     }
 
-    TxActualType* create_type( TxPassInfo passInfo ) override;
+    TxActualType* create_type( TxTypeResLevel typeResLevel ) override;
 
 public:
     TxTypeExpressionNode* baseTypeNode;  // (set in declaration pass, if not explicitly provided)
@@ -289,7 +289,7 @@ class TxFunctionTypeNode : public TxTypeCreatingNode {
 protected:
     void typeexpr_declaration_pass() override;
 
-    TxActualType* create_type( TxPassInfo passInfo ) override;
+    TxActualType* create_type( TxTypeResLevel typeResLevel ) override;
 
     void verification_pass() const override {
         for ( auto argField : *this->arguments ) {

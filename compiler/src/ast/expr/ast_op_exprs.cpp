@@ -7,28 +7,28 @@
 #include "tx_lang_defs.hpp"
 
 
-void TxBinaryElemOperatorNode::match_binary_operand_types( TxPassInfo passInfo, const TxActualType* ltype, const TxActualType* rtype ) {
+void TxBinaryElemOperatorNode::match_binary_operand_types( TxTypeResLevel typeResLevel, const TxActualType* ltype, const TxActualType* rtype ) {
     if ( ltype != rtype ) {
         if ( auto_converts_to( this->rhs->originalExpr, ltype ) ) {
-            this->rhs->insert_conversion( passInfo, ltype );
-            this->lhs->resolve_type( passInfo );
+            this->rhs->insert_conversion( typeResLevel, ltype );
+            this->lhs->resolve_type( typeResLevel );
         }
         else if ( auto_converts_to( this->lhs->originalExpr, rtype ) ) {
-            this->lhs->insert_conversion( passInfo, rtype );
-            this->rhs->resolve_type( passInfo );
+            this->lhs->insert_conversion( typeResLevel, rtype );
+            this->rhs->resolve_type( typeResLevel );
         }
         else
             CERR_THROWRES( this, "Mismatching operand types for binary operator " << this->op << ": " << ltype << ", " << rtype );
     }
     else {
-        this->lhs->resolve_type( passInfo );
-        this->rhs->resolve_type( passInfo );
+        this->lhs->resolve_type( typeResLevel );
+        this->rhs->resolve_type( typeResLevel );
     }
 }
 
-TxQualType TxBinaryElemOperatorNode::define_type( TxPassInfo passInfo ) {
-    auto ltype = this->lhs->originalExpr->resolve_type( passInfo ).type();
-    auto rtype = this->rhs->originalExpr->resolve_type( passInfo ).type();
+TxQualType TxBinaryElemOperatorNode::define_type( TxTypeResLevel typeResLevel ) {
+    auto ltype = this->lhs->originalExpr->resolve_type( typeResLevel ).type();
+    auto rtype = this->rhs->originalExpr->resolve_type( typeResLevel ).type();
 
     if ( ltype->get_type_class() != TXTC_ELEMENTARY )
         CERR_THROWRES( this, "Left operand of " << this->op << " is not an elementary type: " << ltype );
@@ -44,7 +44,7 @@ TxQualType TxBinaryElemOperatorNode::define_type( TxPassInfo passInfo ) {
         if ( !rtype->is_scalar() )
             CERR_THROWRES( this, "Right operand of " << this->op << " is not of scalar type: " << rtype );
 
-        this->match_binary_operand_types( passInfo, ltype, rtype );
+        this->match_binary_operand_types( typeResLevel, ltype, rtype );
         break;
 
     case TXOC_LOGICAL:
@@ -57,7 +57,7 @@ TxQualType TxBinaryElemOperatorNode::define_type( TxPassInfo passInfo ) {
                 rtype->get_runtime_type_id() == TXBT_BOOL ) )
             CERR_THROWRES( this, "Right operand of " << this->op << " is not of integer or boolean type: " << rtype );
 
-        this->match_binary_operand_types( passInfo, ltype, rtype );
+        this->match_binary_operand_types( typeResLevel, ltype, rtype );
         break;
 
     case TXOC_SHIFT:
@@ -67,8 +67,8 @@ TxQualType TxBinaryElemOperatorNode::define_type( TxPassInfo passInfo ) {
             CERR_THROWRES( this, "Left operand of " << this->op << " is not of integer type: " << ltype );
         if ( !is_concrete_uinteger_type( rtype ) )
             CERR_THROWRES( this, "Right operand of " << this->op << " is not of unsigned integer type: " << rtype );
-        this->rhs->insert_conversion( passInfo, ltype );  // LLVM shift instructions require right operand to be same integer type as left one
-        this->lhs->resolve_type( passInfo );
+        this->rhs->insert_conversion( typeResLevel, ltype );  // LLVM shift instructions require right operand to be same integer type as left one
+        this->lhs->resolve_type( typeResLevel );
         break;
 
     default:
@@ -81,8 +81,8 @@ TxQualType TxBinaryElemOperatorNode::define_type( TxPassInfo passInfo ) {
         return this->lhs->qtype();
 }
 
-TxQualType TxUnaryMinusNode::define_type( TxPassInfo passInfo ) {
-    auto opType = this->operand->originalExpr->resolve_type( passInfo );
+TxQualType TxUnaryMinusNode::define_type( TxTypeResLevel typeResLevel ) {
+    auto opType = this->operand->originalExpr->resolve_type( typeResLevel );
     if ( !opType->is_scalar() )
         CERR_THROWRES( this, "Operand for unary '-' is not of scalar type: " << opType );
     if ( dynamic_cast<TxIntegerLitNode*>( this->operand->originalExpr ) )
@@ -119,33 +119,33 @@ TxQualType TxUnaryMinusNode::define_type( TxPassInfo passInfo ) {
     default:
         return opType;
     }
-    this->operand->insert_conversion( passInfo, opTypeEnt );
+    this->operand->insert_conversion( typeResLevel, opTypeEnt );
     return this->operand->qtype();
 }
 
-TxQualType TxUnaryLogicalNotNode::define_type( TxPassInfo passInfo ) {
+TxQualType TxUnaryLogicalNotNode::define_type( TxTypeResLevel typeResLevel ) {
     return TxQualType( this->registry().get_builtin_type( TXBT_BOOL ) );
 }
 
 
-TxQualType TxEqualityOperatorNode::define_type( TxPassInfo passInfo ) {
-    auto ltype = this->lhs->originalExpr->resolve_type( passInfo );
-    auto rtype = this->rhs->originalExpr->resolve_type( passInfo );
+TxQualType TxEqualityOperatorNode::define_type( TxTypeResLevel typeResLevel ) {
+    auto ltype = this->lhs->originalExpr->resolve_type( typeResLevel );
+    auto rtype = this->rhs->originalExpr->resolve_type( typeResLevel );
 
     if ( ltype->get_type_class() == TXTC_ELEMENTARY && rtype->get_type_class() == TXTC_ELEMENTARY ) {
         if ( ltype != rtype ) {
             if ( auto_converts_to( this->rhs->originalExpr, ltype ) ) {
-                this->rhs->insert_conversion( passInfo, ltype.type() );
+                this->rhs->insert_conversion( typeResLevel, ltype.type() );
             }
             else if ( auto_converts_to( this->lhs->originalExpr, rtype ) ) {
-                this->lhs->insert_conversion( passInfo, rtype.type() );
+                this->lhs->insert_conversion( typeResLevel, rtype.type() );
             }
             else
                 CERR_THROWRES( this, "Equality is always false: Incompatible operand types for equality operator: " << ltype << ", " << rtype );
         }
     }
-    this->lhs->resolve_type( passInfo );
-    this->rhs->resolve_type( passInfo );
+    this->lhs->resolve_type( typeResLevel );
+    this->rhs->resolve_type( typeResLevel );
 
     return TxQualType( this->registry().get_builtin_type( TXBT_BOOL ) );
 }
@@ -215,6 +215,6 @@ void TxRefEqualityOperatorNode::verification_pass() const {
         CERROR( this, "Right operand for identity equality operator is not a reference: " << rtype );
 }
 
-TxQualType TxRefEqualityOperatorNode::define_type( TxPassInfo passInfo ) {
+TxQualType TxRefEqualityOperatorNode::define_type( TxTypeResLevel typeResLevel ) {
     return TxQualType( this->registry().get_builtin_type( TXBT_BOOL ) );
 }

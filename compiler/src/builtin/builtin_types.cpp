@@ -128,7 +128,7 @@ protected:
         }
     }
 
-    TxActualType* create_type( TxPassInfo passInfo ) final {
+    TxActualType* create_type( TxTypeResLevel typeResLevel ) final {
         TxActualType* actType;
         if ( this->sourcecodeDefiner ) {
             // copy vector because of const conversion:
@@ -408,9 +408,9 @@ class TxDefConstructorTypeDefNode final : public TxBuiltinConstructorTypeDefNode
 protected:
     TxExpressionNode* initExprNode;
 
-    TxActualType* create_type( TxPassInfo passInfo ) override {
+    TxActualType* create_type( TxTypeResLevel typeResLevel ) override {
         auto actType = new TxBuiltinDefaultConstructorType( this->get_declaration(), this->registry().get_builtin_type( TXBT_FUNCTION ),
-                                                            this->returnField->resolve_type( passInfo ).type(),
+                                                            this->returnField->resolve_type( typeResLevel ).type(),
                                                             initExprNode );
         return actType;
     }
@@ -433,10 +433,10 @@ public:
 
 class TxConvConstructorTypeDefNode final : public TxBuiltinConstructorTypeDefNode {
 protected:
-    TxActualType* create_type( TxPassInfo passInfo ) override {
+    TxActualType* create_type( TxTypeResLevel typeResLevel ) override {
         auto actType = new TxBuiltinConversionFunctionType( this->get_declaration(), this->registry().get_builtin_type( TXBT_FUNCTION ),
-                                                            this->arguments->at( 0 )->resolve_type( passInfo ).type(),
-                                                            this->returnField->resolve_type( passInfo ).type() );
+                                                            this->arguments->at( 0 )->resolve_type( typeResLevel ).type(),
+                                                            this->returnField->resolve_type( typeResLevel ).type() );
         return actType;
     }
 
@@ -454,9 +454,9 @@ public:
 /** Assignment initializer, argument type is the same as the return type. */
 class TxAssignmentConstructorTypeDefNode final : public TxBuiltinConstructorTypeDefNode {
 protected:
-    TxActualType* create_type( TxPassInfo passInfo ) override {
+    TxActualType* create_type( TxTypeResLevel typeResLevel ) override {
         auto actType = new TxBuiltinAssignInitializerType( this->get_declaration(), this->registry().get_builtin_type( TXBT_FUNCTION ),
-                                                           this->arguments->at( 0 )->resolve_type( passInfo ).type() );
+                                                           this->arguments->at( 0 )->resolve_type( typeResLevel ).type() );
         return actType;
     }
 

@@ -14,7 +14,7 @@ class TxMaybeConversionNode : public TxExpressionNode {
     }
 
 protected:
-    virtual TxQualType define_type( TxPassInfo passInfo ) override;
+    virtual TxQualType define_type( TxTypeResLevel typeResLevel ) override;
 
     virtual void resolution_pass() override {
         // do nothing since shall not resolve before parent can insert conversion
@@ -40,10 +40,10 @@ public:
      * so that conversion isn't possible.
      * @param _explicit if true, forces conversion between types that don't permit implicit conversion
      */
-    void insert_conversion( TxPassInfo passInfo, const TxActualType* resultType, bool _explicit = false );
+    void insert_conversion( TxTypeResLevel typeResLevel, const TxActualType* resultType, bool _explicit = false );
 
     /** Like insert_conversion, but can specify required mutability. */
-    void insert_qual_conversion( TxPassInfo passInfo, TxQualType resultType, bool _explicit = false );
+    void insert_qual_conversion( TxTypeResLevel typeResLevel, TxQualType resultType, bool _explicit = false );
 
     virtual const TxExpressionNode* get_data_graph_origin_expr() const override {
         return this->get_expr()->get_data_graph_origin_expr();

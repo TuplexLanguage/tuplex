@@ -42,7 +42,7 @@ std::vector<TxQualType> attempt_typevec( const std::vector<Node*>* nodevec ) {
 //std::vector<const TxActualType*> resolve_typevec( const std::vector<Node*>* nodevec ) {
 //    std::vector<const TxActualType*> types = std::vector<const TxActualType*>( nodevec->size() );
 //    std::transform( nodevec->cbegin(), nodevec->cend(), types.begin(),
-//                    []( Node* node ) -> const TxActualType* { return node->resolve_type( passInfo ).type(); } );
+//                    []( Node* node ) -> const TxActualType* { return node->resolve_type( typeResLevel ).type(); } );
 //    return types;
 //}
 

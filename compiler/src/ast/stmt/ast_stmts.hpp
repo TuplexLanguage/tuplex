@@ -118,8 +118,8 @@ public:
     }
 
     /** Returns the current type (Self) */
-    TxQualType resolve_type( TxPassInfo passInfo ) {
-        return selfRefNode->resolve_type( passInfo )->target_type();
+    TxQualType resolve_type( TxTypeResLevel typeResLevel ) {
+        return selfRefNode->resolve_type( typeResLevel )->target_type();
     }
 
     /** Returns the current type (Self) */

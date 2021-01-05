@@ -16,10 +16,10 @@ public:
 
 /** A binary operation on two values of elementary types. */
 class TxBinaryElemOperatorNode : public TxOperatorValueNode {
-    void match_binary_operand_types( TxPassInfo passInfo, const TxActualType* ltype, const TxActualType* rtype );
+    void match_binary_operand_types( TxTypeResLevel typeResLevel, const TxActualType* ltype, const TxActualType* rtype );
 
 protected:
-    virtual TxQualType define_type( TxPassInfo passInfo ) override;
+    virtual TxQualType define_type( TxTypeResLevel typeResLevel ) override;
 
 public:
     const TxOperation op;
@@ -56,7 +56,7 @@ public:
 
 class TxUnaryMinusNode : public TxOperatorValueNode {
 protected:
-    virtual TxQualType define_type( TxPassInfo passInfo ) override;
+    virtual TxQualType define_type( TxTypeResLevel typeResLevel ) override;
 
 public:
     TxMaybeConversionNode* operand;
@@ -85,7 +85,7 @@ public:
 
 class TxUnaryLogicalNotNode : public TxOperatorValueNode {
 protected:
-    virtual TxQualType define_type( TxPassInfo passInfo ) override;
+    virtual TxQualType define_type( TxTypeResLevel typeResLevel ) override;
 
     virtual void verification_pass() const override {
         if ( auto qtype = operand->attempt_qtype() ) {
@@ -141,7 +141,7 @@ public:
  */
 class TxEqualityOperatorNode : public TxOperatorValueNode {
 protected:
-    virtual TxQualType define_type( TxPassInfo passInfo ) override;
+    virtual TxQualType define_type( TxTypeResLevel typeResLevel ) override;
 
     virtual void verification_pass() const override;
 
@@ -171,7 +171,7 @@ public:
 /** Equality comparison whether two Ref values refer to the same instance (identity equality). */
 class TxRefEqualityOperatorNode : public TxOperatorValueNode {
 protected:
-    virtual TxQualType define_type( TxPassInfo passInfo ) override;
+    virtual TxQualType define_type( TxTypeResLevel typeResLevel ) override;
 
     void verification_pass() const override;
 

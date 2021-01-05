@@ -294,7 +294,7 @@ void TxActualType::initialize_with_type_class( const TxTypeClassHandler* typeCla
     this->initialize_type();
 }
 
-void TxActualType::resolve_params( TxPassInfo pass ) {
+void TxActualType::resolve_params( TxTypeResLevel pass ) {
     // resolve type parameters, bindings:
     for ( auto paramDecl : this->params ) {
         paramDecl->get_definer()->resolve_type( pass );
@@ -1029,7 +1029,7 @@ bool TxActualType::is_type_generic_dependent() const {
                 if ( auto typebdecl = dynamic_cast<const TxTypeDeclaration*>( bdecl ) ) {
 //                    auto pname = bdecl->get_unique_name();
 //                    auto paramDecl = type->genericBaseType->get_type_param_decl( pname );
-//                    auto constraintType = paramDecl->get_definer()->resolve_type( passInfo );
+//                    auto constraintType = paramDecl->get_definer()->resolve_type( typeResLevel );
                     if ( //constraintType->get_type_class() != TXTC_REFERENCE &&
                          typebdecl->get_definer()->qtype()->is_type_generic_dependent() )
                         return true;
@@ -1247,9 +1247,9 @@ bool TxActualType::inner_equals( const TxActualType* thatType ) const {
                 bool eq = std::equal( thisBinds.cbegin(), thisBinds.cend(), thatBinds.cbegin(),
                                       [this, thatType] ( const TxEntityDeclaration* aEntDecl, const TxEntityDeclaration* bEntDecl )->bool {
                     if (dynamic_cast<const TxTypeDeclaration*>( aEntDecl )) {
-                        //std::cerr << "### comparing bindings.. " << aEntDecl->get_definer()->resolve_type( passInfo )->str(false) << std::endl
-                        //          << "                         " << bEntDecl->get_definer()->resolve_type( passInfo )->str(false) << std::endl;
-                        return ( aEntDecl->get_definer()->resolve_type( passInfo ) == bEntDecl->get_definer()->resolve_type( passInfo ) );
+                        //std::cerr << "### comparing bindings.. " << aEntDecl->get_definer()->resolve_type( typeResLevel )->str(false) << std::endl
+                        //          << "                         " << bEntDecl->get_definer()->resolve_type( typeResLevel )->str(false) << std::endl;
+                        return ( aEntDecl->get_definer()->resolve_type( typeResLevel ) == bEntDecl->get_definer()->resolve_type( typeResLevel ) );
                     }
                     else if (auto aInitExpr = static_cast<const TxFieldDeclaration*>( aEntDecl )->get_definer()->get_init_expression()) {
                         if (auto bInitExpr = static_cast<const TxFieldDeclaration*>( bEntDecl )->get_definer()->get_init_expression()) {

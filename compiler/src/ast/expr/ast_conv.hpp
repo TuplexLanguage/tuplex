@@ -22,7 +22,7 @@ protected:
     TxQualType resultType;
     TxExpressionNode* expr;
 
-    virtual TxQualType define_type( TxPassInfo passInfo ) override {
+    virtual TxQualType define_type( TxTypeResLevel typeResLevel ) override {
         return this->resultType;
     }
 public:
@@ -70,7 +70,7 @@ class TxReferenceConvNode : public TxConversionNode {
     const TxActualType* adapterType = nullptr;
 
 protected:
-    virtual TxQualType define_type( TxPassInfo passInfo ) override;
+    virtual TxQualType define_type( TxTypeResLevel typeResLevel ) override;
 
 public:
     TxReferenceConvNode( TxExpressionNode* expr, TxQualType refResultType )

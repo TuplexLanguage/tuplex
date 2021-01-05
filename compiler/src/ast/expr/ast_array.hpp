@@ -23,7 +23,7 @@ class TxFilledArrayLitNode : public TxArrayLitNode {
     bool _constant = false;
 
 protected:
-    virtual TxQualType define_type( TxPassInfo passInfo ) override;
+    virtual TxQualType define_type( TxTypeResLevel typeResLevel ) override;
 
     virtual void resolution_pass() override;
 
@@ -91,7 +91,7 @@ class TxUnfilledArrayLitNode : public TxArrayLitNode {
     TxTypeExpressionNode* arrayTypeNode;
 
 protected:
-    virtual TxQualType define_type( TxPassInfo passInfo ) override;
+    virtual TxQualType define_type( TxTypeResLevel typeResLevel ) override;
 
 public:
     /** Represents an unfilled array with the specified type. */
@@ -122,7 +122,7 @@ class TxUnfilledArrayCompLitNode : public TxArrayLitNode {
     TxMaybeConversionNode* capacityExpr;
 
 protected:
-    virtual TxQualType define_type( TxPassInfo passInfo ) override;
+    virtual TxQualType define_type( TxTypeResLevel typeResLevel ) override;
 
 public:
     /** Represents an unfilled array with the specified type. */
@@ -159,17 +159,17 @@ class TxElemDerefNode : public TxExpressionNode {
     bool _elemAssignment = false;
 
 protected:
-    virtual TxQualType define_type( TxPassInfo passInfo ) override {
-        this->subscript->insert_conversion( passInfo, this->registry().get_builtin_type( ARRAY_SUBSCRIPT_TYPE_ID ) );
+    virtual TxQualType define_type( TxTypeResLevel typeResLevel ) override {
+        this->subscript->insert_conversion( typeResLevel, this->registry().get_builtin_type( ARRAY_SUBSCRIPT_TYPE_ID ) );
 
-        auto opType = this->array->originalExpr->resolve_type( passInfo );
+        auto opType = this->array->originalExpr->resolve_type( typeResLevel );
         if ( opType->get_type_class() == TXTC_REFERENCE ) {
             auto targType = opType->target_type();
             if ( targType->get_type_class() == TXTC_ARRAY ) {
-                this->array->insert_qual_conversion( passInfo, targType );
+                this->array->insert_qual_conversion( typeResLevel, targType );
             }
         }
-        opType = this->array->resolve_type( passInfo );
+        opType = this->array->resolve_type( typeResLevel );
         if ( opType->get_type_class() != TXTC_ARRAY )
             CERR_THROWRES( this, "Can't subscript non-array expression: " << opType );
         return opType->element_type();
@@ -215,7 +215,7 @@ public:
 // TODO: Support negative array indexing.
 class TxElemAssigneeNode : public TxAssigneeNode {
 protected:
-    virtual TxQualType define_type( TxPassInfo passInfo ) override;
+    virtual TxQualType define_type( TxTypeResLevel typeResLevel ) override;
 
 public:
     TxMaybeConversionNode* array;
@@ -244,15 +244,15 @@ public:
 /** Internal assignee node for modifying the L field of an array (without mutability/modifiability or capacity checks) */
 class TxArrayLenAssigneeNode : public TxAssigneeNode {
 protected:
-    virtual TxQualType define_type( TxPassInfo passInfo ) override {
-        auto opType = this->array->originalExpr->resolve_type( passInfo );
+    virtual TxQualType define_type( TxTypeResLevel typeResLevel ) override {
+        auto opType = this->array->originalExpr->resolve_type( typeResLevel );
         if ( opType->get_type_class() == TXTC_REFERENCE ) {
             auto targType = opType->target_type();
             if ( targType->get_type_class() == TXTC_ARRAY ) {
-                this->array->insert_qual_conversion( passInfo, targType );
+                this->array->insert_qual_conversion( typeResLevel, targType );
             }
         }
-        opType = this->array->resolve_type( passInfo );
+        opType = this->array->resolve_type( typeResLevel );
         if ( opType->get_type_class() != TXTC_ARRAY )
             CERR_THROWRES( this, "Can't modify L of non-array assignee expression: " << opType );
 

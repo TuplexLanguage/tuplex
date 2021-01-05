@@ -43,17 +43,15 @@ typedef struct {
 //    TXP_NIL, TXP_PARSE, TXP_DECLARATION, TXP_TYPE, TXP_RESOLUTION, TXP_VERIFICATION, TXP_CODEGEN
 //};
 
-/** Used as parameter to type resolution methods to specify current analysis pass / needed resolusion level:
+/** Used as parameter to type resolution methods to specify current / needed resolution level:
  * resolve_type(), define_type()
  * get_constructed_type(), insert_conversion(), insert_qual_conversion()
  */
-enum TxPassInfo {
+enum TxTypeResLevel {
     TXP_TYPE_CREATION, TXP_FULL_RESOLUTION
 };
 
 //typedef unsigned TxPassInfo;
-
-inline bool is_full_resolution( TxPassInfo pi) { return ( pi >= TXP_FULL_RESOLUTION ); }
 
 
 class TxNode : public virtual TxParseOrigin, public Printable {

@@ -30,8 +30,8 @@ class TxLambdaExprNode : public TxExpressionNode {
 protected:
     virtual void declaration_pass() override;
 
-    virtual TxQualType define_type( TxPassInfo passInfo ) override {
-        return this->funcHeaderNode->resolve_type( passInfo );
+    virtual TxQualType define_type( TxTypeResLevel typeResLevel ) override {
+        return this->funcHeaderNode->resolve_type( typeResLevel );
     }
 
     virtual void verification_pass() const override;

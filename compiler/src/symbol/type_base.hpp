@@ -285,7 +285,7 @@ public:
     void initialize_with_type_class( const TxTypeClassHandler* typeClassInstance );
 
     /** resolve type parameters and bindings */
-    void resolve_params( TxPassInfo pass );
+    void resolve_params( TxTypeResLevel pass );
 
     /** Integrates this type with its declaration dependencies - base class, interfaces, generic parameters/bindings.
      * Will also initialize this type with its type class if is isn't already. */

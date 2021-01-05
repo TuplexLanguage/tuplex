@@ -29,5 +29,5 @@ bool TxExpressionNode::check_chain_mutable() const {
 
 //void TxTypeDefiningValExprNode::type_pass() {
 //    //std::cerr << "type_pass() of " << this << std::endl;
-//    this->resolve_type( passInfo );
+//    this->resolve_type( typeResLevel );
 //}

@@ -8,8 +8,8 @@
  */
 class TxExprWrapperNode : public TxExpressionNode {
 protected:
-    virtual TxQualType define_type( TxPassInfo passInfo ) override {
-        return this->exprNode->resolve_type( passInfo );
+    virtual TxQualType define_type( TxTypeResLevel typeResLevel ) override {
+        return this->exprNode->resolve_type( typeResLevel );
     }
 
 public:
@@ -71,8 +71,8 @@ public:
  */
 class TxTypeExprWrapperNode : public TxTypeExpressionNode {
 protected:
-    virtual TxQualType define_type( TxPassInfo passInfo ) override {
-        return this->typeResNode->resolve_type( passInfo );
+    virtual TxQualType define_type( TxTypeResLevel typeResLevel ) override {
+        return this->typeResNode->resolve_type( typeResLevel );
     }
 
 public:
@@ -122,8 +122,8 @@ class TxTypeDeclWrapperNode : public TxTypeExpressionNode {
     TxEntityDeclaration const * const typeDecl;
 
 protected:
-    virtual TxQualType define_type( TxPassInfo passInfo ) override {
-        return this->typeDecl->get_definer()->resolve_type( passInfo );
+    virtual TxQualType define_type( TxTypeResLevel typeResLevel ) override {
+        return this->typeDecl->get_definer()->resolve_type( typeResLevel );
     }
 
 public:

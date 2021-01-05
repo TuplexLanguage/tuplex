@@ -41,14 +41,14 @@ bool TxFieldDefiningNode::is_statically_constant() const {
 }
 
 
-//static const TxActualType* make_mutable_specialization( TxPassInfo passInfo, TxNode* origin, const TxActualType* origType,
+//static const TxActualType* make_mutable_specialization( TxPassInfo typeResLevel, TxNode* origin, const TxActualType* origType,
 //                                                        const TxActualType* newSemBase=nullptr ) {
 //    const TxLocation& loc = origin->ploc;
 //    auto newbindings = new std::vector<TxTypeArgumentNode*>();
 //    auto actType = origType;
 //    for ( auto bdecl : actType->get_bindings() ) {
 //        if ( auto btypedecl = dynamic_cast<const TxTypeDeclaration*>( bdecl ) ) {
-////            auto btype = btypedecl->get_definer()->resolve_type( passInfo );
+////            auto btype = btypedecl->get_definer()->resolve_type( typeResLevel );
 ////            if ( btype.is_modifiable() ) {
 ////                auto newbind = new TxTypeDeclWrapperNode( loc, btypedecl );
 ////                newbindings->push_back( new TxTypeArgumentNode( newbind ) );
@@ -73,27 +73,27 @@ bool TxFieldDefiningNode::is_statically_constant() const {
 //    auto mutTypeDef = new TxGenSpecTypeNode( loc, genBaseTypeNode, newbindings );
 //    mutTypeDef->set_requires_mutable( true );
 //    run_declaration_pass( mutTypeDef, origin, "mut-type" );
-//    auto type = mutTypeDef->resolve_type( passInfo ).type();
+//    auto type = mutTypeDef->resolve_type( typeResLevel ).type();
 //    LOG_DEBUG( origin->LOGGER(), "Created mutable specialization for " << origin << ": " << type );
 //    return type;
 //}
 //
-//static const TxActualType* get_mutable_specialization( TxPassInfo passInfo, TxNode* origin, const TxActualType* type ) {
+//static const TxActualType* get_mutable_specialization( TxPassInfo typeResLevel, TxNode* origin, const TxActualType* type ) {
 //    if ( !type->is_generic_specialization() )
 //        CERR_THROWRES( origin, "Can't specialize mutable type from base type: " << type );;
 //    if ( type->get_semantic_base_type()->is_mutable() )
-//        return make_mutable_specialization( passInfo, origin, type );
+//        return make_mutable_specialization( typeResLevel, origin, type );
 //    else {
-//        auto newSemBase = get_mutable_specialization( passInfo, origin, type->get_semantic_base_type() );
-//        return make_mutable_specialization( passInfo, origin, type, newSemBase );
+//        auto newSemBase = get_mutable_specialization( typeResLevel, origin, type->get_semantic_base_type() );
+//        return make_mutable_specialization( typeResLevel, origin, type, newSemBase );
 //    }
 //}
 
-TxQualType TxFieldDefiningNode::define_type( TxPassInfo passInfo ) {
+TxQualType TxFieldDefiningNode::define_type( TxTypeResLevel typeResLevel ) {
     LOG_TRACE( this->LOGGER(), "defining  type  of " << this );
     TxQualType qtype;
     if ( this->typeExpression ) {
-        qtype = this->typeExpression->resolve_type( passInfo );
+        qtype = this->typeExpression->resolve_type( typeResLevel );
         // also resolve initExpression from here, which guards against recursive field value initialization:
         if ( this->initExpression ) {
             if ( qtype->get_type_class() == TXTC_ARRAY ) {
@@ -110,12 +110,12 @@ TxQualType TxFieldDefiningNode::define_type( TxPassInfo passInfo ) {
                     // duplicated this check here from verification pass in order to provide better error messaging
                     CERR_THROWRES( this, "Field type is not concrete: " << this->get_descriptor() << " : " << qtype );
                 }
-                this->initExpression->insert_conversion( passInfo, qtype.type(), this->_explicit );
+                this->initExpression->insert_conversion( typeResLevel, qtype.type(), this->_explicit );
             }
         }
     }
     else {
-        qtype = this->initExpression->resolve_type( passInfo );
+        qtype = this->initExpression->resolve_type( typeResLevel );
         if ( !dynamic_cast<TxModifiableValueNode*>( this->initExpression->originalExpr )
              && !dynamic_cast<TxStackConstructionNode*>( this->initExpression->originalExpr ) ) {
             if ( qtype.is_modifiable() )

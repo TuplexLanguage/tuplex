@@ -28,7 +28,7 @@ protected:
     const TxFieldDeclaration* declaration = nullptr;
     mutable llvm::Constant* cachedConstantInitializer = nullptr;
 
-    virtual TxQualType define_type( TxPassInfo passInfo );
+    virtual TxQualType define_type( TxTypeResLevel typeResLevel );
 
     virtual const TxField* define_field();
 
@@ -78,7 +78,7 @@ public:
 
     /** Returns the type (as specific as can be known) of the value this field-defining node produces/uses.
      * @return a valid type pointer (exception is thrown upon failure) */
-    virtual TxQualType resolve_type( TxPassInfo passInfo ) override final {
+    virtual TxQualType resolve_type( TxTypeResLevel typeResLevel ) override final {
         this->resolve_field();
         return this->_type;
     }

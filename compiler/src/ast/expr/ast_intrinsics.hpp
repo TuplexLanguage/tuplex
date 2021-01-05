@@ -9,7 +9,7 @@
 /** intrinsic for _address( ref ) -> ULong */
 class TxRefAddressNode : public TxExpressionNode {
 protected:
-    virtual TxQualType define_type( TxPassInfo passInfo ) override {
+    virtual TxQualType define_type( TxTypeResLevel typeResLevel ) override {
         return this->registry().get_builtin_type( TXBT_ULONG );
     }
 
@@ -44,7 +44,7 @@ public:
 /** intrinsic for _typeid( ref ) -> UInt */
 class TxRefTypeIdNode : public TxExpressionNode {
 protected:
-    virtual TxQualType define_type( TxPassInfo passInfo ) override {
+    virtual TxQualType define_type( TxTypeResLevel typeResLevel ) override {
         return this->registry().get_builtin_type( TXBT_UINT );
     }
 
@@ -79,7 +79,7 @@ public:
 /** intrinsic for _typeid< type-expr > -> UInt */
 class TxTypeExprTypeIdNode : public TxExpressionNode {
 protected:
-    virtual TxQualType define_type( TxPassInfo passInfo ) override {
+    virtual TxQualType define_type( TxTypeResLevel typeResLevel ) override {
         return this->registry().get_builtin_type( TXBT_UINT );
     }
 
@@ -110,7 +110,7 @@ public:
 /** intrinsic for _sizeof( expr ) -> UInt */
 class TxSizeofExprNode : public TxExpressionNode {
 protected:
-    virtual TxQualType define_type( TxPassInfo passInfo ) override {
+    virtual TxQualType define_type( TxTypeResLevel typeResLevel ) override {
         return this->registry().get_builtin_type( TXBT_UINT );
     }
 
@@ -143,8 +143,8 @@ public:
 class TxSupertypesExprNode : public TxExpressionNode {
     TxTypeExpressionNode* typeExpr;
 protected:
-    virtual TxQualType define_type( TxPassInfo passInfo ) override {
-        return typeExpr->resolve_type( passInfo );
+    virtual TxQualType define_type( TxTypeResLevel typeResLevel ) override {
+        return typeExpr->resolve_type( typeResLevel );
     }
 
     virtual void verification_pass() const override {

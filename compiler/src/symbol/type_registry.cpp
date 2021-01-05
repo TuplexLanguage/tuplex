@@ -729,7 +729,7 @@ class TxAdapterTypeNode final : public TxTypeCreatingNode {
     const TxActualType* adaptedType;
 
 protected:
-    virtual TxActualType* create_type( TxPassInfo passInfo ) override {
+    virtual TxActualType* create_type( TxTypeResLevel typeResLevel ) override {
         auto adapterActType = new TxInterfaceAdapterType( this->get_declaration(), interfaceType, adaptedType );
         this->registry().add_type( adapterActType );
         return adapterActType;

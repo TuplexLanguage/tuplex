@@ -15,8 +15,8 @@ void TxQualTypeExprNode::verification_pass() const {
 }
 
 
-TxQualType TxSetQualTypeExprNode::define_type( TxPassInfo passInfo ) {
-    auto qtype = _typeNode->resolve_type( passInfo );
+TxQualType TxSetQualTypeExprNode::define_type( TxTypeResLevel typeResLevel ) {
+    auto qtype = _typeNode->resolve_type( typeResLevel );
     if ( _modifiable ) {
         if ( qtype.is_modifiable() ) {
             LOG_INFO( this->LOGGER(), "Double modifiability qualifier for type: " << qtype );
@@ -29,13 +29,13 @@ TxQualType TxSetQualTypeExprNode::define_type( TxPassInfo passInfo ) {
         return TxQualType( qtype.type(), false );
 }
 
-TxQualType TxFlexModTypeExprNode::define_type( TxPassInfo passInfo ) {
-    auto qtype = _typeNode->resolve_type( passInfo );
+TxQualType TxFlexModTypeExprNode::define_type( TxTypeResLevel typeResLevel ) {
+    auto qtype = _typeNode->resolve_type( typeResLevel );
     return TxQualType( qtype.type(), qtype->is_mutable() );
 }
 
-TxQualType TxModifiableTypeNode::define_type( TxPassInfo passInfo ) {
-    auto qtype = _typeNode->resolve_type( passInfo );
+TxQualType TxModifiableTypeNode::define_type( TxTypeResLevel typeResLevel ) {
+    auto qtype = _typeNode->resolve_type( typeResLevel );
     if ( this->is_modifiable() )
         return TxQualType( qtype.type(), true );
     else

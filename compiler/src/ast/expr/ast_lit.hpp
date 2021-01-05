@@ -62,7 +62,7 @@ class TxIntegerLitNode : public TxLiteralElementaryValueNode {
 protected:
     virtual void declaration_pass() override;
 
-    virtual TxQualType define_type( TxPassInfo passInfo ) override {
+    virtual TxQualType define_type( TxTypeResLevel typeResLevel ) override {
         return this->registry().get_builtin_type( this->constValue.typeId );
     }
 
@@ -115,7 +115,7 @@ class TxFloatingLitNode : public TxLiteralElementaryValueNode {
     FloatConstant constValue;
 
 protected:
-    virtual TxQualType define_type( TxPassInfo passInfo ) override {
+    virtual TxQualType define_type( TxTypeResLevel typeResLevel ) override {
         return this->registry().get_builtin_type( this->constValue.typeId );
     }
 
@@ -147,7 +147,7 @@ class TxBoolLitNode : public TxLiteralElementaryValueNode {
     static const std::string FALSE;
 
 protected:
-    virtual TxQualType define_type( TxPassInfo passInfo ) override {
+    virtual TxQualType define_type( TxTypeResLevel typeResLevel ) override {
         return this->registry().get_builtin_type( TXBT_BOOL );
     }
 
@@ -171,7 +171,7 @@ public:
 
 class TxCharacterLitNode : public TxLiteralElementaryValueNode {
 protected:
-    virtual TxQualType define_type( TxPassInfo passInfo ) override {
+    virtual TxQualType define_type( TxTypeResLevel typeResLevel ) override {
         return this->registry().get_builtin_type( TXBT_UBYTE );
     }
 

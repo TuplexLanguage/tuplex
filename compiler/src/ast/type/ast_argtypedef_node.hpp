@@ -8,13 +8,13 @@
  */
 class TxArgTypeDefNode : public TxTypeResolvingNode {
 protected:
-    virtual TxQualType define_type( TxPassInfo passInfo ) override {
+    virtual TxQualType define_type( TxTypeResLevel typeResLevel ) override {
         LOG_TRACE( this->LOGGER(), "defining  type  of " << this );
-        return this->typeExpression->resolve_type( passInfo );
+        return this->typeExpression->resolve_type( typeResLevel );
     }
 
 //    virtual void resolution_pass() override {
-//        this->resolve_type( passInfo );
+//        this->resolve_type( typeResLevel );
 //    }
 
 public:

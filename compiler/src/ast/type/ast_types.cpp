@@ -13,16 +13,16 @@ TxNamedTypeNode::TxNamedTypeNode( const TxLocation& ploc, const std::string& com
         : TxTypeExpressionNode( ploc ), exprNode( make_compound_symbol_expression( ploc, compoundName ) ) {
 }
 
-TxQualType TxNamedTypeNode::define_type( TxPassInfo passInfo ) {
-    return this->exprNode->resolve_type( passInfo );
+TxQualType TxNamedTypeNode::define_type( TxTypeResLevel typeResLevel ) {
+    return this->exprNode->resolve_type( typeResLevel );
 }
 
-TxQualType TxMemberTypeNode::define_type( TxPassInfo passInfo ) {
-    auto baseType = this->baseTypeExpr->resolve_type( passInfo );
+TxQualType TxMemberTypeNode::define_type( TxTypeResLevel typeResLevel ) {
+    auto baseType = this->baseTypeExpr->resolve_type( typeResLevel );
     if ( auto memberSymbol = lookup_inherited_member( this->context().scope(), baseType.type(), this->memberName->ident() ) ) {
         if ( auto entitySym = dynamic_cast<const TxEntitySymbol*>( memberSymbol ) ) {
             if ( auto typeDecl = entitySym->get_type_decl() ) {
-                return typeDecl->get_definer()->resolve_type( passInfo );
+                return typeDecl->get_definer()->resolve_type( typeResLevel );
             }
         }
         // Symbol is not a field or type
@@ -32,18 +32,18 @@ TxQualType TxMemberTypeNode::define_type( TxPassInfo passInfo ) {
 }
 
 
-TxActualType* TxGenSpecTypeNode::create_type( TxPassInfo passInfo ) {
+TxActualType* TxGenSpecTypeNode::create_type( TxTypeResLevel typeResLevel ) {
     // copy vector because of const conversion:
     std::vector<const TxTypeArgumentNode*> bindings( this->typeArgs->cbegin(), this->typeArgs->cend() );
     return this->registry().get_specialized_type( this, this->genTypeExpr, bindings, this->requires_mutable_type());
 }
 
 
-TxActualType* TxReferenceTypeNode::create_type( TxPassInfo passInfo ) {
+TxActualType* TxReferenceTypeNode::create_type( TxTypeResLevel typeResLevel ) {
     return this->registry().get_reference_type( this, this->targetTypeNode, this->dataspace );
 }
 
-TxActualType* TxArrayTypeNode::create_type( TxPassInfo passInfo ) {
+TxActualType* TxArrayTypeNode::create_type( TxTypeResLevel typeResLevel ) {
     if ( this->elementTypeNode->is_value() )
         CERR_THROWRES( this->elementTypeNode, "Array element type is not a type expression" );
     if ( this->requires_mutable_type() ) {
@@ -54,7 +54,7 @@ TxActualType* TxArrayTypeNode::create_type( TxPassInfo passInfo ) {
         if ( !this->capacityNode->is_value() )
             CERR_THROWRES( this->capacityNode, "Array capacity is not a value expression" );
         auto ven = static_cast<TxMaybeConversionNode*>( this->capacityNode->value_expr_node() );
-        ven->insert_conversion( passInfo, this->registry().get_builtin_type( ARRAY_SUBSCRIPT_TYPE_ID ) );
+        ven->insert_conversion( typeResLevel, this->registry().get_builtin_type( ARRAY_SUBSCRIPT_TYPE_ID ) );
         return this->registry().get_array_type( this, this->elementTypeNode, this->capacityNode, this->requires_mutable_type() );
     }
     else
@@ -81,11 +81,11 @@ void TxDerivedTypeNode::init_implicit_types() {
     }
 }
 
-TxActualType* TxDerivedTypeNode::create_type( TxPassInfo passInfo ) {
+TxActualType* TxDerivedTypeNode::create_type( TxTypeResLevel typeResLevel ) {
     ASSERT( this->get_declaration(), "No declaration for derived type " << *this );
 
     if ( this->builtinTypeDefiner ) {
-        return const_cast<TxActualType*>( this->builtinTypeDefiner->resolve_type( passInfo ).type() );
+        return const_cast<TxActualType*>( this->builtinTypeDefiner->resolve_type( typeResLevel ).type() );
     }
 
     // copy vector because of const conversion:
@@ -140,21 +140,21 @@ void TxFunctionTypeNode::typeexpr_declaration_pass() {
     }
 }
 
-TxActualType* TxFunctionTypeNode::create_type( TxPassInfo passInfo ) {
+TxActualType* TxFunctionTypeNode::create_type( TxTypeResLevel typeResLevel ) {
     // FUTURE: Be able to define a function type that has an argument of the same function type (requires arg types to be resolved afterwards)
     std::vector<const TxActualType*> argumentTypes;
     for ( auto argDefNode : *this->arguments ) {
-        argumentTypes.push_back( argDefNode->resolve_type( passInfo ).type() );
+        argumentTypes.push_back( argDefNode->resolve_type( typeResLevel ).type() );
     }
     TxActualType* type;
     if ( this->context().enclosing_lambda() && this->context().enclosing_lambda()->get_constructed() )
         type = this->registry().create_constructor_type( this->get_declaration(), argumentTypes, this->context().enclosing_lambda()->get_constructed());
     else if ( this->get_declaration()->get_decl_flags() & TXD_EXTERNC ) {
         type = this->registry().create_externc_function_type( this->get_declaration(), argumentTypes,
-                                                              ( this->returnField ? this->returnField->resolve_type( passInfo ).type() : nullptr ));
+                                                              ( this->returnField ? this->returnField->resolve_type( typeResLevel ).type() : nullptr ));
     }
     else if ( this->returnField )
-        type = this->registry().create_function_type( this->get_declaration(), argumentTypes, this->returnField->resolve_type( passInfo ).type(), modifying );
+        type = this->registry().create_function_type( this->get_declaration(), argumentTypes, this->returnField->resolve_type( typeResLevel ).type(), modifying );
     else
         type = this->registry().create_function_type( this->get_declaration(), argumentTypes, modifying );
     return type;

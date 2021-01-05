@@ -33,7 +33,7 @@ class TxFunctionCallNode : public TxExpressionNode {
     }
 
 protected:
-    virtual TxQualType define_type( TxPassInfo passInfo ) override;
+    virtual TxQualType define_type( TxTypeResLevel typeResLevel ) override;
 
 public:
     TxExpressionNode* callee;
@@ -85,7 +85,7 @@ public:
 /** Requires / ensures the contained expression to produce a value of modifiable type. */
 class TxModifiableValueNode : public TxExpressionNode {
 protected:
-    virtual TxQualType define_type( TxPassInfo passInfo ) override;
+    virtual TxQualType define_type( TxTypeResLevel typeResLevel ) override;
 
     virtual void verification_pass() const override;
 
@@ -107,8 +107,8 @@ public:
         this->exprNode->set_applied_func_args( appliedTypeParameters );
     }
 
-    virtual const TxActualType* get_constructed_type( TxPassInfo passInfo ) const override {
-        return this->exprNode->get_constructed_type( passInfo );
+    virtual const TxActualType* get_constructed_type( TxTypeResLevel typeResLevel ) const override {
+        return this->exprNode->get_constructed_type( typeResLevel );
     }
 
 
@@ -176,7 +176,7 @@ protected:
     /** Produces the object - either an allocation, or a self/super reference */
     TxMemProviderNode* objectExpr;
 
-    virtual TxQualType define_type( TxPassInfo passInfo ) override;
+    virtual TxQualType define_type( TxTypeResLevel typeResLevel ) override;
 
 public:
     TxConstructorCalleeExprNode( const TxLocation& ploc, TxMemProviderNode* objectExpr )
@@ -187,8 +187,8 @@ public:
         return new TxConstructorCalleeExprNode( this->ploc, this->objectExpr->make_ast_copy() );
     }
 
-    virtual const TxActualType* get_constructed_type( TxPassInfo passInfo ) const override {
-        return this->objectExpr->resolve_type( passInfo ).type();
+    virtual const TxActualType* get_constructed_type( TxTypeResLevel typeResLevel ) const override {
+        return this->objectExpr->resolve_type( typeResLevel ).type();
     }
 
     /** @return a lambda value */
@@ -208,8 +208,8 @@ class TxInPlaceAllocNode : public TxMemProviderNode {
     TxExpressionNode* objExpr;
 
 protected:
-    virtual TxQualType define_type( TxPassInfo passInfo ) override {
-        return this->objExpr->resolve_type( passInfo );
+    virtual TxQualType define_type( TxTypeResLevel typeResLevel ) override {
+        return this->objExpr->resolve_type( typeResLevel );
     }
 
 public:
@@ -234,8 +234,8 @@ class TxMemAllocNode : public TxMemProviderNode {
 protected:
     TxTypeExpressionNode* objTypeExpr;
 
-    virtual TxQualType define_type( TxPassInfo passInfo ) override {
-        return this->objTypeExpr->resolve_type( passInfo );
+    virtual TxQualType define_type( TxTypeResLevel typeResLevel ) override {
+        return this->objTypeExpr->resolve_type( typeResLevel );
     }
 
     TxMemAllocNode( const TxLocation& ploc, TxTypeExpressionNode* objTypeExpr )
@@ -330,9 +330,9 @@ class TxNewConstructionNode : public TxMakeObjectNode {
     TxTypeExpressionNode* resultTypeNode;
 
 protected:
-    virtual TxQualType define_type( TxPassInfo passInfo ) override {
+    virtual TxQualType define_type( TxTypeResLevel typeResLevel ) override {
         // new constructor returns the constructed object by reference
-        return this->resultTypeNode->resolve_type( passInfo );
+        return this->resultTypeNode->resolve_type( typeResLevel );
     }
 
 public:
@@ -365,9 +365,9 @@ public:
 /** Makes a new object in newly allocated stack memory and returns it by value/address. */
 class TxStackConstructionNode : public TxMakeObjectNode {
 protected:
-    virtual TxQualType define_type( TxPassInfo passInfo ) override {
+    virtual TxQualType define_type( TxTypeResLevel typeResLevel ) override {
         // stack constructor returns the constructed object by value, not by reference
-        return this->typeExpr->resolve_type( passInfo );
+        return this->typeExpr->resolve_type( typeResLevel );
     }
 
 public:

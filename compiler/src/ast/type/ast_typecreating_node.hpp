@@ -20,9 +20,9 @@ protected:
 
     virtual void type_pass() override final;
 
-    virtual TxQualType define_type( TxPassInfo passInfo ) override;
+    virtual TxQualType define_type( TxTypeResLevel typeResLevel ) override;
 
-    virtual TxActualType* create_type( TxPassInfo passInfo ) = 0;
+    virtual TxActualType* create_type( TxTypeResLevel typeResLevel ) = 0;
 
 public:
     TxTypeCreatingNode( const TxLocation& ploc ) : TxTypeExpressionNode( ploc )  { }
@@ -41,7 +41,7 @@ public:
  */
 class TxAliasTypeNode : public TxTypeCreatingNode {
 protected:
-    virtual TxActualType* create_type( TxPassInfo passInfo ) override;
+    virtual TxActualType* create_type( TxTypeResLevel typeResLevel ) override;
 
 public:
     TxTypeExpressionNode* baseTypeNode;
@@ -69,7 +69,7 @@ class TxGenParamTypeNode : public TxTypeCreatingNode {
     TxTypeExpressionNode* constraintTypeNode;
 
 protected:
-    virtual TxActualType* create_type( TxPassInfo passInfo ) override;
+    virtual TxActualType* create_type( TxTypeResLevel typeResLevel ) override;
 
 public:
     TxGenParamTypeNode( const TxLocation& ploc, TxTypeExpressionNode* boundTypeNode )
@@ -100,12 +100,12 @@ class TxGenBindingAliasTypeNode : public TxTypeCreatingNode {
     TxTypeResolvingNode* boundTypeNode;
 
 protected:
-    virtual TxActualType* create_type( TxPassInfo passInfo ) override {
+    virtual TxActualType* create_type( TxTypeResLevel typeResLevel ) override {
         THROW_LOGIC( "Should not be called" );
     }
 
-    virtual TxQualType define_type( TxPassInfo passInfo ) override {
-        return this->boundTypeNode->resolve_type( passInfo );
+    virtual TxQualType define_type( TxTypeResLevel typeResLevel ) override {
+        return this->boundTypeNode->resolve_type( typeResLevel );
     }
 
 public:

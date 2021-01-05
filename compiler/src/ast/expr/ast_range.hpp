@@ -16,11 +16,11 @@ class TxERangeLitNode final : public TxTypeDefiningValExprNode {
     bool inclusive;
 
 protected:
-    TxQualType define_type( TxPassInfo passInfo ) override {
+    TxQualType define_type( TxTypeResLevel typeResLevel ) override {
         TxExpressionNode* limitTypeExpr;
         {
-            auto ltype = this->startValue->resolve_type( passInfo );
-            auto rtype = this->endValue->resolve_type( passInfo );
+            auto ltype = this->startValue->resolve_type( typeResLevel );
+            auto rtype = this->endValue->resolve_type( typeResLevel );
             if ( ltype == rtype ) {
                 limitTypeExpr = this->startValue;
             }

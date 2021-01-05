@@ -318,7 +318,7 @@ const TxEntityDeclaration* TxFieldValueNode::resolve_decl() {
     return nullptr;
 }
 
-TxQualType TxFieldValueNode::define_type( TxPassInfo passInfo ) {
+TxQualType TxFieldValueNode::define_type( TxTypeResLevel typeResLevel ) {
 //    if ( get_node_id() = =6442 )
 //        std::cerr << "HERE " << this << std::endl;
     if ( auto decl = this->resolve_decl() ) {
@@ -342,7 +342,7 @@ TxQualType TxFieldValueNode::define_type( TxPassInfo passInfo ) {
             return this->_field->qtype();
         }
         else
-            return decl->get_definer()->resolve_type( passInfo );
+            return decl->get_definer()->resolve_type( typeResLevel );
     }
     // Symbol is not a field or type, return Void as placeholder type
     return TxQualType( this->registry().get_builtin_type( TXBT_VOID ) );

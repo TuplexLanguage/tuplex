@@ -23,8 +23,8 @@ protected:
         }
     }
 
-    virtual TxQualType define_type( TxPassInfo passInfo ) override {
-        return this->funcTypeNode->resolve_type( passInfo );
+    virtual TxQualType define_type( TxTypeResLevel typeResLevel ) override {
+        return this->funcTypeNode->resolve_type( typeResLevel );
     }
 
 public:
