@@ -176,18 +176,18 @@ public:
             implConstr->code_gen( context );
     }
 
-    void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    void visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) override {
         if ( this->baseTypeNode ) {
-            this->baseTypeNode->visit_ast( visitor, thisCursor, "basetype", context );
+            this->baseTypeNode->visit_ast( visitor, cursor, "basetype", aux );
         }
-        this->superRefTypeNode->visit_ast( visitor, thisCursor, "super", context );
+        this->superRefTypeNode->visit_ast( visitor, cursor, "super", aux );
         for ( auto decl : this->declNodes )
-            decl->visit_ast( visitor, thisCursor, "decl", context );
+            decl->visit_ast( visitor, cursor, "decl", aux );
         if ( this->sourcecodeDefiner )
-            this->sourcecodeDefiner->visit_ast( visitor, thisCursor, "source", context );
+            this->sourcecodeDefiner->visit_ast( visitor, cursor, "source", aux );
         if ( auto qtype = this->attempt_qtype() ) {
             for ( auto implConstr : qtype->get_implicit_constructors() )
-                implConstr->visit_ast( visitor, thisCursor, "initializer", context );
+                implConstr->visit_ast( visitor, cursor, "initializer", aux );
         }
     }
 
@@ -425,9 +425,9 @@ public:
                                                 initExprNode->make_ast_copy() );
     }
 
-    void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
-        TxBuiltinConstructorTypeDefNode::visit_descendants( visitor, thisCursor, role, context );
-        this->initExprNode->visit_ast( visitor, thisCursor, "initializer", context );
+    void visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) override {
+        TxBuiltinConstructorTypeDefNode::visit_descendants( visitor, cursor, role, aux );
+        this->initExprNode->visit_ast( visitor, cursor, "initializer", aux );
     }
 };
 
@@ -1016,7 +1016,7 @@ public:
         this->declaration_pass();
     }
 
-    void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    void visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) override {
     }
 };
 

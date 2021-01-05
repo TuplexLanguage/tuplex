@@ -21,7 +21,7 @@ public:
         return new TxIdentifierNode( this->ploc, this->_identifier );
     }
 
-    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) override {
     }
 
     const std::string& ident() const {

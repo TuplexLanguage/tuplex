@@ -99,11 +99,11 @@ public:
         return this->declaration;
     }
 
-    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) override {
         if ( this->typeExpression )
-            this->typeExpression->visit_ast( visitor, thisCursor, "type", context );
+            this->typeExpression->visit_ast( visitor, cursor, "type", aux );
         if ( this->initExpression )
-            this->initExpression->visit_ast( visitor, thisCursor, "initializer", context );
+            this->initExpression->visit_ast( visitor, cursor, "initializer", aux );
     }
 
     virtual const std::string& get_descriptor() const override {

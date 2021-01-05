@@ -73,12 +73,13 @@ TxMemberInitNode::TxMemberInitNode( const TxLocation& ploc, TxIdentifierNode* id
                 ploc, new TxConstructorCalleeExprNode( ploc, make_member_expr( identifier ) ), argsExprList ) ) {
 }
 
-void TxMemberInitNode::visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) {
+void TxMemberInitNode::visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) {
     if ( this->context().is_type_generic() || this->context().is_type_gen_dep_bindings() ) {
         // if the member to construct is TYPE parameter dependent, skip resolution and verification
         if ( this->constructorCallExpr->callee->is_context_set() ) {
             auto constrCallee = static_cast<TxConstructorCalleeExprNode*>( this->constructorCallExpr->callee );
             try {
+                // FIXME: we should not have type resolution logic in visit_descendants()
                 if ( constrCallee->get_constructed_type( TXR_TYPE_CREATION )->is_generic_param() ) {
                     //std::cerr << this << " skipping visit of " << this->constructorCallExpr << std::endl;
                     return;
@@ -89,7 +90,7 @@ void TxMemberInitNode::visit_descendants( const AstVisitor& visitor, const AstCu
             }
         }
     }
-    this->constructorCallExpr->visit_ast( visitor, thisCursor, "initializer", context );
+    this->constructorCallExpr->visit_ast( visitor, cursor, "initializer", aux );
 }
 
 

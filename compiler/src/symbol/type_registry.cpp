@@ -53,7 +53,7 @@ unsigned TypeRegistry::get_unintegrated_type_count() const {
 }
 
 void TypeRegistry::integrate_types( bool expectOnlyRefs ) {
-    LOG_INFO( this->LOGGER(), "Starting integrating types, created types count=" << this->createdTypes.size() );
+    LOG_DEBUG( this->LOGGER(), "Starting integrating types, created types count=" << this->createdTypes.size() );
     for ( auto ix = this->integratedTypesEndIx; ix < this->createdTypes.size(); ix++ ) {
         auto type = this->createdTypes.at( ix );
         try {
@@ -747,7 +747,7 @@ public:
 
     virtual void code_gen_type( LlvmGenerationContext& context ) const override { }
 
-    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) override {
     }
 };
 

@@ -33,8 +33,8 @@ public:
 
     virtual void code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
-        this->fieldDef->visit_ast( visitor, thisCursor, "fielddef", context );
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) override {
+        this->fieldDef->visit_ast( visitor, cursor, "fielddef", aux );
     }
 };
 
@@ -66,8 +66,8 @@ public:
 
     virtual void code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
-        this->typeDecl->visit_ast( visitor, thisCursor, "typedecl", context );
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) override {
+        this->typeDecl->visit_ast( visitor, cursor, "typedecl", aux );
     }
 };
 
@@ -87,8 +87,8 @@ public:
 
     virtual void code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
-        this->expr->visit_ast( visitor, thisCursor, "expr", context );
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) override {
+        this->expr->visit_ast( visitor, cursor, "expr", aux );
     }
 };
 
@@ -129,9 +129,9 @@ public:
 
     virtual void code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
-        this->selfRefNode->visit_ast( visitor, thisCursor, "selfref", context );
-        this->superRefNode->visit_ast( visitor, thisCursor, "superref", context );
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) override {
+        this->selfRefNode->visit_ast( visitor, cursor, "selfref", aux );
+        this->superRefNode->visit_ast( visitor, cursor, "superref", aux );
     }
 };
 
@@ -149,7 +149,7 @@ public:
 
     virtual void code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override;
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) override;
 
     const TxIdentifierNode* get_identifier() const {
         return this->identifier;
@@ -191,10 +191,10 @@ public:
 
     virtual void code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
-        this->selfSuperStmt->visit_ast( visitor, thisCursor, "self", context );
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) override {
+        this->selfSuperStmt->visit_ast( visitor, cursor, "self", aux );
         for ( auto initClause : *this->initClauseList )
-            initClause->visit_ast( visitor, thisCursor, "memberinit", context );
+            initClause->visit_ast( visitor, cursor, "memberinit", aux );
     }
 };
 
@@ -234,9 +234,9 @@ public:
 
     virtual void code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) override {
         if (this->expr)
-            this->expr->visit_ast( visitor, thisCursor, "value", context );
+            this->expr->visit_ast( visitor, cursor, "value", aux );
     }
 };
 
@@ -256,7 +256,7 @@ public:
 
     virtual void code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) override {
     }
 };
 
@@ -276,7 +276,7 @@ public:
 
     virtual void code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) override {
     }
 };
 
@@ -336,9 +336,9 @@ public:
 
     virtual void code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) override {
         for ( auto stmt : *this->suite )
-            stmt->visit_ast( visitor, thisCursor, "stmt", context );
+            stmt->visit_ast( visitor, cursor, "stmt", aux );
     }
 };
 
@@ -362,9 +362,9 @@ public:
 
     virtual void code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
-        this->lvalue->visit_ast( visitor, thisCursor, "lvalue", context );
-        this->rvalue->visit_ast( visitor, thisCursor, "rvalue", context );
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) override {
+        this->lvalue->visit_ast( visitor, cursor, "lvalue", aux );
+        this->rvalue->visit_ast( visitor, cursor, "rvalue", aux );
     }
 
 
@@ -395,8 +395,8 @@ public:
 
     virtual void code_gen( LlvmGenerationContext& context, GenScope* scope ) const override { }
 
-    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
-        this->body->visit_ast( visitor, thisCursor, "stmt", context );
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) override {
+        this->body->visit_ast( visitor, cursor, "stmt", aux );
     }
 };
 
@@ -412,6 +412,6 @@ public:
 
     virtual void code_gen( LlvmGenerationContext& context, GenScope* scope ) const override { }
 
-    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) override {
     }
 };

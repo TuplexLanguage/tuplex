@@ -59,8 +59,8 @@ public:
 
     virtual void code_gen( LlvmGenerationContext& context ) const override;
 
-    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
-        this->fieldDef->visit_ast( visitor, thisCursor, "field", context );
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) override {
+        this->fieldDef->visit_ast( visitor, cursor, "field", aux );
     }
 
     virtual const std::string& get_descriptor() const override {
@@ -105,17 +105,17 @@ public:
 
     virtual void code_gen( LlvmGenerationContext& context ) const override;
 
-    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) override {
         if ( this->_builtinCode ) {
             // if built-in, the parameters are not processed from here, and the body only for the declaration pass
             if ( !this->typeCreatingNode->is_context_set() )
-                this->typeCreatingNode->visit_ast( visitor, thisCursor, "type", context );
+                this->typeCreatingNode->visit_ast( visitor, cursor, "type", aux );
         }
         else {
             if ( this->typeParamDecls )
                 for ( auto decl : *this->typeParamDecls )
-                    decl->visit_ast( visitor, thisCursor, "type-param", context );
-            this->typeCreatingNode->visit_ast( visitor, thisCursor, "type", context );
+                    decl->visit_ast( visitor, cursor, "type-param", aux );
+            this->typeCreatingNode->visit_ast( visitor, cursor, "type", aux );
         }
     }
 
@@ -153,9 +153,9 @@ public:
 
     virtual void code_gen( LlvmGenerationContext& context ) const override { }
 
-    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) override {
         if ( this->body ) {
-            this->body->visit_ast( visitor, thisCursor, "decl", context );
+            this->body->visit_ast( visitor, cursor, "decl", aux );
         }
     }
 };

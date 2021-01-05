@@ -38,8 +38,8 @@ public:
         this->_typeNode->code_gen_type( context );
     }
 
-    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
-        this->_typeNode->visit_ast( visitor, thisCursor, "type", context );
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) override {
+        this->_typeNode->visit_ast( visitor, cursor, "type", aux );
     }
 
     virtual const std::string& get_descriptor() const override {

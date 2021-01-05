@@ -100,23 +100,23 @@ void TxDerivedTypeNode::set_requires_mutable( bool mut ) {
         this->baseTypeNode->set_requires_mutable( mut );
 }
 
-void TxDerivedTypeNode::visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) {
+void TxDerivedTypeNode::visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) {
     if ( !this->builtinTypeDefiner ) {
-        this->baseTypeNode->visit_ast( visitor, thisCursor, "basetype", context );
+        this->baseTypeNode->visit_ast( visitor, cursor, "basetype", aux );
     }
 
     for ( auto interface : *this->interfaces )
-        interface->visit_ast( visitor, thisCursor, "interface", context );
+        interface->visit_ast( visitor, cursor, "interface", aux );
 
     if ( this->superRefTypeNode )
-        this->superRefTypeNode->visit_ast( visitor, thisCursor, "superreftype", context );
+        this->superRefTypeNode->visit_ast( visitor, cursor, "superreftype", aux );
 
     for ( auto member : *this->members )
-        member->visit_ast( visitor, thisCursor, "member", context );
+        member->visit_ast( visitor, cursor, "member", aux );
 
     if ( auto qtype = this->attempt_qtype() ) {
         for ( auto implConstr : qtype->get_implicit_constructors() )
-            implConstr->visit_ast( visitor, thisCursor, "initializer", context );
+            implConstr->visit_ast( visitor, cursor, "initializer", aux );
     }
 }
 

@@ -64,8 +64,8 @@ public:
     virtual llvm::Value* code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const override;
     virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
-        this->resolvedExpr->visit_ast( visitor, thisCursor, "convertee", context );
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) override {
+        this->resolvedExpr->visit_ast( visitor, cursor, "convertee", aux );
     }
 
     virtual const std::string& get_descriptor() const override {

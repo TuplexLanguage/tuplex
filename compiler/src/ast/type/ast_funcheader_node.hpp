@@ -50,11 +50,11 @@ public:
 
     virtual void code_gen_type( LlvmGenerationContext& context ) const override { }
 
-    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
-        this->funcTypeNode->visit_ast( visitor, thisCursor, "functype", context );
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) override {
+        this->funcTypeNode->visit_ast( visitor, cursor, "functype", aux );
         for ( auto argField : *this->arguments )
-            argField->visit_ast( visitor, thisCursor, "arg", context );
+            argField->visit_ast( visitor, cursor, "arg", aux );
         if ( this->returnField )
-            this->returnField->visit_ast( visitor, thisCursor, "return", context );
+            this->returnField->visit_ast( visitor, cursor, "return", aux );
     }
 };

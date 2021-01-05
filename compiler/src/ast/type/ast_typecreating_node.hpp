@@ -56,8 +56,8 @@ public:
 
     virtual void code_gen_type( LlvmGenerationContext& context ) const override  { }
 
-    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
-        this->baseTypeNode->visit_ast( visitor, thisCursor, "basetype", context );
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) override {
+        this->baseTypeNode->visit_ast( visitor, cursor, "basetype", aux );
     }
 };
 
@@ -85,8 +85,8 @@ public:
         this->constraintTypeNode->code_gen_type( context );
     }
 
-    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
-        this->constraintTypeNode->visit_ast( visitor, thisCursor, "constraint", context );
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) override {
+        this->constraintTypeNode->visit_ast( visitor, cursor, "constraint", aux );
     }
 };
 
@@ -119,6 +119,6 @@ public:
     virtual void code_gen_type( LlvmGenerationContext& context ) const override {
     }
 
-    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) override {
     }
 };

@@ -34,8 +34,8 @@ public:
 
     void code_gen_type( LlvmGenerationContext& context ) const override;
 
-    void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
-        this->exprNode->visit_ast( visitor, thisCursor, "expr", context );
+    void visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) override {
+        this->exprNode->visit_ast( visitor, cursor, "expr", aux );
     }
 
     const std::string& get_descriptor() const override {
@@ -62,8 +62,8 @@ public:
 
     void code_gen_type( LlvmGenerationContext& context ) const override;
 
-    void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
-        this->baseTypeExpr->visit_ast( visitor, thisCursor, "type-expr", context );
+    void visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) override {
+        this->baseTypeExpr->visit_ast( visitor, cursor, "type-expr", aux );
     }
 
     const std::string& get_descriptor() const override {
@@ -105,10 +105,10 @@ public:
 
     void code_gen_type( LlvmGenerationContext& context ) const override;
 
-    void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
-        this->genTypeExpr->visit_ast( visitor, thisCursor, "gentype", context );
+    void visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) override {
+        this->genTypeExpr->visit_ast( visitor, cursor, "gentype", aux );
         for ( auto typeArg : *this->typeArgs )
-            typeArg->visit_ast( visitor, thisCursor, "typearg", context );
+            typeArg->visit_ast( visitor, cursor, "typearg", aux );
     }
 
     const std::string& get_descriptor() const override {
@@ -154,9 +154,9 @@ public:
 
     void code_gen_type( LlvmGenerationContext& context ) const override;
 
-    void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
-        this->refBaseNode->visit_ast( visitor, thisCursor, "refbase", context );
-        this->targetTypeNode->visit_ast( visitor, thisCursor, "target", context );
+    void visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) override {
+        this->refBaseNode->visit_ast( visitor, cursor, "refbase", aux );
+        this->targetTypeNode->visit_ast( visitor, cursor, "target", aux );
     }
 };
 
@@ -199,11 +199,11 @@ public:
 
     void code_gen_type( LlvmGenerationContext& context ) const override;
 
-    void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
-        this->arrayBaseNode->visit_ast( visitor, thisCursor, "arraybase", context );
-        this->elementTypeNode->visit_ast( visitor, thisCursor, "elementtype", context );
+    void visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) override {
+        this->arrayBaseNode->visit_ast( visitor, cursor, "arraybase", aux );
+        this->elementTypeNode->visit_ast( visitor, cursor, "elementtype", aux );
         if ( this->capacityNode )
-            this->capacityNode->visit_ast( visitor, thisCursor, "capacity", context );
+            this->capacityNode->visit_ast( visitor, cursor, "capacity", aux );
     }
 };
 
@@ -270,7 +270,7 @@ public:
 
     void code_gen_type( LlvmGenerationContext& context ) const override;
 
-    void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override;
+    void visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) override;
 };
 
 /** Defines a function type. */
@@ -324,11 +324,11 @@ public:
 
     void code_gen_type( LlvmGenerationContext& context ) const override;
 
-    void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
-        this->baseTypeNode->visit_ast( visitor, thisCursor, "basetype", context );
+    void visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) override {
+        this->baseTypeNode->visit_ast( visitor, cursor, "basetype", aux );
         for ( auto argField : *this->arguments )
-            argField->visit_ast( visitor, thisCursor, "arg", context );
+            argField->visit_ast( visitor, cursor, "arg", aux );
         if ( this->returnField )
-            this->returnField->visit_ast( visitor, thisCursor, "return", context );
+            this->returnField->visit_ast( visitor, cursor, "return", aux );
     }
 };

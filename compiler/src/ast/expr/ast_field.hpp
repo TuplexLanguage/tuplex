@@ -104,9 +104,9 @@ public:
     virtual llvm::Value* code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const override;
     virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) override {
         if ( this->baseExpr )
-            this->baseExpr->visit_ast( visitor, thisCursor, "base", context );
+            this->baseExpr->visit_ast( visitor, cursor, "base", aux );
     }
 
     virtual const std::string& get_descriptor() const override {
@@ -177,8 +177,8 @@ public:
         return this->exprNode->code_gen_dyn_value( context, scope );
     }
 
-    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
-        this->exprNode->visit_ast( visitor, thisCursor, "expr", context );
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) override {
+        this->exprNode->visit_ast( visitor, cursor, "expr", aux );
     }
 
     virtual const std::string& get_descriptor() const override {
@@ -212,7 +212,7 @@ public:
 
     virtual llvm::Value* code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
-        this->fieldNode->visit_ast( visitor, thisCursor, "field", context );
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) override {
+        this->fieldNode->visit_ast( visitor, cursor, "field", aux );
     }
 };

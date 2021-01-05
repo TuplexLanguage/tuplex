@@ -26,17 +26,17 @@ TxModuleNode* TxModuleNode::make_ast_copy() const {
                              builtin );
 }
 
-void TxModuleNode::visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) {
+void TxModuleNode::visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) {
     if ( this->imports ) {
         for ( auto imp : *this->imports )
-            imp->visit_ast( visitor, thisCursor, "import", context );
+            imp->visit_ast( visitor, cursor, "import", aux );
     }
     if ( this->members ) {
         for ( auto mem : *this->members )
-            mem->visit_ast( visitor, thisCursor, "member", context );
+            mem->visit_ast( visitor, cursor, "member", aux );
     }
     if ( this->subModules ) {
         for ( auto mod : *this->subModules )
-            mod->visit_ast( visitor, thisCursor, "module", context );
+            mod->visit_ast( visitor, cursor, "module", aux );
     }
 }

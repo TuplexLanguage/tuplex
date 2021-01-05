@@ -60,7 +60,7 @@ public:
         return this->exprNode->code_gen_typeid( context );
     }
 
-    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) override {
         // Traversal does not proceed to the wrapped node from here since it is visited via its original AST location.
     }
 };
@@ -89,7 +89,7 @@ public:
 
     virtual void code_gen_type( LlvmGenerationContext& context ) const override { }
 
-    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) override {
         // Traversal does not proceed to the wrapped node from here since it is visited via its original AST location.
     }
 };
@@ -142,7 +142,7 @@ public:
 
     virtual void code_gen_type( LlvmGenerationContext& context ) const override { }
 
-    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) override {
     }
 };
 
@@ -160,7 +160,7 @@ public:
         ASSERT( false, "Can't make AST copy of " << this ); return nullptr;
     }
 
-    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
-        this->innerNode->visit_ast( visitor, thisCursor, "node", context );
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) override {
+        this->innerNode->visit_ast( visitor, cursor, "node", aux );
     }
 };

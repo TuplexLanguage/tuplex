@@ -66,8 +66,8 @@ public:
     virtual llvm::Value* code_gen_typeid( LlvmGenerationContext& context, GenScope* scope ) const override;
     virtual llvm::Constant* code_gen_typeid( LlvmGenerationContext& context ) const override;
 
-    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
-        this->reference->visit_ast( visitor, thisCursor, "ref", context );
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) override {
+        this->reference->visit_ast( visitor, cursor, "ref", aux );
     }
 };
 
@@ -118,9 +118,9 @@ public:
     virtual llvm::Constant* code_gen_const_value( LlvmGenerationContext& context ) const override;
     virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
-        this->targetTypeNode->visit_ast( visitor, thisCursor, "type", context );
-        this->target->visit_ast( visitor, thisCursor, "target", context );
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) override {
+        this->targetTypeNode->visit_ast( visitor, cursor, "type", aux );
+        this->target->visit_ast( visitor, cursor, "target", aux );
     }
 };
 
@@ -155,7 +155,7 @@ public:
     virtual llvm::Value* code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const override;
     virtual llvm::Value* code_gen_typeid( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
-        this->reference->visit_ast( visitor, thisCursor, "ref", context );
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) override {
+        this->reference->visit_ast( visitor, cursor, "ref", aux );
     }
 };

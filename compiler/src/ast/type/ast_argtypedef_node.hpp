@@ -33,8 +33,8 @@ public:
         return new TxArgTypeDefNode( this->ploc, this->fieldName->make_ast_copy(), this->typeExpression->make_ast_copy() );
     }
 
-    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
-        this->typeExpression->visit_ast( visitor, thisCursor, "type", context );
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) override {
+        this->typeExpression->visit_ast( visitor, cursor, "type", aux );
     }
 
     virtual const std::string& get_descriptor() const override {

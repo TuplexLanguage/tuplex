@@ -33,7 +33,7 @@ public:
 
     virtual void code_gen_type( LlvmGenerationContext& context ) const;
 
-    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
-        this->exprNode->visit_ast( visitor, thisCursor, "expr", context );
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) override {
+        this->exprNode->visit_ast( visitor, cursor, "expr", aux );
     }
 };

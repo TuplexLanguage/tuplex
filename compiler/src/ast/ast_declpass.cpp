@@ -3,8 +3,8 @@
 #include "ast_wrappers.hpp"
 
 
-AstVisitorFunc declPassVisitorFunc = []( TxNode* node, const AstCursor& parent, const std::string& role, void* parserCtx ) {
-    node->node_declaration_pass( parent.node );
+AstVisitorFunc declPassVisitorFunc = []( TxNode* node, const AstCursor& cursor, const std::string& role, void* parserCtx ) {
+    node->node_declaration_pass( cursor.node );
 };
 
 const AstVisitor declPassVisitor = { declPassVisitorFunc, nullptr };
@@ -23,7 +23,7 @@ void run_declaration_pass( TxNode* node, const LexicalContext& lexContext ) {
 
 
 
-AstVisitorFunc typePassVisitorFunc = []( TxNode* node, const AstCursor& parent, const std::string& role, void* parserCtx ) {
+AstVisitorFunc typePassVisitorFunc = []( TxNode* node, const AstCursor& cursor, const std::string& role, void* parserCtx ) {
     node->node_type_pass();
 };
 
@@ -36,7 +36,7 @@ void run_type_pass( TxNode* node, const std::string& role) {
 
 
 
-AstVisitorFunc resolutionPassVisitorFunc = []( TxNode* node, const AstCursor& parent, const std::string& role, void* parserCtx ) {
+AstVisitorFunc resolutionPassVisitorFunc = []( TxNode* node, const AstCursor& cursor, const std::string& role, void* parserCtx ) {
     node->node_resolution_pass();
 };
 
@@ -49,7 +49,7 @@ void run_resolution_pass( TxNode* node, const std::string& role) {
 
 
 
-AstVisitorFunc verificationPassVisitorFunc = []( TxNode* node, const AstCursor& parent, const std::string& role, void* parserCtx ) {
+AstVisitorFunc verificationPassVisitorFunc = []( TxNode* node, const AstCursor& cursor, const std::string& role, void* parserCtx ) {
     node->node_verification_pass();
 };
 

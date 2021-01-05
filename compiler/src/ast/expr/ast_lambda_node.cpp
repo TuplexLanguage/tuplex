@@ -86,14 +86,14 @@ void TxLambdaExprNode::verification_pass() const {
     }
 }
 
-void TxLambdaExprNode::visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) {
-    this->funcHeaderNode->visit_ast( visitor, thisCursor, "functype", context );
+void TxLambdaExprNode::visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) {
+    this->funcHeaderNode->visit_ast( visitor, cursor, "functype", aux );
     if ( this->selfTypeNode )
-        this->selfTypeNode->visit_ast( visitor, thisCursor, "selftype", context );
+        this->selfTypeNode->visit_ast( visitor, cursor, "selftype", aux );
     if ( this->selfSuperStmt ) {
         if ( this->selfSuperStmt->is_context_set() && this->is_suppressed_modifying_method() )
             return;
-        this->selfSuperStmt->visit_ast( visitor, thisCursor, "selffield", context );
+        this->selfSuperStmt->visit_ast( visitor, cursor, "selffield", aux );
     }
-    this->body->visit_ast( visitor, thisCursor, "body", context );
+    this->body->visit_ast( visitor, cursor, "body", aux );
 }

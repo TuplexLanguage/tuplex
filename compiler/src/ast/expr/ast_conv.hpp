@@ -41,8 +41,8 @@ public:
         return this->expr->is_statically_constant();
     }
 
-    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
-        this->expr->visit_ast( visitor, thisCursor, "convertee", context );
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) override {
+        this->expr->visit_ast( visitor, cursor, "convertee", aux );
     }
 };
 

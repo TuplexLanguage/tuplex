@@ -22,7 +22,7 @@ public:
         return new TxImportNode( this->ploc, this->ident );
     }
 
-    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) override {
     }
 
     virtual const std::string& get_descriptor() const override {
@@ -56,7 +56,7 @@ public:
 
     void code_gen( LlvmGenerationContext& context ) const;
 
-    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override;
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) override;
 
     virtual const std::string& get_descriptor() const override {
         return this->ident->str();
@@ -84,7 +84,7 @@ public:
 
     void code_gen( LlvmGenerationContext& context ) const;
 
-    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
-        this->module->visit_ast( visitor, thisCursor, "module", context );
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) override {
+        this->module->visit_ast( visitor, cursor, "module", aux );
     }
 };

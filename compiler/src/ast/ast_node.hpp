@@ -31,7 +31,7 @@ struct AstCursor {
 } __attribute__((aligned(32)));
 
 /** type of the AST visitor callable */
-typedef std::function<void( TxNode* node, const AstCursor& parent, const std::string& role, void* context )> AstVisitorFunc;
+typedef std::function<void( TxNode* node, const AstCursor& cursor, const std::string& role, void* aux )> AstVisitorFunc;
 
 typedef struct {
     AstVisitorFunc preFunc;
@@ -40,7 +40,7 @@ typedef struct {
 
 
 enum TxPass {
-    TXP_NIL, TXP_PARSE, TXP_DECLARATION, TXP_TYPE, TXP_RESOLUTION, TXP_VERIFICATION, TXP_CODEGEN
+    TXP_NIL, TXP_PARSE, TXP_DECLARATION, TXP_TYPE_CREATION, TXP_RESOLUTION, TXP_VERIFICATION, TXP_CODEGEN
 };
 
 /** Used as parameter to type resolution methods to specify current / needed resolution level:
@@ -162,14 +162,17 @@ public:
         return nullptr;
     }
 
-    /** Visits this node and its subtree with the provided visitor and context object. */
-    void visit_ast( const AstVisitor& visitor, void* context );
 
     /** Invoked from the visit_descendants() implementation of the parent node. */
-    void visit_ast( const AstVisitor& visitor, const AstCursor& parent, const std::string& role, void* context );
+    void visit_ast( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux );
 
-    /** To be implemented by subclasses. */
-    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) = 0;
+    /** To be implemented by subclasses.
+     * This shall invoke visit_ast for all (owned) descendants.
+     * It shall typically pass the same visitor, cursor, and aux, but with a bespoke role descriptor that
+     * indicates the role of that descendant node from this parent node's perspective. For example:
+     *     this->_typeNode->visit_ast( visitor, cursor, "type", aux );
+     */
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) = 0;
 
     /** Runs the declaration pass on this specific node (its subtree is not processed).
      * @parentNode the parent of node; must not be null */

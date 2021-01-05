@@ -166,6 +166,10 @@ int main( int argc, const char **argv )
         }
     }
 
+    if ( options.dump_ast && !options.compile_all_source ) {
+        LOG.alert("Dumping AST currently requires all source to be compiled - enabling compileall option.");
+        options.compile_all_source = true;
+    }
     if ( explicit_jit )
         options.run_jit = true;
     if ( explicit_bc )

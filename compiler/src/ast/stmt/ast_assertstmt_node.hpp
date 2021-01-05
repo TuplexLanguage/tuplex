@@ -16,7 +16,7 @@ public:
 
     virtual void code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
-        this->ifStmt->visit_ast( visitor, thisCursor, "ifstmt", context );
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) override {
+        this->ifStmt->visit_ast( visitor, cursor, "ifstmt", aux );
     }
 };

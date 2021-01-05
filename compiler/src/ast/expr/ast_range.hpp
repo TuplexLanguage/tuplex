@@ -80,8 +80,8 @@ public:
     llvm::Value* code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const override;
     llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
-        this->baseTypeNode->visit_ast( visitor, thisCursor, "basetype", context );
-        this->stackConstr->visit_ast( visitor, thisCursor, "litconstr", context );
+    void visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) override {
+        this->baseTypeNode->visit_ast( visitor, cursor, "basetype", aux );
+        this->stackConstr->visit_ast( visitor, cursor, "litconstr", aux );
     }
 };

@@ -242,17 +242,16 @@ int TxDriver::compile( const std::vector<std::string>& startSourceFiles, const s
     _LOG.info( "Number of AST nodes created: %u", TxNode::nodes_created_count() );
 
     if ( this->options.dump_ast ) {
-        auto visitorFunc = []( const TxNode* node, const AstCursor& parent, const std::string& role, void* ctx ) {
+        auto visitorFunc = []( const TxNode* node, const AstCursor& cursor, const std::string& role, void* ctx ) {
             char buf[256];
-            snprintf( buf, 256, "%*s%s", parent.depth * 2, "", role.c_str());
+            snprintf( buf, 256, "%*s%s", cursor.depth * 2, "", role.c_str());
             printf( "%-50s %s\n", buf, node->str().c_str());
-            //std::cout << std::string( parent.depth*2, ' ' ) << role << " " << node->to_string() << std::endl;
         };
         AstVisitor visitor = { visitorFunc, nullptr };
 
         for ( auto parserContext : this->parsedASTs ) {
             std::cout << "AST DUMP " << parserContext << ":" << std::endl;
-            parserContext->parsingUnit->visit_ast( visitor, nullptr );
+            parserContext->parsingUnit->visit_ast( visitor, AstCursor(nullptr), "", nullptr );
             std::cout << "END AST DUMP " << parserContext << std::endl;
         }
     }
@@ -306,7 +305,8 @@ void TxDriver::compile_lexical() {
         run_type_pass( node, "reinterpretation" );
     }
 
-    this->package->registry().integrate_types();
+    if ( this->package->registry().get_unintegrated_type_count() )
+        this->package->registry().integrate_types();
 
     if ( error_count != prev_error_count ) {
         _LOG.error( "- Type definition pass encountered %d errors", error_count - prev_error_count );
@@ -346,14 +346,16 @@ void TxDriver::compile_lexical() {
             run_type_pass( node, "reinterpretation" );
         }
 
-        this->package->registry().integrate_types();
+        if ( this->package->registry().get_unintegrated_type_count() )
+            this->package->registry().integrate_types();
 
         for ( unsigned specIx = nextSpecIx; specIx < specCount; specIx++ ) {
             auto node = reinterpretedASTs.at( specIx );
             run_resolution_pass( node, "reinterpretation" );
         }
     }
-    this->package->registry().integrate_types( true );
+    if ( this->package->registry().get_unintegrated_type_count() )
+        this->package->registry().integrate_types( true );
 
     if ( error_count != prev_error_count ) {
         _LOG.error( "- Deferred resolution pass encountered %d errors", error_count - prev_error_count );
@@ -428,7 +430,8 @@ void TxDriver::compile_reachable() {
 
             run_type_pass( reachedNode, "reachable" );
 
-            this->package->registry().integrate_types();
+            if ( this->package->registry().get_unintegrated_type_count() )
+                this->package->registry().integrate_types();
 
             run_resolution_pass( reachedNode, "reachable" );
 
@@ -437,7 +440,8 @@ void TxDriver::compile_reachable() {
                 this->add_reachable( specNode );
             }
         }
-        this->package->registry().integrate_types( true );
+        if ( this->package->registry().get_unintegrated_type_count() )
+            this->package->registry().integrate_types( true );
 
         if ( error_count != prev_error_count )
             _LOG.error( "- Resolution pass encountered %d errors", error_count - prev_error_count );
