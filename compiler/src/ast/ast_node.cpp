@@ -31,18 +31,37 @@ void TxNode::visit_ast( const AstVisitor& visitor, const AstCursor& cursor, cons
     if ( this->compilationErrors )
         return;
     try {
+//        if ( this->get_node_id() == 16399 )
+//            std::cerr << "HERE, pass " << visitor.pass << ", role " << role << ": " << this << std::endl
+//            << "    this->parent:  " << this->parent() << std::endl
+//            << "    cursor parent: " << cursor.parentNode << std::endl;
+        if ( visitor.pass <= this->lastPass ) {
+            if ( !visitor.insertedNodes )  // if revisit is not expected
+                LOG( this->LOGGER(), ALERT, "Re-visited compilation pass " << visitor.pass << " in " << this );
+            //else
+            //    LOG( this->LOGGER(), NOTE, "Skipping compilation pass " << visitor.pass << " in " << this );
+            return;
+        }
+//        else if ( visitor.pass > TXP_DECLARATION && visitor.pass > this->lastPass+1 ) {
+//            LOG( this->LOGGER(), WARN, "Skipped compilation pass " << this->lastPass+1
+//                 << " to " << visitor.pass-1 << " in " << this );
+//        }
+
         if ( visitor.preFunc )
             visitor.preFunc( this, cursor, role, aux );
 
-        const AstCursor childCursor( &cursor, this );
+        const AstCursor childCursor( cursor, this );
         this->visit_descendants( visitor, childCursor, role, aux );
+
+        if ( visitor.pass != TXP_NIL )
+            this->lastPass = visitor.pass;
 
         if ( visitor.postFunc )
             visitor.postFunc( this, cursor, role, aux );
     }
     catch ( const compilation_error& err ) {
-        LOG_TRACE( this->LOGGER(), "Caught compilation error in node_declaration_pass() in " << this << ": " << err );
-        this->compilationErrors = 1; //TXP_DECLARATION;  // TODO: pass pass-info in the visitors
+        LOG_TRACE( this->LOGGER(), "Caught compilation error in pass " << visitor.pass << " in " << this << ": " << err );
+        this->compilationErrors = 1;
     }
 }
 

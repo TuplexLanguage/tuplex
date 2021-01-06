@@ -86,7 +86,6 @@ static const TxFieldDeclaration* inner_resolve_field( const TxExpressionNode* or
                 auto fieldType = field->qtype().type();
                 auto candArgTypes = fieldType->argument_types();
                 const TxActualType* arrayArgElemType = fieldType->vararg_elem_type();
-                const TxActualType* fixedArrayArgType = nullptr;
 
                 if ( printCandidates )
                     CINFO( origin, "  Candidate: " << field->get_unique_full_name() << " : " << fieldType->func_signature_str() );
@@ -96,7 +95,7 @@ static const TxFieldDeclaration* inner_resolve_field( const TxExpressionNode* or
                     if ( arguments->size() < candArgTypes.size() - 1 )
                         continue;  // mismatching number of function args
                 }
-                else if ( ( fixedArrayArgType = fieldType->fixed_array_arg_type() ) ) {
+                else if ( auto fixedArrayArgType = fieldType->fixed_array_arg_type() ) {
                     // fixed array parameter accepts matching number of arguments
                     auto lenExpr = fixedArrayArgType->capacity();
                     auto len = eval_unsigned_int_constant( lenExpr );
@@ -244,14 +243,13 @@ TxScopeSymbol* TxFieldValueNode::resolve_symbol() {
         }
         else {
             if ( baseType->get_type_class() == TXTC_REFERENCE ) {
-                if ( auto baseValExpr = dynamic_cast<TxExpressionNode*>( this->baseExpr ) ) {
-                // implicit dereferencing ('^') operation:
-                baseType = baseType->target_type();
-                //std::cerr << "Adding implicit '^' to: " << this->baseExpr << "  six=" << six << std::endl;
-                auto derefNode = new TxReferenceDerefNode( this->baseExpr->ploc, baseValExpr );
-                derefNode->node_declaration_pass( this );
-                derefNode->resolve_type( TXR_FULL_RESOLUTION );
-                this->baseExpr = derefNode;
+                if ( auto baseValExpr = dynamic_cast<TxExpressionNode*>( this->baseExpr )) {
+                    // implicit dereferencing ('^') operation:
+                    baseType = baseType->target_type();
+                    //std::cerr << "Adding implicit '^' to: " << this->baseExpr << "  six=" << six << std::endl;
+                    auto derefNode = new TxReferenceDerefNode( this->baseExpr->ploc, baseValExpr );
+                    this->baseExpr = derefNode;
+                    inserted_node( derefNode, this, "deref" );
                 }
             }
             // base is a type or value expression
@@ -269,8 +267,8 @@ const TxEntityDeclaration* TxFieldValueNode::resolve_decl() {
         return this->declaration;
 //    if ( get_node_id() == 6442 )
 //        std::cerr << "HERE " << this << std::endl;
-    if ( auto symbol = this->resolve_symbol() ) {
-        if ( auto entitySymbol = dynamic_cast<TxEntitySymbol*>( symbol ) ) {
+    if ( auto symb = this->resolve_symbol() ) {
+        if ( auto entitySymbol = dynamic_cast<TxEntitySymbol*>( symb ) ) {
             // if symbol can be resolved to actual field, then do so
             if ( entitySymbol->field_count() ) {
                 this->declaration = resolve_field( this, entitySymbol, this->appliedFuncArgs );

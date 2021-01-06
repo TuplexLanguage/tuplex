@@ -9,11 +9,11 @@ namespace llvm {
 
 class TxFunctionTypeClassHandler : public TxTypeClassHandler {
 protected:
-    virtual bool is_a( const TxActualType* type, const TxActualType* other ) const override;
+    bool is_a( const TxActualType* type, const TxActualType* other ) const override;
 
-    virtual bool inner_is_assignable_to( const TxActualType* type, const TxActualType* dest, bool returnType=false ) const override;
+    bool inner_is_assignable_to( const TxActualType* type, const TxActualType* dest, bool returnType ) const override;
 
-    virtual bool inner_equals( const TxActualType* type, const TxActualType* other ) const override;
+    bool inner_equals( const TxActualType* type, const TxActualType* other ) const override;
 
 public:
     TxFunctionTypeClassHandler()
@@ -21,10 +21,10 @@ public:
     }
 
     /** Makes the LLVM type of this function as seen from calling code, i.e. as a lambda object. */
-    virtual llvm::Type* make_llvm_type( const TxActualType* type, LlvmGenerationContext& context ) const override;
+    llvm::Type* make_llvm_type( const TxActualType* type, LlvmGenerationContext& context ) const override;
 
     /** Makes the llvm::DIType for an instance of this type. */
-    virtual llvm::DIType* make_llvm_debug_type( const TxActualType* type, LlvmGenerationContext& context ) const override;
+    llvm::DIType* make_llvm_debug_type( const TxActualType* type, LlvmGenerationContext& context ) const override;
 
     llvm::DISubroutineType* make_llvm_suboutine_debug_type( const TxActualType* type, LlvmGenerationContext& context ) const;
 };
@@ -47,7 +47,7 @@ class TxFunctionType : public TxActualType {
     const bool modifiableClosure;
 
     const std::vector<const TxActualType*> argumentTypes;
-    TxActualType const * const returnType;
+    TxActualType const* const returnType;
 
 protected:
     TxFunctionType( const TxTypeClassHandler* typeClassHandler, const TxTypeDeclaration* declaration, const TxActualType* baseType,
@@ -75,7 +75,7 @@ public:
     }
 
     /** Returns true if functions of this function type may modify their closure. */
-    virtual bool modifiable_closure() const override {
+    bool modifiable_closure() const override {
         return this->modifiableClosure;
     }
 
@@ -94,7 +94,7 @@ public:
         return !this->returnType->is_builtin( TXBT_VOID );
     }
 
-    virtual std::string func_signature_str() const {
+    std::string func_signature_str() const override {
         std::stringstream str;
         this->sig_string( str );
         return str.str();
@@ -102,32 +102,32 @@ public:
 
 protected:
     void sig_string( std::stringstream& str ) const {
-        if (this->argumentTypes.empty())
+        if ( this->argumentTypes.empty())
             str << "()";
         else
             str << "( " << join( this->argumentTypes, ", " ) << " )";
-        if ( this->modifiable_closure() )
+        if ( this->modifiable_closure())
             str << " ~";
-        if ( this->has_return_value() )
+        if ( this->has_return_value())
             str << " -> " << this->returnType->str( true );
     }
 
-    virtual void self_string( std::stringstream& str, bool brief ) const override {
+    void self_string( std::stringstream& str, bool brief ) const override {
         str << this->get_declaration()->get_unique_full_name();
         this->sig_string( str );
     }
 };
 
 
-
 class TxExternCFunctionTypeClassHandler final : public TxFunctionTypeClassHandler {
 public:
-    TxExternCFunctionTypeClassHandler() : TxFunctionTypeClassHandler()  { }
+    TxExternCFunctionTypeClassHandler() : TxFunctionTypeClassHandler() {}
 
     /** Makes the LLVM type of this function as seen from calling code, i.e. as a lambda object. */
-    virtual llvm::Type* make_llvm_type( const TxActualType* type, LlvmGenerationContext& context ) const override;
+    llvm::Type* make_llvm_type( const TxActualType* type, LlvmGenerationContext& context ) const override;
+
     /** Makes the LLVM type of this function as declared in code generation. */
-    virtual llvm::Type* make_llvm_externc_type( const TxActualType* type, LlvmGenerationContext& context ) const override;
+    llvm::Type* make_llvm_externc_type( const TxActualType* type, LlvmGenerationContext& context ) const override;
 };
 
 class TxExternCFunctionType final : public TxFunctionType {
@@ -141,20 +141,19 @@ public:
 };
 
 
-
 class TxConstructorType final : public TxFunctionType {
     const TxTypeDeclaration* objTypeDeclaration;
-    public:
-    TxConstructorType( const TxTypeDeclaration* declaration, const TxActualType* baseType, const std::vector<const TxActualType*> argumentTypes,
+public:
+    TxConstructorType( const TxTypeDeclaration* declaration, const TxActualType* baseType,
+                       const std::vector<const TxActualType*>& argumentTypes,
                        const TxTypeDeclaration* objTypeDeclaration )
             : TxFunctionType( declaration, baseType, argumentTypes, true ), objTypeDeclaration( objTypeDeclaration ) {
     }
 
-    const TxTypeDeclaration* get_constructed_type_decl() const {
+    [[maybe_unused]] const TxTypeDeclaration* get_constructed_type_decl() const {
         return this->objTypeDeclaration;
     }
 };
-
 
 
 class TxMaybeConversionNode;
@@ -162,7 +161,7 @@ class TxMaybeConversionNode;
 class TxInlineFunctionType : public TxFunctionType {
 public:
     TxInlineFunctionType( const TxTypeDeclaration* declaration, const TxActualType* baseType,
-                          const std::vector<const TxActualType*> argumentTypes, const TxActualType* returnType )
+                          const std::vector<const TxActualType*>& argumentTypes, const TxActualType* returnType )
             : TxFunctionType( declaration, baseType, argumentTypes, returnType ) {
     }
 
@@ -173,18 +172,16 @@ public:
 };
 
 class TxBuiltinDefaultConstructorType final : public TxInlineFunctionType {
-    TxExpressionNode* initValueExpr;
-    public:
+    TxExpressionNode* initValueExpr;  // note, does not own this expression node
+public:
     TxBuiltinDefaultConstructorType( const TxTypeDeclaration* declaration, const TxActualType* baseType,
                                      const TxActualType* returnType,
                                      TxExpressionNode* initValueExpr )
-            : TxInlineFunctionType( declaration, baseType, std::vector<const TxActualType*> { }, returnType ),
+            : TxInlineFunctionType( declaration, baseType, std::vector<const TxActualType*> {}, returnType ),
               initValueExpr( initValueExpr ) {
     }
 
-    virtual TxExpressionNode* make_inline_expr( TxExpressionNode* calleeExpr, std::vector<TxMaybeConversionNode*>* argsExprList ) const override {
-        return initValueExpr;
-    }
+    TxExpressionNode* make_inline_expr( TxExpressionNode* calleeExpr, std::vector<TxMaybeConversionNode*>* argsExprList ) const override;
 };
 
 class TxBuiltinConversionFunctionType final : public TxInlineFunctionType {
@@ -194,7 +191,7 @@ public:
             : TxInlineFunctionType( declaration, baseType, std::vector<const TxActualType*> { argumentType }, returnType ) {
     }
 
-    virtual TxExpressionNode* make_inline_expr( TxExpressionNode* calleeExpr, std::vector<TxMaybeConversionNode*>* argsExprList ) const override;
+    TxExpressionNode* make_inline_expr( TxExpressionNode* calleeExpr, std::vector<TxMaybeConversionNode*>* argsExprList ) const override;
 };
 
 class TxBuiltinAssignInitializerType final : public TxInlineFunctionType {
@@ -206,5 +203,5 @@ public:
                                     argAndReturnType ) {
     }
 
-    virtual TxExpressionNode* make_inline_expr( TxExpressionNode* calleeExpr, std::vector<TxMaybeConversionNode*>* argsExprList ) const override;
+    TxExpressionNode* make_inline_expr( TxExpressionNode* calleeExpr, std::vector<TxMaybeConversionNode*>* argsExprList ) const override;
 };

@@ -15,33 +15,37 @@ class Constant;
 class Value;
 }
 
-
 class TypeRegistry;
 
 struct AstCursor {
-    const AstCursor* parent;
-    const TxNode* node;
-    unsigned depth;  // 0 if parent is null
-    explicit AstCursor( const TxNode* node )
-            : parent(), node( node ), depth() {
+    const TxNode* parentNode;
+    // does not need to hold current node - implicitly known via 'this' in called methods
+    unsigned depth;
+    explicit AstCursor( const TxNode* parentNode )
+            : parentNode( parentNode ), depth() {
     }
-    AstCursor( const AstCursor* parent, const TxNode* node )
-            : parent( parent ), node( node ), depth( parent->depth + 1 ) {
+    AstCursor( const AstCursor& parentCursor, const TxNode* parentNode )
+            : parentNode( parentNode ), depth( parentCursor.depth + 1 ) {
     }
-} __attribute__((aligned(32)));
+} __attribute__((aligned(16)));
 
 /** type of the AST visitor callable */
 typedef std::function<void( TxNode* node, const AstCursor& cursor, const std::string& role, void* aux )> AstVisitorFunc;
 
-typedef struct {
-    AstVisitorFunc preFunc;
-    AstVisitorFunc postFunc;
-} __attribute__((aligned(64))) AstVisitor;
-
-
+/** Compilation pass, used in AST visitor traversal.
+ * For traversals that don't constitute a compilation pass, TXP_NIL is used.
+ */
 enum TxPass {
     TXP_NIL, TXP_PARSE, TXP_DECLARATION, TXP_TYPE_CREATION, TXP_RESOLUTION, TXP_VERIFICATION, TXP_CODEGEN
 };
+
+typedef struct {
+    AstVisitorFunc preFunc;
+    AstVisitorFunc postFunc;
+    TxPass pass;
+    bool insertedNodes;
+} __attribute__((aligned(128))) AstVisitor;
+
 
 /** Used as parameter to type resolution methods to specify current / needed resolution level:
  * resolve_type(), define_type()
@@ -50,8 +54,6 @@ enum TxPass {
 enum TxTypeResLevel {
     TXR_TYPE_CREATION, TXR_FULL_RESOLUTION
 };
-
-//typedef unsigned TxPassInfo;
 
 
 class TxNode : public virtual TxParseOrigin, public Printable {
@@ -64,13 +66,16 @@ class TxNode : public virtual TxParseOrigin, public Printable {
     /** this node's parent node (null for TxParsingUnitNode), this is set in the declaration pass */
     const TxNode* parentNode = nullptr;
 
+    /** indicates the last compiler / visitor pass successfully executed for this node.
+     * Note that this is set after the visitor pre-function, and the children, have been processed,
+     * but before the vistor post-function on this node. */
+    TxPass lastPass = TXP_NIL;
+
     /** indicates whether this node has encountered compilation errors in previous passes */
     unsigned compilationErrors = 0;
 
     /** sets the parent node reference of this node and copies the parent's context to this node */
     inline void set_context( const TxNode* parent ) {
-        // FIXME: Should be possible to call for inserted nodes (& review insertions)
-        ASSERT( !this->is_context_set(), "lexicalContext already initialized in " << this->str() );
         this->parentNode = parent;
         this->lexContext = this->parentNode->context();
     }
@@ -133,6 +138,10 @@ public:
         return this->nodeId;
     }
 
+    inline TxPass get_last_pass() const {
+        return this->lastPass;
+    }
+
     /** Creates a copy of this node and all its descendants for purpose of generic specialization. */
     virtual TxNode* make_ast_copy() const = 0;
 
@@ -163,9 +172,6 @@ public:
     }
 
 
-    /** Invoked from the visit_descendants() implementation of the parent node. */
-    void visit_ast( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux );
-
     /** To be implemented by subclasses.
      * This shall invoke visit_ast for all (owned) descendants.
      * It shall typically pass the same visitor, cursor, and aux, but with a bespoke role descriptor that
@@ -174,30 +180,41 @@ public:
      */
     virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) = 0;
 
+    /** To be invoked from the visit_descendants() implementation of the parent node. For example:
+     *     this->_typeNode->visit_ast( visitor, cursor, "type", aux );
+     */
+    void visit_ast( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux );
+
+
     /** Runs the declaration pass on this specific node (its subtree is not processed).
-     * @parentNode the parent of node; must not be null */
+     * Invoked by the declaration-pass visitor.
+     * @param parent the parent of node; must not be null */
     inline void node_declaration_pass( const TxNode* parent ) {
-        ASSERT( parent, "NULL parentNode" );
         this->set_context( parent );
         this->declaration_pass();
     }
 
-    /** Runs the type pass on this specific node (its subtree is not processed). */
+    /** Runs the type pass on this specific node (its subtree is not processed).
+     * Invoked by the type-pass visitor. */
     inline void node_type_pass() {
         this->type_pass();
     }
 
-    /** Runs the resolution pass on this specific node (its subtree is not processed). */
+    /** Runs the resolution pass on this specific node (its subtree is not processed).
+     * Invoked by the resolution-pass visitor. */
     inline void node_resolution_pass() {
         this->resolution_pass();
     }
 
-    /** Runs the verification pass on this specific node (its subtree is not processed). */
+    /** Runs the verification pass on this specific node (its subtree is not processed).
+     * Invoked by the verification-pass visitor. */
     inline void node_verification_pass() const {
         this->verification_pass();
     }
 
-    /** Returns a source-similar descriptor of this node, e.g. the identifier or literal. Otherwise an empty string. */
+
+    /** Returns a source-similar descriptor or tag for this node, e.g. the identifier or literal.
+     * Otherwise an empty string. */
     virtual const std::string& get_descriptor() const {
         return EMPTY_STRING;
     }

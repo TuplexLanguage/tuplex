@@ -37,7 +37,7 @@ protected:
         }
 
         auto binding = new TxTypeArgumentNode( new TxQualTypeExprNode( new TxTypeExprWrapperNode( limitTypeExpr ) ) );
-        run_declaration_pass( binding, this, "binding" );
+        inserted_node( binding, this, "binding" );
         return this->registry().get_specialized_type( this, baseTypeNode, { binding }, false );
     }
 

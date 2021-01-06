@@ -12,22 +12,22 @@ class TxTypeCreatingNode : public TxTypeExpressionNode {
 protected:
     friend class TxTypeDeclNode;
 
-    void set_declaration( const TxTypeDeclaration* declaration ) {
-        this->declaration = declaration;
+    void set_declaration( const TxTypeDeclaration* decl ) {
+        this->declaration = decl;
     }
 
-    virtual void typeexpr_declaration_pass() override;
+    void typeexpr_declaration_pass() override;
 
-    virtual void type_pass() override final;
+    void type_pass() final;
 
-    virtual TxQualType define_type( TxTypeResLevel typeResLevel ) override;
+    TxQualType define_type( TxTypeResLevel typeResLevel ) override;
 
-    virtual TxActualType* create_type( TxTypeResLevel typeResLevel ) = 0;
+    virtual const TxActualType* create_type( TxTypeResLevel typeResLevel ) = 0;
 
 public:
-    TxTypeCreatingNode( const TxLocation& ploc ) : TxTypeExpressionNode( ploc )  { }
+    explicit TxTypeCreatingNode( const TxLocation& ploc ) : TxTypeExpressionNode( ploc )  { }
 
-    virtual TxTypeCreatingNode* make_ast_copy() const override = 0;
+    TxTypeCreatingNode* make_ast_copy() const override = 0;
 
     /** Gets the type declaration of this type-creating expression. */
     inline const TxTypeDeclaration* get_declaration() const {
@@ -41,7 +41,7 @@ public:
  */
 class TxAliasTypeNode : public TxTypeCreatingNode {
 protected:
-    virtual TxActualType* create_type( TxTypeResLevel typeResLevel ) override;
+    const TxActualType* create_type( TxTypeResLevel typeResLevel ) override;
 
 public:
     TxTypeExpressionNode* baseTypeNode;
@@ -49,14 +49,14 @@ public:
     TxAliasTypeNode( const TxLocation& ploc, TxTypeExpressionNode* baseType )
         : TxTypeCreatingNode( ploc ), baseTypeNode( baseType )  { }
 
-    virtual TxAliasTypeNode* make_ast_copy() const override {
+    TxAliasTypeNode* make_ast_copy() const override {
         return new TxAliasTypeNode( this->ploc, this->baseTypeNode->make_ast_copy() );
     }
 
 
-    virtual void code_gen_type( LlvmGenerationContext& context ) const override  { }
+    void code_gen_type( LlvmGenerationContext& context ) const override  { }
 
-    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) override {
+    void visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) override {
         this->baseTypeNode->visit_ast( visitor, cursor, "basetype", aux );
     }
 };
@@ -69,23 +69,23 @@ class TxGenParamTypeNode : public TxTypeCreatingNode {
     TxTypeExpressionNode* constraintTypeNode;
 
 protected:
-    virtual TxActualType* create_type( TxTypeResLevel typeResLevel ) override;
+    const TxActualType* create_type( TxTypeResLevel typeResLevel ) override;
 
 public:
     TxGenParamTypeNode( const TxLocation& ploc, TxTypeExpressionNode* boundTypeNode )
         : TxTypeCreatingNode( ploc ), constraintTypeNode( boundTypeNode )  { }
 
-    virtual void set_requires_mutable( bool mut ) override;
+    void set_requires_mutable( bool mut ) override;
 
-    virtual TxGenParamTypeNode* make_ast_copy() const override {
+    TxGenParamTypeNode* make_ast_copy() const override {
         return new TxGenParamTypeNode( this->ploc, this->constraintTypeNode->make_ast_copy() );
     }
 
-    virtual void code_gen_type( LlvmGenerationContext& context ) const override {
+    void code_gen_type( LlvmGenerationContext& context ) const override {
         this->constraintTypeNode->code_gen_type( context );
     }
 
-    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) override {
+    void visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) override {
         this->constraintTypeNode->visit_ast( visitor, cursor, "constraint", aux );
     }
 };
@@ -100,11 +100,11 @@ class TxGenBindingAliasTypeNode : public TxTypeCreatingNode {
     TxTypeResolvingNode* boundTypeNode;
 
 protected:
-    virtual TxActualType* create_type( TxTypeResLevel typeResLevel ) override {
+    TxActualType* create_type( TxTypeResLevel typeResLevel ) override {
         THROW_LOGIC( "Should not be called" );
     }
 
-    virtual TxQualType define_type( TxTypeResLevel typeResLevel ) override {
+    TxQualType define_type( TxTypeResLevel typeResLevel ) override {
         return this->boundTypeNode->resolve_type( typeResLevel );
     }
 
@@ -112,13 +112,13 @@ public:
     TxGenBindingAliasTypeNode( const TxLocation& ploc, TxTypeResolvingNode* boundTypeNode )
         : TxTypeCreatingNode( ploc ), boundTypeNode( boundTypeNode )  { }
 
-    virtual TxGenBindingAliasTypeNode* make_ast_copy() const override {
+    TxGenBindingAliasTypeNode* make_ast_copy() const override {
         return new TxGenBindingAliasTypeNode( this->ploc, this->boundTypeNode );
     }
 
-    virtual void code_gen_type( LlvmGenerationContext& context ) const override {
+    void code_gen_type( LlvmGenerationContext& context ) const override {
     }
 
-    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) override {
+    void visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) override {
     }
 };

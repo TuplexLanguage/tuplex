@@ -138,10 +138,11 @@ void TxInitStmtNode::resolution_pass() {
             LOG_DEBUG( this->LOGGER(), "Implicit invokation of super() from " << this );
             auto implicitSuper = new TxMemberInitNode( ploc, new TxIdentifierNode( ploc, "super" ),
                                                        new std::vector<TxExpressionNode*>() );
-            run_declaration_pass( implicitSuper, this->context() );
-            run_resolution_pass( implicitSuper );
+//            run_declaration_pass( implicitSuper, this, "super-init" );
+//            run_resolution_pass( implicitSuper );
             initClauseI = this->initClauseList->insert( initClauseI, implicitSuper );
             ++initClauseI;  // skips super() in loop
+            inserted_node( implicitSuper, this, "super-init" );
         }
         else {
             // look through other initializers to see if malpositioned or missing
@@ -174,10 +175,11 @@ void TxInitStmtNode::resolution_pass() {
                 auto initExpr = new TxExprWrapperNode( fieldDecl->get_definer()->initExpression );
                 auto implicitInit = new TxMemberInitNode( iloc, new TxIdentifierNode( iloc, fieldDecl->get_unique_name() ),
                                                           new std::vector<TxExpressionNode*>( { initExpr } ) );
-                run_declaration_pass( implicitInit, this->context() );
-                run_resolution_pass( implicitInit );
+//                run_declaration_pass( implicitInit, this, "member-init" );
+//                run_resolution_pass( implicitInit );
                 initClauseI = this->initClauseList->insert( initClauseI, implicitInit );
                 ++initClauseI;
+                inserted_node( implicitInit, this, "member-init" );
             }
         }
         else {

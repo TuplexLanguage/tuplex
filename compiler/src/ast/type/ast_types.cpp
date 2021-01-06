@@ -32,18 +32,18 @@ TxQualType TxMemberTypeNode::define_type( TxTypeResLevel typeResLevel ) {
 }
 
 
-TxActualType* TxGenSpecTypeNode::create_type( TxTypeResLevel typeResLevel ) {
+const TxActualType* TxGenSpecTypeNode::create_type( TxTypeResLevel typeResLevel ) {
     // copy vector because of const conversion:
     std::vector<const TxTypeArgumentNode*> bindings( this->typeArgs->cbegin(), this->typeArgs->cend() );
     return this->registry().get_specialized_type( this, this->genTypeExpr, bindings, this->requires_mutable_type());
 }
 
 
-TxActualType* TxReferenceTypeNode::create_type( TxTypeResLevel typeResLevel ) {
+const TxActualType* TxReferenceTypeNode::create_type( TxTypeResLevel typeResLevel ) {
     return this->registry().get_reference_type( this, this->targetTypeNode, this->dataspace );
 }
 
-TxActualType* TxArrayTypeNode::create_type( TxTypeResLevel typeResLevel ) {
+const TxActualType* TxArrayTypeNode::create_type( TxTypeResLevel typeResLevel ) {
     if ( this->elementTypeNode->is_value() )
         CERR_THROWRES( this->elementTypeNode, "Array element type is not a type expression" );
     if ( this->requires_mutable_type() ) {
@@ -81,7 +81,7 @@ void TxDerivedTypeNode::init_implicit_types() {
     }
 }
 
-TxActualType* TxDerivedTypeNode::create_type( TxTypeResLevel typeResLevel ) {
+const TxActualType* TxDerivedTypeNode::create_type( TxTypeResLevel typeResLevel ) {
     ASSERT( this->get_declaration(), "No declaration for derived type " << *this );
 
     if ( this->builtinTypeDefiner ) {
@@ -140,13 +140,13 @@ void TxFunctionTypeNode::typeexpr_declaration_pass() {
     }
 }
 
-TxActualType* TxFunctionTypeNode::create_type( TxTypeResLevel typeResLevel ) {
+const TxActualType* TxFunctionTypeNode::create_type( TxTypeResLevel typeResLevel ) {
     // FUTURE: Be able to define a function type that has an argument of the same function type (requires arg types to be resolved afterwards)
     std::vector<const TxActualType*> argumentTypes;
     for ( auto argDefNode : *this->arguments ) {
         argumentTypes.push_back( argDefNode->resolve_type( typeResLevel ).type() );
     }
-    TxActualType* type;
+    const TxActualType* type;
     if ( this->context().enclosing_lambda() && this->context().enclosing_lambda()->get_constructed() )
         type = this->registry().create_constructor_type( this->get_declaration(), argumentTypes, this->context().enclosing_lambda()->get_constructed());
     else if ( this->get_declaration()->get_decl_flags() & TXD_EXTERNC ) {

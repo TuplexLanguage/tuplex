@@ -4,7 +4,6 @@
 #include "tx_logging.hpp"
 
 #include "type.hpp"
-#include "type_registry.hpp"
 #include "package.hpp"
 #include "symbol_lookup.hpp"
 
@@ -36,7 +35,7 @@ bool DataTupleDefinition::add_interface_fields( const DataTupleDefinition& inter
     return added;
 }
 
-void DataTupleDefinition::dump() const {
+[[maybe_unused]] void DataTupleDefinition::dump() const {
     unsigned ix = 0;
     for ( auto & f : this->fields ) {
         fprintf( stderr, "%-2d: %20s: %s\n", ix, f->get_unique_name().c_str(), f->str().c_str() );
@@ -84,7 +83,7 @@ std::string TxTypeClassHandler::str() const {
 
 /*=== TxActualType implementation ===*/
 
-Logger& TxActualType::_LOG = Logger::get( "ENTITY" );
+Logger& TxActualType::TYPELOGGER = Logger::get( "ENTITY" );
 
 TxActualType::TxActualType( const TxTypeClassHandler* typeClassHandler, const TxTypeDeclaration* declaration, bool mutableType,
                             const TxActualType* baseType )
@@ -308,7 +307,6 @@ void TxActualType::integrate() {
     if ( !this->hasIntegrated ) {
         LOG_TRACE( this->LOGGER(), "Integrating type " << this );
         // connect with super types:
-        //if ( !this->baseType && this->baseTypeNode ) {
         if ( this->baseTypeNode ) {
             if ( ! this->baseType )
                 this->baseType = const_cast<TxTypeExpressionNode*>(this->baseTypeNode)->resolve_type( TXR_FULL_RESOLUTION ).type();
@@ -600,7 +598,6 @@ void TxActualType::autogenerate_constructors() {
     if ( baseConstrType->constructors.empty() ) {
         if ( this->instanceFieldsToInitialize.empty() && this->is_abstract() ) {
             // skips some built-in abstract types (e.g. Scalar)
-            //std::cerr << "SKIPPING " << this << std::endl;
             return;
         }
         auto constrDecl = generate_constructor_ast( loc, nullptr, this->instanceFieldsToInitialize );
@@ -614,7 +611,7 @@ void TxActualType::autogenerate_constructors() {
     }
 
     for ( auto implConstructor : this->implicitConstructorNodes ) {
-        run_declaration_pass( implConstructor, this->get_declaration()->get_definer(), "impl-constr" );
+        inserted_node( implConstructor, this->get_declaration()->get_definer(), "impl-constr" );
         this->constructors.push_back( implConstructor->get_declaration() );
     }
 }
@@ -1647,6 +1644,11 @@ TxFunctionType::TxFunctionType( const TxTypeDeclaration* declaration, const TxAc
         : TxFunctionType( declaration, baseType, argumentTypes,
                           baseType->get_declaration()->get_symbol()->get_root_scope()->registry().get_builtin_type( TXBT_VOID ),
                           modifiableClosure ) {
+}
+
+TxExpressionNode* TxBuiltinDefaultConstructorType::make_inline_expr( TxExpressionNode* calleeExpr,
+                                                                     std::vector<TxMaybeConversionNode*>* argsExprList ) const {
+    return new TxExprWrapperNode( initValueExpr );
 }
 
 TxExpressionNode* TxBuiltinConversionFunctionType::make_inline_expr( TxExpressionNode* calleeExpr,

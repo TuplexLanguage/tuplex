@@ -32,7 +32,7 @@ public:
     /** Resolves and returns the type of the entity/value this node produces/uses.
      * If this node's entity has not already been resolved, it will be resolved in this invocation.
      * If the resolution fails, an error message will have been generated and resolution_error exception is thrown.
-     * This method never returns NULL. */
+     * This method never returns an invalid type. */
     virtual TxQualType resolve_type( TxTypeResLevel typeResLevel ) = 0;
 
     /** Returns the type of the entity/value this node produces/uses.
@@ -58,8 +58,8 @@ protected:
     /** Defines the type of this expression (as specific as can be known), constructing/obtaining the TxTypeUsage instance.
      * The implementation should only traverse the minimum nodes needed to define the type
      * (e.g. not require the actual target type of a reference to be defined).
-     * This should only be invoked once, from the TxTypeDefiningNode class.
-     * @return a valid type pointer (exception must be thrown upon failure) */
+     * This may only be invoked once, from TxTypeResolvingNode::resolve_type().
+     * @return a valid type (exception must be thrown upon failure) */
     virtual TxQualType define_type( TxTypeResLevel typeResLevel ) = 0;
 
     void resolution_pass() override {

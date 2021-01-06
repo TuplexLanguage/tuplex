@@ -194,7 +194,7 @@ public:
     virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) override {
         this->selfSuperStmt->visit_ast( visitor, cursor, "self", aux );
         for ( auto initClause : *this->initClauseList )
-            initClause->visit_ast( visitor, cursor, "memberinit", aux );
+            initClause->visit_ast( visitor, cursor, "init-clause", aux );
     }
 };
 

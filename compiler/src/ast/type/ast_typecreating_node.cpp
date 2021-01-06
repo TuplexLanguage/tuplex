@@ -35,9 +35,9 @@ TxQualType TxTypeCreatingNode::define_type( TxTypeResLevel typeResLevel ) {
 //}
 
 
-TxActualType* TxAliasTypeNode::create_type( TxTypeResLevel typeResLevel ) {
+const TxActualType* TxAliasTypeNode::create_type( TxTypeResLevel typeResLevel ) {
     // create alias (a declaration referring to a type already declared and defined elsewhere)
-    return const_cast<TxActualType*>( this->baseTypeNode->resolve_type( typeResLevel ).type() );
+    return this->baseTypeNode->resolve_type( typeResLevel ).type();
 }
 
 
@@ -46,7 +46,7 @@ void TxGenParamTypeNode::set_requires_mutable( bool mut ) {
     this->constraintTypeNode->set_requires_mutable( mut );  // FIXME: investigate how to determine this
 }
 
-TxActualType* TxGenParamTypeNode::create_type( TxTypeResLevel typeResLevel ) {
+const TxActualType* TxGenParamTypeNode::create_type( TxTypeResLevel typeResLevel ) {
     // create empty specialization (uniquely named but identical type)
     return this->registry().create_type( this->get_declaration(), this->constraintTypeNode, {}, true /*this->requires_mutable_type()*/ );
 }

@@ -22,7 +22,6 @@ TxQualType TxTypeResolvingNode::resolve_type( TxTypeResLevel typeResLevel ) {
         }
         catch ( const resolution_error& err ) {
             this->hasResolved = true;
-            //LOG(this->LOGGER(), DEBUG, "Caught and re-threw resolution error in " << this << ": " << err);
             throw;
         }
         ASSERT( this->_type, "NULL-resolved type but no exception thrown in " << this );

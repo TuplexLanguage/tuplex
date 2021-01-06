@@ -198,7 +198,7 @@ int TxDriver::compile( const std::vector<std::string>& startSourceFiles, const s
     auto prev_error_count = error_count;
     for ( auto parserContext : this->parsedASTs ) {
         // by processing root node here we avoid root checking in visitor implementation
-        parserContext->parsingUnit->set_context( this->package );
+        parserContext->parsingUnit->node_declaration_pass( this->package );
         run_declaration_pass( parserContext->parsingUnit->module, parserContext->parsingUnit, "module" );
     }
 
@@ -247,11 +247,11 @@ int TxDriver::compile( const std::vector<std::string>& startSourceFiles, const s
             snprintf( buf, 256, "%*s%s", cursor.depth * 2, "", role.c_str());
             printf( "%-50s %s\n", buf, node->str().c_str());
         };
-        AstVisitor visitor = { visitorFunc, nullptr };
+        AstVisitor visitor = { visitorFunc, nullptr, TXP_NIL };
 
         for ( auto parserContext : this->parsedASTs ) {
             std::cout << "AST DUMP " << parserContext << ":" << std::endl;
-            parserContext->parsingUnit->visit_ast( visitor, AstCursor(nullptr), "", nullptr );
+            parserContext->parsingUnit->visit_ast( visitor, AstCursor( nullptr ), "", nullptr );
             std::cout << "END AST DUMP " << parserContext << std::endl;
         }
     }

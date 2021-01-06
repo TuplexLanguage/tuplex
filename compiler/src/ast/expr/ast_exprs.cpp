@@ -48,8 +48,7 @@ TxQualType TxFunctionCallNode::define_type( TxTypeResLevel typeResLevel ) {
             // and its new children, and we need to run resolution pass on the whole sub-tree.
             auto wrappedArgs = make_expr_wrapper_vec( this->origArgsExprList );
             this->inlinedExpression = new TxStackConstructionNode( this->ploc, typeDeclNode, wrappedArgs );
-            run_declaration_pass( this->inlinedExpression, this, "inlinedexpr" );
-            run_resolution_pass( this->inlinedExpression, "inlinedexpr" );
+            inserted_node( this->inlinedExpression, this, "inlinedexpr" );
             return constructedType;
         }
     }
@@ -90,12 +89,12 @@ TxQualType TxFunctionCallNode::define_type( TxTypeResLevel typeResLevel ) {
                 auto elemTypeExpr = new TxQualTypeExprNode( typeDeclWrNode );
                 auto filledArrayNode = new TxFilledArrayLitNode( varArgLoc, elemTypeExpr, arrayArgs );
                 auto arrayArgNode = new TxMaybeConversionNode( filledArrayNode );
-                run_declaration_pass( arrayArgNode, this, "arg" );
+                this->argsExprList->push_back( arrayArgNode );
+                inserted_node( arrayArgNode, this, "arg" );
+
                 // NOTE: The TxFilledArrayLitNode does not consider itself the OWNER of the arg nodes!
                 // Therefore we maintain a special reference to these args so our visitor can traverse them:
                 this->varargsList = arrayArgs;
-
-                this->argsExprList->push_back( arrayArgNode );
             }
             ASSERT( calleeArgTypes.size() == this->argsExprList->size(), "Mismatching argument count for callee " << this->calleeType );
 
@@ -120,6 +119,7 @@ TxQualType TxFunctionCallNode::define_type( TxTypeResLevel typeResLevel ) {
 
     if ( auto inlineCalleeType = dynamic_cast<const TxInlineFunctionType*>( this->calleeType ) ) {
         this->inlinedExpression = inlineCalleeType->make_inline_expr( this->callee, this->argsExprList );
+        inserted_node( this->inlinedExpression, this, "inlinedexpr" );
     }
 
     if ( auto constructedType = this->callee->get_constructed_type( typeResLevel ) ) {
@@ -132,8 +132,8 @@ TxQualType TxFunctionCallNode::define_type( TxTypeResLevel typeResLevel ) {
 
 
 
-static const TxActualType* make_mutable_specialization( TxTypeResLevel typeResLevel, TxNode* origin, const TxActualType* origType,
-                                                        const TxActualType* newSemBase=nullptr ) {
+static TxGenSpecTypeNode* make_mutable_specialization( TxNode* origin, const TxActualType* origType,
+                                                       const TxTypeDeclaration* genBaseTypeDecl ) {
     const TxLocation& loc = origin->ploc;
     auto newbindings = new std::vector<TxTypeArgumentNode*>();
     for ( auto bdecl : origType->get_bindings() ) {
@@ -158,24 +158,23 @@ static const TxActualType* make_mutable_specialization( TxTypeResLevel typeResLe
             newbindings->push_back( new TxTypeArgumentNode( newbind ) );
         }
     }
-    auto genBaseTypeDecl = ( newSemBase ? newSemBase->get_declaration() : origType->get_semantic_base_type()->get_declaration() );
     auto genBaseTypeNode = new TxTypeDeclWrapperNode( loc, genBaseTypeDecl );
     auto mutTypeDef = new TxGenSpecTypeNode( loc, genBaseTypeNode, newbindings );
     mutTypeDef->set_requires_mutable( true );
-    run_declaration_pass( mutTypeDef, origin, "mut-type" );
-    auto type = mutTypeDef->resolve_type( typeResLevel ).type();
-    LOG_DEBUG( origin->LOGGER(), "Created mutable specialization for " << origin << ": " << type );
-    return type;
+    run_declaration_pass( mutTypeDef, origin, "mut-type" );  // (needs to run before we insert node(s) below)
+    return mutTypeDef;
 }
 
-static const TxActualType* get_mutable_specialization( TxTypeResLevel typeResLevel, TxNode* origin, const TxActualType* type ) {
+static TxGenSpecTypeNode* get_mutable_specialization( TxTypeResLevel typeResLevel, TxNode* origin,
+                                                      const TxActualType* type ) {
     if ( !type->is_generic_specialization() )
-        CERR_THROWRES( origin, "Can't specialize mutable type from base type: " << type );;
+        CERR_THROWRES( origin, "Can't specialize mutable type from base type: " << type );
     if ( type->get_semantic_base_type()->is_mutable() )
-        return make_mutable_specialization( typeResLevel, origin, type );
+        return make_mutable_specialization( origin, type, type->get_semantic_base_type()->get_declaration() );
     else {
-        auto newSemBase = get_mutable_specialization( typeResLevel, origin, type->get_semantic_base_type() );
-        return make_mutable_specialization( typeResLevel, origin, type, newSemBase );
+        auto newSemBaseNode = get_mutable_specialization( typeResLevel, origin, type->get_semantic_base_type() );
+        auto newSemBaseType = newSemBaseNode->resolve_type( typeResLevel );
+        return make_mutable_specialization( origin, type, newSemBaseType->get_declaration() );
     }
 }
 
@@ -187,8 +186,10 @@ TxQualType TxModifiableValueNode::define_type( TxTypeResLevel typeResLevel ) {
             if ( typeEnt->is_generic_specialization() && typeEnt->get_source_base_type()->is_mutable() ) {
                 // copying an immutable type to a modifiable field is ok if we can obtain the mutable specialization
                 // corresponding to the source's immutable specialization
-                qtype = TxQualType( get_mutable_specialization( typeResLevel, this->exprNode, typeEnt ), true );
-                //std::cerr << "Made mutable specialization from " << typeEnt << "  to " << qtype->type() << std::endl;
+                this->mutTypeDefNode = get_mutable_specialization( typeResLevel, this->exprNode, typeEnt );
+                inserted_node( mutTypeDefNode, this, "mut-type" );
+                qtype = TxQualType( mutTypeDefNode->resolve_type( typeResLevel ).type(), true );
+                LOG_DEBUG( LOGGER(), "Made mutable specialization from " << typeEnt << "  to " << qtype );
             }
             else
                 CERR_THROWRES( this, "Can't use immutable type as modifiable: " << qtype );

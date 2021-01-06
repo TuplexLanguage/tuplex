@@ -90,7 +90,7 @@ static bool statically_converts_to( TxExpressionNode* originalExpr, TxQualType o
         case TXBT_INT:
             return ( modf( val, &intpart) == 0 && intpart >= -2147483648 && intpart <= 2147483647 );
         case TXBT_LONG:
-            return ( modf( val, &intpart) == 0 && intpart >= INT64_MIN && intpart <= INT64_MAX );
+            return ( modf( val, &intpart) == 0 && intpart >= (double)INT64_MIN && intpart <= (double)INT64_MAX );
         case TXBT_UBYTE:
             return ( modf( val, &intpart) == 0 && intpart >= 0 && intpart <= 255 );
         case TXBT_USHORT:
@@ -98,7 +98,7 @@ static bool statically_converts_to( TxExpressionNode* originalExpr, TxQualType o
         case TXBT_UINT:
             return ( modf( val, &intpart) == 0 && intpart >= 0 && intpart <= 4294967295 );
         case TXBT_ULONG:
-            return ( modf( val, &intpart) == 0 && intpart >= 0 && intpart <= UINT64_MAX  );
+            return ( modf( val, &intpart) == 0 && intpart >= 0 && intpart <= (double)UINT64_MAX  );
         case TXBT_HALF:
             return ( fabs( val ) <= 65503.0 );
         case TXBT_FLOAT:
@@ -123,56 +123,51 @@ bool auto_converts_to( TxExpressionNode* originalExpr, TxQualType requiredType )
 
 /** Returns null if conversion failed. */
 static TxExpressionNode* inner_wrap_conversion( TxExpressionNode* originalExpr, TxQualType originalType,
-                                                TxQualType requiredType, bool _explicit ) {
+                                                TxQualType requiredType, bool explic ) {
     if ( requiredType.is_modifiable() && !originalType.is_modifiable() )
         return nullptr;  // should we do this check here?
     else if ( originalType.type() == requiredType.type() ) {
-//        if ( originalType->get_type_class() != TXTC_ELEMENTARY )
-//            std::cerr << "EQUAL WHEN WITHOUT MODIFIABILITY CHECK: " << originalType << "  ->  " << requiredType << std::endl;
         return originalExpr;  // assume correct to not check modifiability here...
     }
 
-    if ( _explicit || originalType->auto_converts_to( *requiredType ) ) {
+    if ( explic || originalType->auto_converts_to( *requiredType ) ) {
         // wrap originalExpr with conversion node
-        TxExpressionNode* convExpr = nullptr;
-        auto requiredTypeClass = requiredType->get_type_class();
+        switch ( requiredType->get_type_class() ) {
+            case TXTC_ELEMENTARY:
+                if ( requiredType->is_builtin( TXBT_BOOL ))
+                    return new TxBoolConvNode( originalExpr, requiredType );
+                else if ( requiredType->is_scalar())
+                    return new TxScalarConvNode( originalExpr, requiredType );
+                else
+                    return nullptr;
 
-        if ( requiredTypeClass == TXTC_ELEMENTARY ) {
-            if ( requiredType->is_builtin( TXBT_BOOL ) )
-                convExpr = new TxBoolConvNode( originalExpr, requiredType );
+            case TXTC_REFERENCE:
+                return new TxReferenceConvNode( originalExpr, requiredType );
 
-            else if ( requiredType->is_scalar() )
-                convExpr = new TxScalarConvNode( originalExpr, requiredType );
+            case TXTC_ARRAY:
+                return new TxObjSpecCastNode( originalExpr, requiredType );
+
+            case TXTC_FUNCTION:
+            case TXTC_TUPLE:
+            case TXTC_INTERFACE:
+                return originalExpr;
+
+            case TXTC_ANY:
+                return nullptr;  // in practice Any can't be converted to Any; error message about non-concrete type generated elsewhere
+
+//            case TXTC_INTERFACEADAPTER:
+//            case TXTC_VOID:
+//            case TXTC_NOF_TYPE_CLASSES:
+            default:
+                LOG( originalExpr->LOGGER(), ERROR,
+                     "Type supposedly auto-converts but no conversion logic available:  "
+                     << originalType << " => " << requiredType );
+                return nullptr;
         }
-
-        else if ( requiredTypeClass == TXTC_REFERENCE )
-            convExpr = new TxReferenceConvNode( originalExpr, requiredType );
-
-        else if ( requiredTypeClass == TXTC_ARRAY )
-            convExpr = new TxObjSpecCastNode( originalExpr, requiredType );
-
-        else if ( requiredTypeClass == TXTC_FUNCTION )
-            return originalExpr;
-
-        else if ( requiredTypeClass == TXTC_TUPLE || requiredTypeClass == TXTC_INTERFACE )
-            return originalExpr;
-
-        else if ( requiredTypeClass == TXTC_ANY )
-            return nullptr;  // in practice Any can't be converted to Any; error message about non-concrete type generated elsewhere
-
-        else {
-            LOG( originalExpr->LOGGER(), ERROR, "Type supposedly auto-converts but no conversion logic available:  "
-                 << originalType << " => " << requiredType );
-            return nullptr;
-        }
-
-        convExpr->node_declaration_pass( originalExpr->parent() );
-        return convExpr;
     }
     else if ( originalType->is_scalar() && requiredType->is_scalar()
               && statically_converts_to( originalExpr, originalType, requiredType ) ) {
         TxExpressionNode* convExpr = new TxScalarConvNode( originalExpr, requiredType );
-        convExpr->node_declaration_pass( originalExpr->parent() );
         return convExpr;
     }
 
@@ -183,16 +178,16 @@ static TxExpressionNode* inner_wrap_conversion( TxExpressionNode* originalExpr, 
  * a value & type conversion node around it if permitted and necessary.
  *
  * Assumes that originalExpr declaration pass has already run.
- * If a conversion node is created, symbol declaration pass is run on it.
+ * If a conversion node is created, the caller must insert it and run compilation passes as appropriate.
  * Returns null if conversion failed.
  */
 static TxExpressionNode* inner_validate_wrap_convert( TxExpressionNode* originalExpr,
                                                       TxQualType requiredType,
-                                                      bool _explicit ) {
+                                                      bool explic ) {
     // Note: Resolution pass is not run on the created wrapper nodes.
     auto originalType = originalExpr->resolve_type( TXR_FULL_RESOLUTION );
 
-    if ( auto newExpr = inner_wrap_conversion( originalExpr, originalType, requiredType, _explicit ) )
+    if ( auto newExpr = inner_wrap_conversion( originalExpr, originalType, requiredType, explic ) )
         return newExpr;
 
 #ifndef NO_IMPLICIT_REF_DEREF
@@ -213,9 +208,6 @@ static TxExpressionNode* inner_validate_wrap_convert( TxExpressionNode* original
                     //std::cerr << "Adding implicit '&' to: " << originalExpr << std::endl;
                     auto refToNode = new TxReferenceToNode( originalExpr->ploc, originalExpr );
                     auto refConvNode = new TxReferenceConvNode( refToNode, requiredType );
-                    refConvNode->node_declaration_pass( originalExpr->parent() );
-                    refToNode->node_declaration_pass( refConvNode );
-                    refToNode->resolve_type( TXR_FULL_RESOLUTION );  // ensure 'inner' conversion node gets resolved
                     return refConvNode;
                 }
             }
@@ -229,11 +221,10 @@ static TxExpressionNode* inner_validate_wrap_convert( TxExpressionNode* original
                 // wrap originalExpr with a dereference node
                 //std::cerr << "Adding implicit '^' to: " << originalExpr << std::endl;
                 auto derefNode = new TxReferenceDerefNode( originalExpr->ploc, originalExpr );
-                derefNode->node_declaration_pass( originalExpr->parent() );
-                if ( auto newExpr = inner_wrap_conversion( derefNode, origRefTargetType, requiredType, _explicit ) ) {
-                    derefNode->resolve_type( TXR_FULL_RESOLUTION );  // ensure 'inner' conversion node gets resolved
+                if ( auto newExpr = inner_wrap_conversion( derefNode, origRefTargetType, requiredType, explic ) ) {
                     return newExpr;
                 }
+                // FUTURE: fix mem leak of derefNode in case of error
             }
         }
     }
@@ -244,9 +235,9 @@ static TxExpressionNode* inner_validate_wrap_convert( TxExpressionNode* original
     return nullptr;
 }
 
-TxExpressionNode* make_conversion( TxExpressionNode* originalExpr, TxQualType requiredType, bool _explicit ) {
+TxExpressionNode* make_conversion( TxExpressionNode* originalExpr, TxQualType requiredType, bool explic ) {
     ASSERT( originalExpr->is_context_set(), "Conversion's original expression hasn't run declaration pass: " << originalExpr );
-    auto exprNode = inner_validate_wrap_convert( originalExpr, requiredType, _explicit );
+    auto exprNode = inner_validate_wrap_convert( originalExpr, requiredType, explic );
     if ( exprNode && exprNode != originalExpr ) {
         LOG_TRACE( originalExpr->LOGGER(), "Wrapping conversion to type " << requiredType->str() << " around " << originalExpr );
     }
@@ -258,16 +249,17 @@ TxQualType TxMaybeConversionNode::define_type( TxTypeResLevel typeResLevel ) {
 //    if (get_node_id()==22303)
 //        std::cerr << "HERE " << this << std::endl;
     if ( this->insertedResultType ) {
-        this->resolvedExpr = make_conversion( this->originalExpr, this->insertedResultType, this->_explicit );
+        this->resolvedExpr = make_conversion( this->originalExpr, this->insertedResultType, this->explic );
+        inserted_node( this->resolvedExpr, this, "conversion" );
     }
     return this->resolvedExpr->resolve_type( typeResLevel );
 }
 
-void TxMaybeConversionNode::insert_conversion( TxTypeResLevel typeResLevel, const TxActualType* resultType, bool _explicit ) {
-    this->insert_qual_conversion( typeResLevel, resultType, _explicit);
+void TxMaybeConversionNode::insert_conversion( TxTypeResLevel typeResLevel, const TxActualType* resultType, bool explic_ ) {
+    this->insert_qual_conversion( typeResLevel, resultType, explic_ );
 }
 
-void TxMaybeConversionNode::insert_qual_conversion( TxTypeResLevel typeResLevel, TxQualType resultType, bool _explicit ) {
+void TxMaybeConversionNode::insert_qual_conversion( TxTypeResLevel typeResLevel, TxQualType resultType, bool explic_ ) {
 //    if (get_node_id()==9308)
 //        std::cerr << "HERE " << this << std::endl;
     ASSERT( this->originalExpr->is_context_set(), "declaration pass not yet run on originalExpr" );
@@ -278,7 +270,7 @@ void TxMaybeConversionNode::insert_qual_conversion( TxTypeResLevel typeResLevel,
         return;
     }
     this->insertedResultType = resultType;
-    this->_explicit = _explicit;
+    this->explic = explic_;
 
     this->resolve_type( typeResLevel );
 }

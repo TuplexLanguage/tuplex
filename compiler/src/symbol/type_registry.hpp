@@ -17,7 +17,7 @@ class TxTypeArgumentNode;
 extern std::string encode_type_name( const TxTypeDeclaration* typeDecl );
 
 class TypeRegistry {
-    static Logger& _LOG;
+    static Logger& REGLOGGER;
 
     TxPackage& _package;
 
@@ -52,9 +52,6 @@ class TypeRegistry {
 
     uint32_t funcTypesLimit = 0;
 
-    /** for the convenience method get_string_type() */
-    TxTypeExpressionNode* stringTypeNode = nullptr;
-
     void add_reinterpretation( TxTypeDeclNode* node );
 
     void add_type( TxActualType* type );
@@ -63,18 +60,18 @@ class TypeRegistry {
     friend class TxBuiltinTypeDefiningNode;
     friend class TxAdapterTypeNode;
 
-    TxActualType* get_inner_type_specialization( const TxTypeResolvingNode* definer, const TxActualType* genBaseType,
-                                                 const std::vector<const TxTypeArgumentNode*>& bindings, bool mutableType );
+    const TxActualType* get_inner_type_specialization( const TxTypeResolvingNode* definer, const TxActualType* genBaseType,
+                                                       const std::vector<const TxTypeArgumentNode*>& bindings, bool mutableType );
 
-    TxActualType* make_type_specialization( const TxTypeResolvingNode* definer, const TxActualType* genBaseType,
-                                             const std::vector<const TxTypeArgumentNode*>& bindings,
-                                             ExpectedErrorClause* expErrCtx, const std::string& newSpecTypeNameStr, bool mutableType );
+    const TxActualType* make_type_specialization( const TxTypeResolvingNode* definer, const TxActualType* genBaseType,
+                                                  const std::vector<const TxTypeArgumentNode*>& bindings,
+                                                  ExpectedErrorClause* expErrCtx, const std::string& newSpecTypeNameStr, bool mutableType );
 
 public:
-    TypeRegistry( TxPackage& package );
+    explicit TypeRegistry( TxPackage& package );
 
-    inline Logger* LOGGER() const {
-        return &this->_LOG;
+    static inline Logger* LOGGER() {
+        return &REGLOGGER;
     }
 
     TxPackage& package() const {
@@ -89,10 +86,7 @@ public:
     void dump_types() const;
 
     /** Gets a built-in (primitive) type. */
-    const TxActualType* get_builtin_type( const BuiltinTypeId id );
-
-    /** special convenience method for the String type (which is not a primitive type). */
-    TxQualType get_string_type();
+    const TxActualType* get_builtin_type( BuiltinTypeId id );
 
 
     /** Returns a read-only iterator that points to the first runtime type. */
@@ -156,7 +150,7 @@ public:
 
     /** Returns the number of built-in types.
      * Note, the type set order is: built-in types < data types < vtable types < runtime types */
-    inline uint32_t builtin_types_count() const {
+    [[maybe_unused]] inline uint32_t builtin_types_count() const {
         return this->builtinTypesCount;
     }
 
@@ -173,46 +167,46 @@ public:
     /*--- retrievers / creators for derived types ---*/
 
     /** Creates a new type. */
-    TxActualType* create_type( const TxTypeDeclaration* declaration, const TxTypeExpressionNode* baseTypeExpr,
-                               std::vector<const TxTypeExpressionNode*>&& interfaces, bool mutableType );
+    const TxActualType* create_type( const TxTypeDeclaration* declaration, const TxTypeExpressionNode* baseTypeExpr,
+                                     std::vector<const TxTypeExpressionNode*>&& interfaces, bool mutableType );
 
     /** Gets a type specialization, creating it if it doesn't exist. */
-    TxActualType* get_specialized_type( const TxTypeResolvingNode* definer, const TxTypeExpressionNode* baseTypeExpr,
-                                        const std::vector<const TxTypeArgumentNode*>& typeArguments, bool mutableType );
+    const TxActualType* get_specialized_type( const TxTypeResolvingNode* definer, TxTypeExpressionNode* baseTypeExpr,
+                                              const std::vector<const TxTypeArgumentNode*>& typeArguments, bool mutableType );
 
 
     /** Gets a concrete "adapter type" that specializes the interface type and redirects to adaptedType.
      * If such an adapter already exists, that will be returned.
      * @origin the adapter use site (used for error messages) */
-    TxActualType* get_interface_adapter( const TxNode* origin, const TxActualType* interfaceType, const TxActualType* adaptedType );
+    const TxActualType* get_interface_adapter( const TxNode* origin, const TxActualType* interfaceType, const TxActualType* adaptedType );
 
     /** Gets a reference type specialization, creating it if it doesn't exist. */
-    TxActualType* get_reference_type( TxTypeResolvingNode* definer, const TxTypeArgumentNode* targetTypeBinding,
-                                      const TxIdentifierNode* dataspace );
+    const TxActualType* get_reference_type( TxTypeResolvingNode* definer, const TxTypeArgumentNode* targetTypeBinding,
+                                            const TxIdentifierNode* dataspace );
 
     /** Gets an array type specialization, creating it if it doesn't exist. */
-    TxActualType* get_array_type( TxTypeResolvingNode* definer, const TxTypeArgumentNode* elemTypeBinding,
-                                  const TxTypeArgumentNode* capacityBinding, bool mutableType=false );
+    const TxActualType* get_array_type( TxTypeResolvingNode* definer, const TxTypeArgumentNode* elemTypeBinding,
+                                        const TxTypeArgumentNode* capacityBinding, bool mutableType = false );
 
     /** Gets an array type specialization, creating it if it doesn't exist. */
-    TxActualType* get_array_type( TxTypeResolvingNode* definer, const TxTypeArgumentNode* elemTypeBinding, bool mutableType=false );
+    const TxActualType* get_array_type( TxTypeResolvingNode* definer, const TxTypeArgumentNode* elemTypeBinding, bool mutableType = false );
 
     /** Creates a function type with a return type.
      * @modifying true if functions of this type may modify its closure when run
      */
-    TxActualType* create_function_type( const TxTypeDeclaration* declaration, const std::vector<const TxActualType*>& argumentTypes,
-                                        const TxActualType* returnType, bool modifying );
+    const TxActualType* create_function_type( const TxTypeDeclaration* declaration, const std::vector<const TxActualType*>& argumentTypes,
+                                              const TxActualType* returnType, bool modifying );
 
     /** Creates a function type with no return type.
      * @modifying true if functions of this type may modify its closure when run
      */
-    TxActualType* create_function_type( const TxTypeDeclaration* declaration, const std::vector<const TxActualType*>& argumentTypes,
-                                        bool modifying );
+    const TxActualType* create_function_type( const TxTypeDeclaration* declaration, const std::vector<const TxActualType*>& argumentTypes,
+                                              bool modifying );
 
-    TxActualType* create_externc_function_type( const TxTypeDeclaration* declaration,
-                                                const std::vector<const TxActualType*>& argumentTypes,
-                                                const TxActualType* returnType );
+    const TxActualType* create_externc_function_type( const TxTypeDeclaration* declaration,
+                                                      const std::vector<const TxActualType*>& argumentTypes,
+                                                      const TxActualType* returnType );
 
-    TxActualType* create_constructor_type( const TxTypeDeclaration* declaration, const std::vector<const TxActualType*>& argumentTypes,
-                                           const TxTypeDeclaration* constructedObjTypeDecl );
+    const TxActualType* create_constructor_type( const TxTypeDeclaration* declaration, const std::vector<const TxActualType*>& argumentTypes,
+                                                 const TxTypeDeclaration* constructedObjTypeDecl );
 };

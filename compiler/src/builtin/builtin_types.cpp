@@ -394,8 +394,6 @@ public:
 /*----- built-in constructor / initializer type defining AST nodes -----*/
 
 class TxBuiltinConstructorTypeDefNode : public TxFunctionTypeNode {
-protected:
-
 public:
     TxBuiltinConstructorTypeDefNode( const TxLocation& ploc, std::vector<TxArgTypeDefNode*>* arguments, TxTypeExpressionNode* returnType )
             : TxFunctionTypeNode( ploc, false, arguments, returnType ) {
@@ -405,9 +403,9 @@ public:
 };
 
 class TxDefConstructorTypeDefNode final : public TxBuiltinConstructorTypeDefNode {
-protected:
     TxExpressionNode* initExprNode;
 
+protected:
     TxActualType* create_type( TxTypeResLevel typeResLevel ) override {
         auto actType = new TxBuiltinDefaultConstructorType( this->get_declaration(), this->registry().get_builtin_type( TXBT_FUNCTION ),
                                                             this->returnField->resolve_type( typeResLevel ).type(),

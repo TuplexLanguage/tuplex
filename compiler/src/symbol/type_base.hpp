@@ -84,7 +84,7 @@ public:
         return this->fields.size();
     }
 
-    void dump() const;
+    [[maybe_unused]] void dump() const;
 };
 
 
@@ -134,7 +134,7 @@ bool is_concrete_floating_type( const TxActualType* type );
  For semantic inheritance mechanics, the generic base type is used.
  */
 class TxActualType : public TxEntity { //public virtual TxParseOrigin, public Printable {
-    static Logger& _LOG;
+    static Logger& TYPELOGGER;
 
     friend class TxTypeClassHandler;
 
@@ -243,8 +243,8 @@ protected:
                   const TxActualType* baseType );
 
 public:
-    inline Logger* LOGGER() const {
-        return &this->_LOG;
+    inline static Logger* LOGGER() {
+        return &TYPELOGGER;
     }
 
     /** Construction of type without base types, i.e. Any and Void. */
@@ -366,7 +366,7 @@ public:
 
     /** Gets the generic base type (parent) of this type, or null if this type is not a specialization.
      * Note, this is valid to call for types that are not yet initialized. */
-    inline const TxActualType* get_generic_base_type() const {
+    [[maybe_unused]] inline const TxActualType* get_generic_base_type() const {
         return this->genericBaseType;
     }
 

@@ -6,7 +6,7 @@
 /** A conversion placeholder node which can wrap a specific conversion around an expression if necessary. */
 class TxMaybeConversionNode : public TxExpressionNode {
     TxQualType insertedResultType;
-    bool _explicit = false;
+    bool explic = false;
     TxExpressionNode* resolvedExpr;
 
     inline TxExpressionNode* get_expr() const {
@@ -14,23 +14,23 @@ class TxMaybeConversionNode : public TxExpressionNode {
     }
 
 protected:
-    virtual TxQualType define_type( TxTypeResLevel typeResLevel ) override;
+    TxQualType define_type( TxTypeResLevel typeResLevel ) override;
 
-    virtual void resolution_pass() override {
+    void resolution_pass() override {
         // do nothing since shall not resolve before parent can insert conversion
     }
 
 public:
     TxExpressionNode* const originalExpr;
 
-    TxMaybeConversionNode( TxExpressionNode* originalExpr )
+    explicit TxMaybeConversionNode( TxExpressionNode* originalExpr )
             : TxExpressionNode( originalExpr->ploc ), resolvedExpr( originalExpr ), originalExpr( originalExpr ) {
         ASSERT( originalExpr, "NULL originalExpr" );
         ASSERT( !dynamic_cast<TxMaybeConversionNode*>( originalExpr ),
                 "Can't wrap a TxMaybeConversionNode with another TxMaybeConversionNode: " << originalExpr );
     }
 
-    virtual TxMaybeConversionNode* make_ast_copy() const override {
+    TxMaybeConversionNode* make_ast_copy() const override {
         return new TxMaybeConversionNode( this->originalExpr->make_ast_copy() );
     }
 
@@ -38,37 +38,37 @@ public:
      * If a conversion node is created, symbol declaration pass is run on it.
      * Will cause a compilation error to be generated in the resolution pass if the types don't match
      * so that conversion isn't possible.
-     * @param _explicit if true, forces conversion between types that don't permit implicit conversion
+     * @param explic_ if true, forces conversion between types that don't permit implicit conversion
      */
-    void insert_conversion( TxTypeResLevel typeResLevel, const TxActualType* resultType, bool _explicit = false );
+    void insert_conversion( TxTypeResLevel typeResLevel, const TxActualType* resultType, bool explic_ = false );
 
     /** Like insert_conversion, but can specify required mutability. */
-    void insert_qual_conversion( TxTypeResLevel typeResLevel, TxQualType resultType, bool _explicit = false );
+    void insert_qual_conversion( TxTypeResLevel typeResLevel, TxQualType resultType, bool explic_ = false );
 
-    virtual const TxExpressionNode* get_data_graph_origin_expr() const override {
+    const TxExpressionNode* get_data_graph_origin_expr() const override {
         return this->get_expr()->get_data_graph_origin_expr();
     }
 
-    virtual TxFieldStorage get_storage() const override {
+    TxFieldStorage get_storage() const override {
         return this->get_expr()->get_storage();
     }
 
-    virtual bool is_statically_constant() const override {
+    bool is_statically_constant() const override {
         return this->get_expr()->is_statically_constant();
     }
 
-    virtual llvm::Constant* code_gen_typeid( LlvmGenerationContext& context ) const override;
-    virtual llvm::Value* code_gen_typeid( LlvmGenerationContext& context, GenScope* scope ) const override;
-    virtual llvm::Constant* code_gen_const_address( LlvmGenerationContext& context ) const override;
-    virtual llvm::Constant* code_gen_const_value( LlvmGenerationContext& context ) const override;
-    virtual llvm::Value* code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const override;
-    virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;
+    llvm::Constant* code_gen_typeid( LlvmGenerationContext& context ) const override;
+    llvm::Value* code_gen_typeid( LlvmGenerationContext& context, GenScope* scope ) const override;
+    llvm::Constant* code_gen_const_address( LlvmGenerationContext& context ) const override;
+    llvm::Constant* code_gen_const_value( LlvmGenerationContext& context ) const override;
+    llvm::Value* code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const override;
+    llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) override {
+    void visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) override {
         this->resolvedExpr->visit_ast( visitor, cursor, "convertee", aux );
     }
 
-    virtual const std::string& get_descriptor() const override {
+    const std::string& get_descriptor() const override {
         return this->originalExpr->get_descriptor();
     }
 };

@@ -77,7 +77,8 @@ public:
         return nullptr;
     }
 
-    inline void set_context( TxPackage* package ) {
+    /** Special implementation for this node type, which is an AST root node. */
+    inline void node_declaration_pass( TxPackage* package ) {
         ASSERT( !this->is_context_set(), "lexicalContext already initialized in " << this->str() );
         this->lexContext = LexicalContext( package );
     }
