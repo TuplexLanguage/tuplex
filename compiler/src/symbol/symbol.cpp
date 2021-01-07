@@ -104,7 +104,7 @@ TxEntitySymbol* TxScopeSymbol::declare_entity( const std::string& plainName, con
     else {
         entitySymbol = new TxEntitySymbol( this, plainName );
         this->declare_symbol( *definingNode, entitySymbol );
-        this->LOGGER()->trace( "    Declared   %s", entitySymbol->str().c_str() );
+        LOG_TRACE( LOGGER(), "    Declared   " << entitySymbol->str().c_str() );
     }
     return entitySymbol;
 }

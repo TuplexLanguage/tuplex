@@ -425,8 +425,6 @@ void TxDriver::compile_reachable() {
 
         for ( unsigned i = 0; i < this->reachableASTsQueue.size(); i++ ) {
             TxDeclarationNode* reachedNode = reachableASTsQueue[i];
-            //std::cerr << "====Reaching " << reachedNode->get_declaration()->get_unique_full_name()
-            //          << "    " << reachedNode << std::endl;
 
             run_type_pass( reachedNode, "reachable" );
 
@@ -483,18 +481,16 @@ void TxDriver::add_reachable( TxNode* node ) {
                 }
                 else if ( dynamic_cast<TxModule*>( dn->get_declaration()->get_symbol()->get_outer() ) ) {
                     // module-level declaration - add to queue
-                    if ( !dynamic_cast<const TxInternalRootNode*>(dn->parent()))
-                        std::cerr << "!!! Quazi-orphan top level decl for " << dn->get_declaration()->get_unique_full_name()
-                                  << "    parent is " << dn->parent() << std::endl;
+                    ASSERT ( dynamic_cast<const TxInternalRootNode*>(dn->parent()),
+                             "Quazi-orphan top level decl node for " << dn->get_declaration()->get_unique_full_name()
+                             << ", decl node's parent is " << dn->parent() );
                     this->reachableASTsQueue.push_back( dn );
                     return;
                 }
             }
         }
     }
-    // probably a TxGenBindingAliasTypeNode, with TxInternalRootNode at the top
-//    if ( !dynamic_cast<const TxGenBindingAliasTypeNode*>( node ) )
-//        std::cerr << "!!! Orphan top level decl for " << node << std::endl;
+    ASSERT( false, "Orphan top level decl node for " << node );
 }
 
 bool TxDriver::add_import( const TxIdentifier& moduleName ) {

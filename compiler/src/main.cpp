@@ -25,8 +25,8 @@ int main( int argc, const char **argv )
     options.run_verifier = true;
     options.run_jit = true;
     options.no_bc_output = true;
-    //options.compile_all_source = true;
 #endif
+    //options.compile_all_source = true;
 
     bool explicit_jit = false;
     bool explicit_bc = false;

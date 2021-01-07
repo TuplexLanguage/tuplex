@@ -42,11 +42,11 @@
             (logger)->trace( "%s", msg.str().c_str() ); \
         } \
     } while (false)
+#    define DEBUG_CODEGEN 1
 #else
 #   define LOG_TRACE(logger, message) do { } while (false)
 #endif
 
-#define DEBUG_CODEGEN 1
 #define GET_MACRO(_1,_2,_3,NAME,...) NAME
 #define TRACE_CODEGEN(...) GET_MACRO(__VA_ARGS__, TRACE_CODEGEN3, TRACE_CODEGEN2)(__VA_ARGS__)
 

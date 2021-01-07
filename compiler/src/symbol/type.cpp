@@ -227,8 +227,6 @@ void TxActualType::examine_members() {
 }
 
 void TxActualType::initialize_type() {
-    LOG_TRACE( this->LOGGER(), "Initializing type " << this );
-
     ASSERT( !baseType || baseType->is_initialized(), "baseType of " << this->get_declaration() << " has not initialized: " << baseType );
     ASSERT( !genericBaseType || genericBaseType->is_initialized(), "genericBaseType of " << this->get_declaration() << " has not initialized: " << genericBaseType );
 
@@ -287,6 +285,7 @@ void TxActualType::initialize_type() {
 }
 
 void TxActualType::initialize_with_type_class( const TxTypeClassHandler* typeClassInstance ) {
+    LOG_TRACE( this->LOGGER(), "Initializing type " << this << " with type class " << typeClassInstance );
     ASSERT( !this->typeClassHandler, "type class already set for " << this );
     this->typeClassHandler = typeClassInstance;
     this->typeClass = typeClassInstance->type_class();
