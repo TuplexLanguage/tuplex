@@ -49,6 +49,9 @@ protected:
 
     virtual void declare_symbol( const TxParseOrigin& origin, TxScopeSymbol* symbol ) override;
 
+    /** Used by TxPackage subclass. */
+    explicit TxModule( const TxParseOrigin& origin );
+
 public:
     TxModule( TxModule* parent, const std::string& name, const TxParseOrigin& origin, bool declared );
 

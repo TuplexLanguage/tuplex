@@ -7,7 +7,6 @@
 #include "symbol.hpp"
 #include "package.hpp"
 #include "declaration.hpp"
-#include "entity.hpp"
 #include "driver.hpp"
 #include "qual_type.hpp"
 #include "type_base.hpp"
@@ -17,18 +16,15 @@ Logger& TxScopeSymbol::_LOG = Logger::get( "SYMBOL" );
 
 /*--- lexical scope tracking ---*/
 
+TxScopeSymbol::TxScopeSymbol()
+        : name(), outer(), fullName(), root( (TxPackage*) this ) {
+}
+
 TxScopeSymbol::TxScopeSymbol( TxScopeSymbol* parent, const std::string& name )
-        : name( name ), outer( parent ) {
-    if ( parent ) {
-        ASSERT( !name.empty() && name.find_first_of( '.' ) == std::string::npos, "Non-plain name specified for non-root scope: '" << name << "'" );
-        this->fullName = TxIdentifier( this->outer->get_full_name(), this->name );
-        this->root = parent->get_root_scope();
-    }
-    else {
-        ASSERT( name.empty(), "Non-empty name specified for parent-less root scope: " << name );
-        this->fullName = TxIdentifier();
-        this->root = (TxPackage*) this;
-    }
+        : name( name ), outer( parent ),
+          fullName( this->outer->get_full_name(), this->name ), root( this->outer->get_root_scope() ) {
+    ASSERT( parent, "NULL parent (outer) scope for " << name );
+    ASSERT( !name.empty() && name.find_first_of( '.' ) == std::string::npos, "Non-plain name specified for non-root scope: '" << name << "'" );
 }
 
 std::string TxScopeSymbol::make_unique_name( const std::string& baseName, bool suppressZeroSuffix ) const {
@@ -46,7 +42,7 @@ std::string TxScopeSymbol::make_unique_name( const std::string& baseName, bool s
 
 TxScopeSymbol* TxScopeSymbol::create_code_block_scope( const TxParseOrigin& origin, const std::string& plainName ) {
     std::string uniqueName = this->make_unique_name( plainName + '$' );
-    TxScopeSymbol* scope = new TxScopeSymbol( this, uniqueName );
+    auto* scope = new TxScopeSymbol( this, uniqueName );
     this->declare_symbol( origin, scope );
     return scope;
 }
@@ -126,12 +122,12 @@ const TxTypeDeclaration* TxScopeSymbol::declare_type( const std::string& plainNa
 
 const TxFieldDeclaration* TxScopeSymbol::declare_field( const std::string& plainName, const TxNode* declarer,
                                                         TxFieldDefiningNode* fieldDefiner, TxDeclarationFlags declFlags,
-                                                        TxFieldStorage storage, const TxIdentifier& dataspace ) {
+                                                        TxFieldStorage storage /*, const TxIdentifier& dataspace*/ ) {
 //    ASSERT( !is_internal_name( plainName ) || ( declFlags & ( TXD_IMPLICIT | TXD_CONSTRUCTOR | TXD_INITIALIZER ) ),
 //            "Mismatch between name format and IMPLICIT flag for field declaration " << plainName );
 
     TxEntitySymbol* entitySymbol = this->declare_entity( plainName, declarer, fieldDefiner );
-    auto fieldDeclaration = new TxFieldDeclaration( entitySymbol, declFlags, fieldDefiner, storage, dataspace );
+    auto fieldDeclaration = new TxFieldDeclaration( entitySymbol, declFlags, fieldDefiner, storage /*, dataspace*/ );
     entitySymbol->add_field( declarer, fieldDeclaration );
     return fieldDeclaration;
 }
@@ -161,7 +157,7 @@ std::string TxScopeSymbol::description_string() const {
 
 /*=== TxEntitySymbol implementation ===*/
 
-const TxEntityDeclaration* TxEntitySymbol::get_distinct_decl() const {
+[[maybe_unused]] const TxEntityDeclaration* TxEntitySymbol::get_distinct_decl() const {
     ASSERT( !this->is_overloaded(), "Can't get 'distinct' declaration of an overloaded entity: " << this->str() );
     if ( this->typeDeclaration )
         return this->typeDeclaration;

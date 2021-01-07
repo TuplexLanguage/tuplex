@@ -75,11 +75,10 @@ class TxFieldDeclaration : public TxEntityDeclaration {
 
 public:
     TxFieldDeclaration( TxEntitySymbol* symbol, TxDeclarationFlags declFlags, TxFieldDefiningNode* fieldDefiner,
-                        TxFieldStorage storage,
-                        const TxIdentifier& dataspace )
+                        TxFieldStorage storage /*, const TxIdentifier& dataspace*/ )
             : TxEntityDeclaration( symbol, declFlags ), fieldDefiner( fieldDefiner ),
               storage( storage ),
-              dataspace( dataspace ) {
+              dataspace( /*dataspace*/ ) {
         ASSERT( ( declFlags | LEGAL_FIELD_DECL_FLAGS ) == LEGAL_FIELD_DECL_FLAGS, "Illegal field declFlags: " << declFlags );
         ASSERT( storage != TXS_NOSTORAGE && storage != TXS_UNBOUND_STACK, "Illegal field storage: " << storage );
     }

@@ -197,7 +197,7 @@ void verify_array_assignment( const TxNode* origin, const TxActualType* ltype, c
 
 
 void TxLocalFieldDefNode::declare_field( const TxNode* declarer, TxScopeSymbol* scope, TxDeclarationFlags declFlags, TxFieldStorage storage ) {
-    this->declaration = scope->declare_field( this->fieldName->ident(), declarer, this, declFlags, storage, TxIdentifier() );
+    this->declaration = scope->declare_field( this->fieldName->ident(), declarer, this, declFlags, storage );
 }
 
 
@@ -224,7 +224,7 @@ void TxNonLocalFieldDefNode::declare_field( const TxNode* declarer, TxScopeSymbo
     }
 
     // Note: Field is processed in the 'outer' scope and not in the 'inner' scope of its declaration.
-    this->declaration = scope->declare_field( declName, declarer, this, declFlags, storage, TxIdentifier() );
+    this->declaration = scope->declare_field( declName, declarer, this, declFlags, storage );
 
     // handle main() function declarations:
     if ( declName == "main" ) {

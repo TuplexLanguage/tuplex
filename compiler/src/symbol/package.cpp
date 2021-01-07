@@ -5,8 +5,8 @@
 #include "builtin/builtin_types.hpp"
 
 TxPackage::TxPackage( TxDriver& driver, const TxParseOrigin& rootOrigin )
-        : TxModule( nullptr, "", rootOrigin, false ), _driver( driver ), mainFuncCandidates(), mainFunc() {
-    this->typeRegistry = new TypeRegistry( *this );
+        : TxModule( rootOrigin ), _driver( driver ), typeRegistry(new TypeRegistry( *this )),
+          mainFuncCandidates(), mainFunc() {
 }
 
 

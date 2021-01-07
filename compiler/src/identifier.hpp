@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <utility>
 #include <vector>
 #include <algorithm>
 
@@ -12,8 +13,7 @@ class TxIdentifier {
 
 public:
     /** Constructs an empty identifier (""). */
-    TxIdentifier() {
-    }  // currently we treat this as legal
+    TxIdentifier() = default;  // currently we treat this as legal
 
     /** Constructs a TxIdentifier whose contents are parsed from the provided string.
      * (split on the '.' characters)
@@ -41,14 +41,14 @@ public:
     }
 
     /** Constructs a TxIdentifier that extends the base namespace with another name segment. */
-    TxIdentifier( const TxIdentifier& base, const std::string& name )
-            : TxIdentifier( base ) {
+    TxIdentifier( TxIdentifier base, const std::string& name )
+            : TxIdentifier(std::move( base )) {
         this->append( name );
     }
 
     /** Constructs a TxIdentifier that extends the base namespace with another (moved) name segment. */
-    TxIdentifier( const TxIdentifier& base, std::string&& name )
-            : TxIdentifier( base ) {
+    TxIdentifier( TxIdentifier base, std::string&& name )
+            : TxIdentifier(std::move( base )) {
         this->append( name );
     }
 
@@ -60,7 +60,7 @@ public:
 
     /** Constructs a TxIdentifier that is a subsequence of the provided namespace. */
     TxIdentifier( const TxIdentifier& other, int startIndex, int endIndex = -1 ) {
-        int termIx = other.segment_count();
+        int termIx = (int)other.segment_count();
         if ( startIndex < 0 )
             startIndex += termIx;
         if ( endIndex < 0 )
@@ -74,14 +74,10 @@ public:
     }
 
     /** Copy constructor. */
-    TxIdentifier( const TxIdentifier& other )
-            : ns( other.ns ), segments( other.segments ) {
-    }
+    TxIdentifier( const TxIdentifier& other ) = default;
 
     /** Move constructor. */
-    TxIdentifier( TxIdentifier&& other )
-            : ns( std::move( other.ns ) ), segments( std::move( other.segments ) ) {
-    }
+    TxIdentifier( TxIdentifier&& other ) = default;
 
     virtual ~TxIdentifier() = default;
 
@@ -95,17 +91,11 @@ public:
     }
 
     /* Move assignment operator. */
-    TxIdentifier& operator=( TxIdentifier&& other ) {
-        if ( this != &other ) {
-            this->ns = std::move( other.ns );
-            this->segments = std::move( other.segments );
-        }
-        return *this;
-    }
+    TxIdentifier& operator=( TxIdentifier&& other ) = default;
 
     /** Appends all the segments of another identifier. */
-    void appendIdent( const TxIdentifier& other ) {
-        for ( auto s : other.segments )
+    [[maybe_unused]] void appendIdent( const TxIdentifier& other ) {
+        for ( const auto& s : other.segments )
             this->append( s );
     }
 
@@ -113,7 +103,7 @@ public:
     void append( const std::string& newSegment ) {
         ASSERT( !newSegment.empty(), "provided segment is empty" );
         ASSERT( newSegment.find_first_of( '.' ) == std::string::npos, "segment may not contain a '.': " << newSegment );
-        this->segments.push_back( newSegment );
+        this->segments.emplace_back( newSegment );
         if ( !this->ns.empty() )
             this->ns.append( "." );
         this->ns.append( newSegment );
@@ -123,7 +113,7 @@ public:
     void append( std::string&& newSegment ) {
         ASSERT( !newSegment.empty(), "provided segment is empty" );
         ASSERT( newSegment.find_first_of( '.' ) == std::string::npos, "segment may not contain a '.': " << newSegment );
-        this->segments.push_back( std::move( newSegment ) );
+        this->segments.emplace_back( std::move( newSegment ) );
         if ( !this->ns.empty() )
             this->ns.append( "." );
         this->ns.append( this->segments.back() );
@@ -132,9 +122,9 @@ public:
     /** Removes the last segment from this identifier and returns it. */
     const std::string pop();
 
-    inline const TxIdentifier parent() const {
+    inline TxIdentifier parent() const {
         ASSERT( this->is_qualified(), "identifier '" << this << "' is unqualified and has no parent namespace" );
-        return TxIdentifier( *this, 0, this->segments.size() - 1 );
+        return TxIdentifier( *this, 0, ((int)this->segments.size()) - 1 );
     }
 
     /** Gets the local name of this identifier, its last name segment. */
@@ -157,11 +147,11 @@ public:
         return this->segments.size() == 1;
     }
 
-    inline bool is_empty() const {
-        return this->segments.size() == 0;
+    [[maybe_unused]] inline bool is_empty() const {
+        return this->segments.empty();
     }
 
-    inline size_t segment_count() const {
+    inline unsigned segment_count() const {
         return this->segments.size();
     }
 
@@ -175,10 +165,10 @@ public:
     inline std::vector<std::string>::const_iterator segments_cend() const {
         return this->segments.cend();
     }
-    inline std::vector<std::string>::const_reverse_iterator segments_crbegin() const {
+    [[maybe_unused]] inline std::vector<std::string>::const_reverse_iterator segments_crbegin() const {
         return this->segments.crbegin();
     }
-    inline std::vector<std::string>::const_reverse_iterator segments_crend() const {
+    [[maybe_unused]] inline std::vector<std::string>::const_reverse_iterator segments_crend() const {
         return this->segments.crend();
     }
 
@@ -233,7 +223,7 @@ public:
 };
 
 namespace std {
-template<> struct hash<TxIdentifier> {
+template<> struct [[maybe_unused]] hash<TxIdentifier> {
     std::size_t operator()( const TxIdentifier& k ) const {
         using std::size_t;
         using std::hash;

@@ -85,8 +85,8 @@ std::string TxTypeClassHandler::str() const {
 
 Logger& TxActualType::TYPELOGGER = Logger::get( "ENTITY" );
 
-TxActualType::TxActualType( const TxTypeClassHandler* typeClassHandler, const TxTypeDeclaration* declaration, bool mutableType,
-                            const TxActualType* baseType )
+TxActualType::TxActualType( const TxTypeClassHandler* typeClassHandler, const TxTypeDeclaration* declaration,
+                            bool mutableType, const TxActualType* baseType )
         : TxEntity( declaration ),
           builtin( declaration->get_decl_flags() & TXD_BUILTIN ),
           mutableType( mutableType ),
@@ -98,7 +98,8 @@ TxActualType::TxActualType( const TxTypeClassHandler* typeClassHandler, const Tx
     this->initialize_with_type_class( typeClassHandler );
 }
 
-TxActualType::TxActualType( const TxTypeClassHandler* typeClassHandler, const TxTypeDeclaration* declaration, bool mutableType )
+TxActualType::TxActualType( const TxTypeClassHandler* typeClassHandler, const TxTypeDeclaration* declaration,
+                            bool mutableType )
         : TxEntity( declaration ),
           builtin( declaration->get_decl_flags() & TXD_BUILTIN ),
           mutableType( mutableType ),
@@ -110,9 +111,9 @@ TxActualType::TxActualType( const TxTypeClassHandler* typeClassHandler, const Tx
     this->initialize_with_type_class( typeClassHandler );
 }
 
-TxActualType::TxActualType( const TxTypeClassHandler* typeClassHandler, const TxTypeDeclaration* declaration, bool mutableType,
-                            const TxTypeExpressionNode* baseTypeNode,
-                            std::vector<const TxTypeExpressionNode*> interfaceNodes )
+TxActualType::TxActualType( const TxTypeClassHandler* typeClassHandler, const TxTypeDeclaration* declaration,
+                            bool mutableType, const TxTypeExpressionNode* baseTypeNode,
+                            std::vector<const TxTypeExpressionNode*>&& interfaceNodes )
         : TxEntity( declaration ),
           builtin( declaration->get_decl_flags() & TXD_BUILTIN ),
           mutableType( mutableType ),
@@ -124,9 +125,9 @@ TxActualType::TxActualType( const TxTypeClassHandler* typeClassHandler, const Tx
     this->initialize_with_type_class( typeClassHandler );
 }
 
-TxActualType::TxActualType( const TxTypeDeclaration* declaration, bool mutableType,
-                            const TxTypeExpressionNode* baseTypeNode,
-                            std::vector<const TxTypeExpressionNode*> interfaceNodes )
+TxActualType::TxActualType( const TxTypeDeclaration* declaration,
+                            bool mutableType, const TxTypeExpressionNode* baseTypeNode,
+                            std::vector<const TxTypeExpressionNode*>&& interfaceNodes )
         : TxEntity( declaration ),
           builtin( declaration->get_decl_flags() & TXD_BUILTIN ),
           mutableType( mutableType ),

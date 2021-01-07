@@ -5,13 +5,15 @@
 #include "entity.hpp"
 #include "driver.hpp"
 
+TxModule::TxModule( const TxParseOrigin& origin )
+        : TxScopeSymbol(), declared( false ), origin( origin ) {
+}
+
 TxModule::TxModule( TxModule* parent, const std::string& name, const TxParseOrigin& origin, bool declared )
         : TxScopeSymbol( parent, name ), declared( declared ), origin( origin ) {
-    if ( parent ) {  // if not the root package
-        ASSERT( dynamic_cast<TxModule*>( parent ), "Illegal to declare a module under a non-module parent: " << this->get_full_name() );
-        if ( this->get_full_name().str() != BUILTIN_NS ) {
-            this->import_symbol( origin, TxIdentifier( BUILTIN_NS ".*" ) );
-        }
+    ASSERT( dynamic_cast<TxModule*>( parent ), "Illegal to declare a module under a non-module parent: " << this->get_full_name() );
+    if ( this->get_full_name().str() != BUILTIN_NS ) {
+        this->import_symbol( origin, TxIdentifier( BUILTIN_NS ".*" ) );
     }
 }
 
@@ -66,7 +68,7 @@ TxModule* TxModule::inner_declare_module( const TxParseOrigin& origin, const TxI
     }
 
     // declare submodule that is direct child of this one
-    std::string name = ident.str();
+    const std::string& name = ident.str();
     if ( auto prev = this->get_symbol( name ) ) {
         if ( auto prevMod = dynamic_cast<TxModule*>( prev ) ) {
             if ( !prevMod->is_declared() ) {

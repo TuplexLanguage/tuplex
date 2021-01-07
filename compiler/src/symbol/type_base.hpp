@@ -253,7 +253,7 @@ public:
     /** Construction of type-class-root-types. (Although the base type may be already known, the interfaces may not be.) */
     TxActualType( const TxTypeClassHandler* typeClassHandler, const TxTypeDeclaration* declaration, bool mutableType,
                   const TxTypeExpressionNode* baseTypeNode,
-                  std::vector<const TxTypeExpressionNode*> interfaceNodes );
+                  std::vector<const TxTypeExpressionNode*>&& interfaceNodes );
 
     /** Construction of type whose type class and super types are not yet resolved.
      * This is called from type registry.
@@ -262,7 +262,7 @@ public:
      */
     TxActualType( const TxTypeDeclaration* declaration, bool mutableType,
                   const TxTypeExpressionNode* baseTypeNode,
-                  std::vector<const TxTypeExpressionNode*> interfaceNodes );
+                  std::vector<const TxTypeExpressionNode*>&& interfaceNodes );
 
     /** virtual, default destructor */
     ~TxActualType() override = default;

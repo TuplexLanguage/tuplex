@@ -112,7 +112,7 @@ protected:
 
     /** for use by make_ast_copy() in subclasses */
     TxBuiltinTypeDefiningNode( const TxLocation& ploc, const TxBuiltinTypeDefiningNode* original,
-                               TxTypeExpressionNode* baseTypeNode, const std::vector<TxDeclarationNode*>& declNodes,
+                               TxTypeExpressionNode* baseTypeNode, std::vector<TxDeclarationNode*>&& declNodes,
                                TxDerivedTypeNode* sourcecodeDefiner )
             : TxTypeCreatingNode( ploc ), builtinTypeId( TXBT_NOTSET ), original( original ),
               baseTypeNode( baseTypeNode ), declNodes( declNodes ), sourcecodeDefiner( sourcecodeDefiner ) {
@@ -134,7 +134,7 @@ protected:
             // copy vector because of const conversion:
             std::vector<const TxTypeExpressionNode*> ifNodes( this->sourcecodeDefiner->interfaces->cbegin(),
                                                               this->sourcecodeDefiner->interfaces->cend() );
-            actType = this->make_builtin_type( this->get_declaration(), ifNodes, this->requires_mutable_type() );
+            actType = this->make_builtin_type( this->get_declaration(), std::move( ifNodes ), this->requires_mutable_type() );
         }
         else {
             actType = this->make_builtin_type( this->get_declaration(), {}, this->requires_mutable_type() );
@@ -144,13 +144,14 @@ protected:
         return actType;
     }
 
-    virtual TxActualType* make_builtin_type( const TxTypeDeclaration* declaration, const std::vector<const TxTypeExpressionNode*>& ifNodes,
+    virtual TxActualType* make_builtin_type( const TxTypeDeclaration* declaration,
+                                             std::vector<const TxTypeExpressionNode*>&& ifNodes,
                                              bool mutableType ) = 0;
 
 public:
     TxBuiltinTypeDefiningNode( const TxLocation& ploc, BuiltinTypeId builtinTypeId,
                                TxTypeExpressionNode* baseTypeNode,
-                               std::vector<TxDeclarationNode*> declNodes )
+                               std::vector<TxDeclarationNode*>&& declNodes )
             : TxTypeCreatingNode( ploc ), builtinTypeId( builtinTypeId ), original( nullptr ),
               baseTypeNode( baseTypeNode ),
               declNodes(std::move( declNodes )) {
@@ -207,28 +208,28 @@ void merge_builtin_type_definers( TxDerivedTypeNode* sourcecodeDefiner, TxTypeRe
 /** Single-purpose node that defines the Any root type. */
 class TxAnyTypeDefNode final : public TxBuiltinTypeDefiningNode {
 protected:
-    TxActualType* make_builtin_type( const TxTypeDeclaration* declaration, const std::vector<const TxTypeExpressionNode*>& ifNodes,
+    TxActualType* make_builtin_type( const TxTypeDeclaration* declaration, std::vector<const TxTypeExpressionNode*>&& ifNodes,
                                              bool mutableType ) override {
         return new TxActualType( get_type_class_handler( TXTC_ANY ), declaration, true );
     }
 
 public:
-    TxAnyTypeDefNode( const TxLocation& ploc, const std::vector<TxDeclarationNode*>& declNodes )
-            : TxBuiltinTypeDefiningNode( ploc, TXBT_ANY, nullptr, declNodes ) {
+    TxAnyTypeDefNode( const TxLocation& ploc, std::vector<TxDeclarationNode*>&& declNodes )
+            : TxBuiltinTypeDefiningNode( ploc, TXBT_ANY, nullptr, std::move( declNodes ) ) {
     }
 };
 
 /** Single-purpose node that defines the Void type. */
 class TxVoidTypeDefNode final : public TxBuiltinTypeDefiningNode {
 protected:
-    TxActualType* make_builtin_type( const TxTypeDeclaration* declaration, const std::vector<const TxTypeExpressionNode*>& ifNodes,
+    TxActualType* make_builtin_type( const TxTypeDeclaration* declaration, std::vector<const TxTypeExpressionNode*>&& ifNodes,
                                              bool mutableType ) override {
         return new TxActualType( get_type_class_handler( TXTC_VOID ), declaration, false );
     }
 
 public:
-    TxVoidTypeDefNode( const TxLocation& ploc, TxTypeExpressionNode* baseTypeNode, const std::vector<TxDeclarationNode*>& declNodes = { } )
-            : TxBuiltinTypeDefiningNode( ploc, TXBT_VOID, baseTypeNode, declNodes ) {
+    TxVoidTypeDefNode( const TxLocation& ploc, TxTypeExpressionNode* baseTypeNode, std::vector<TxDeclarationNode*>&& declNodes = { } )
+            : TxBuiltinTypeDefiningNode( ploc, TXBT_VOID, baseTypeNode, std::move( declNodes ) ) {
     }
 };
 
@@ -237,84 +238,87 @@ class TxBuiltinAbstractTypeDefNode final : public TxBuiltinTypeDefiningNode {
     const TxTypeClass typeClass;
 
 protected:
-    TxActualType* make_builtin_type( const TxTypeDeclaration* declaration, const std::vector<const TxTypeExpressionNode*>& ifNodes,
-                                             bool mutableType ) override {
+    TxActualType* make_builtin_type( const TxTypeDeclaration* declaration,
+                                     std::vector<const TxTypeExpressionNode*>&& ifNodes,
+                                     bool mutableType ) override {
 //        return new TxBuiltinBaseType( this->typeClass, declaration, baseType, ifSpecs );
         return new TxActualType( get_type_class_handler( this->typeClass ),
-                                 declaration, true, this->baseTypeNode, ifNodes );
+                                 declaration, true, this->baseTypeNode, std::move( ifNodes ) );
     }
 public:
     TxBuiltinAbstractTypeDefNode( const TxLocation& ploc, BuiltinTypeId builtinTypeId, TxTypeExpressionNode* baseTypeNode,
-                                  TxTypeClass typeClass, const std::vector<TxDeclarationNode*>& declNodes )
-            : TxBuiltinTypeDefiningNode( ploc, builtinTypeId, baseTypeNode, declNodes ), typeClass( typeClass ) {
+                                  TxTypeClass typeClass, std::vector<TxDeclarationNode*>&& declNodes )
+            : TxBuiltinTypeDefiningNode( ploc, builtinTypeId, baseTypeNode, std::move( declNodes ) ), typeClass( typeClass ) {
     }
 };
 
 class TxIntegerTypeDefNode final : public TxBuiltinTypeDefiningNode {
 protected:
-    TxActualType* make_builtin_type( const TxTypeDeclaration* declaration, const std::vector<const TxTypeExpressionNode*>& ifNodes,
+    TxActualType* make_builtin_type( const TxTypeDeclaration* declaration, std::vector<const TxTypeExpressionNode*>&& ifNodes,
                                              bool mutableType ) override {
-        return new TxIntegerType( declaration, this->baseTypeNode, ifNodes, this->size, this->sign );
+        return new TxIntegerType( declaration, this->baseTypeNode, std::move( ifNodes ), this->size, this->sign );
     }
 public:
     const int size;
     const bool sign;
-    TxIntegerTypeDefNode( const TxLocation& ploc, BuiltinTypeId builtinTypeId, TxTypeExpressionNode* baseTypeNode, int size, bool sign,
-                          const std::vector<TxDeclarationNode*>& declNodes )
-            : TxBuiltinTypeDefiningNode( ploc, builtinTypeId, baseTypeNode, declNodes ), size( size ), sign( sign ) {
+    TxIntegerTypeDefNode( const TxLocation& ploc, BuiltinTypeId builtinTypeId, TxTypeExpressionNode* baseTypeNode,
+                          int size, bool sign, std::vector<TxDeclarationNode*>&& declNodes )
+            : TxBuiltinTypeDefiningNode( ploc, builtinTypeId, baseTypeNode, std::move( declNodes ) ), size( size ), sign( sign ) {
     }
 };
 
 class TxFloatingTypeDefNode final : public TxBuiltinTypeDefiningNode {
 protected:
     TxActualType* make_builtin_type( const TxTypeDeclaration* declaration,
-                                             const std::vector<const TxTypeExpressionNode*>& ifNodes, bool mutableType ) override {
-        return new TxFloatingType( declaration, this->baseTypeNode, ifNodes, this->size );
+                                             std::vector<const TxTypeExpressionNode*>&& ifNodes, bool mutableType ) override {
+        return new TxFloatingType( declaration, this->baseTypeNode, std::move( ifNodes ), this->size );
     }
 public:
     const int size;
     TxFloatingTypeDefNode( const TxLocation& ploc, BuiltinTypeId builtinTypeId, TxTypeExpressionNode* baseTypeNode, int size,
-                           const std::vector<TxDeclarationNode*>& declNodes )
-            : TxBuiltinTypeDefiningNode( ploc, builtinTypeId, baseTypeNode, declNodes ), size( size ) {
+                           std::vector<TxDeclarationNode*>&& declNodes )
+            : TxBuiltinTypeDefiningNode( ploc, builtinTypeId, baseTypeNode, std::move( declNodes ) ), size( size ) {
     }
 };
 
 class TxBoolTypeDefNode final : public TxBuiltinTypeDefiningNode {
 protected:
     TxActualType* make_builtin_type( const TxTypeDeclaration* declaration,
-                                             const std::vector<const TxTypeExpressionNode*>& ifNodes, bool mutableType ) override {
-        return new TxBoolType( declaration, this->baseTypeNode, ifNodes );
+                                             std::vector<const TxTypeExpressionNode*>&& ifNodes, bool mutableType ) override {
+        return new TxBoolType( declaration, this->baseTypeNode, std::move( ifNodes ) );
     }
 public:
     TxBoolTypeDefNode( const TxLocation& ploc, TxTypeExpressionNode* baseTypeNode,
-                       const std::vector<TxDeclarationNode*>& declNodes )
-            : TxBuiltinTypeDefiningNode( ploc, TXBT_BOOL, baseTypeNode, declNodes ) {
+                       std::vector<TxDeclarationNode*>&& declNodes )
+            : TxBuiltinTypeDefiningNode( ploc, TXBT_BOOL, baseTypeNode, std::move( declNodes ) ) {
     }
 };
 
 class TxTupleTypeDefNode final : public TxBuiltinTypeDefiningNode {
 protected:
     TxActualType* make_builtin_type( const TxTypeDeclaration* declaration,
-                                             const std::vector<const TxTypeExpressionNode*>& ifNodes, bool mutableType ) override {
-        return new TxActualType( get_type_class_handler( TXTC_TUPLE ), declaration, mutableType, this->baseTypeNode, ifNodes );
+                                     std::vector<const TxTypeExpressionNode*>&& ifNodes, bool mutableType ) override {
+        return new TxActualType( get_type_class_handler( TXTC_TUPLE ), declaration, mutableType,
+                                 this->baseTypeNode, std::move( ifNodes ) );
     }
 public:
     TxTupleTypeDefNode( const TxLocation& ploc, TxTypeExpressionNode* baseTypeNode,
-                        const std::vector<TxDeclarationNode*>& declNodes )
-            : TxBuiltinTypeDefiningNode( ploc, TXBT_TUPLE, baseTypeNode, declNodes ) {
+                        std::vector<TxDeclarationNode*>&& declNodes )
+            : TxBuiltinTypeDefiningNode( ploc, TXBT_TUPLE, baseTypeNode, std::move( declNodes ) ) {
     }
 };
 
 class TxInterfaceTypeDefNode final : public TxBuiltinTypeDefiningNode {
 protected:
     TxActualType* make_builtin_type( const TxTypeDeclaration* declaration,
-                                             const std::vector<const TxTypeExpressionNode*>& ifNodes, bool mutableType ) override {
-        return new TxActualType( get_type_class_handler( TXTC_INTERFACE ), declaration, mutableType, this->baseTypeNode, ifNodes );
+                                     std::vector<const TxTypeExpressionNode*>&& ifNodes, bool mutableType ) override {
+        return new TxActualType( get_type_class_handler( TXTC_INTERFACE ), declaration, mutableType,
+                                 this->baseTypeNode, std::move( ifNodes ) );
     }
 public:
     TxInterfaceTypeDefNode( const TxLocation& ploc, TxTypeExpressionNode* baseTypeNode,
-                            const std::vector<TxDeclarationNode*>& declNodes )
-            : TxBuiltinTypeDefiningNode( ploc, TXBT_INTERFACE, baseTypeNode, declNodes ) {
+                            std::vector<TxDeclarationNode*>&& declNodes )
+            : TxBuiltinTypeDefiningNode( ploc, TXBT_INTERFACE, baseTypeNode, std::move( declNodes ) ) {
     }
 };
 
@@ -333,14 +337,14 @@ class TxFunctionTypeDefNode final : public TxBuiltinTypeDefiningNode {
 
     protected:
     TxActualType* make_builtin_type( const TxTypeDeclaration* declaration,
-                                             const std::vector<const TxTypeExpressionNode*>& ifNodes, bool mutableType ) override {
+                                             std::vector<const TxTypeExpressionNode*>&& ifNodes, bool mutableType ) override {
         return new TxActualType( &abstrFunctionTypeClassHandler,
-                                 declaration, mutableType, this->baseTypeNode, ifNodes );
+                                 declaration, mutableType, this->baseTypeNode, std::move( ifNodes ) );
     }
 public:
     TxFunctionTypeDefNode( const TxLocation& ploc, TxTypeExpressionNode* baseTypeNode,
-                           const std::vector<TxDeclarationNode*>& declNodes )
-            : TxBuiltinTypeDefiningNode( ploc, TXBT_FUNCTION, baseTypeNode, declNodes ) {
+                           std::vector<TxDeclarationNode*>&& declNodes )
+            : TxBuiltinTypeDefiningNode( ploc, TXBT_FUNCTION, baseTypeNode, std::move( declNodes ) ) {
     }
 };
 
@@ -349,18 +353,18 @@ const TxFunctionTypeDefNode::TxAbstractFunctionTypeClassHandler TxFunctionTypeDe
 
 class TxRefTypeDefNode final : public TxBuiltinTypeDefiningNode {
     TxRefTypeDefNode( const TxLocation& ploc, const TxRefTypeDefNode* original,
-                      TxTypeExpressionNode* baseTypeNode, const std::vector<TxDeclarationNode*>& declNodes, TxDerivedTypeNode* sourcecodeDefiner )
-            : TxBuiltinTypeDefiningNode( ploc, original, baseTypeNode, declNodes, sourcecodeDefiner ) {
+                      TxTypeExpressionNode* baseTypeNode, std::vector<TxDeclarationNode*>&& declNodes, TxDerivedTypeNode* sourcecodeDefiner )
+            : TxBuiltinTypeDefiningNode( ploc, original, baseTypeNode, std::move( declNodes ), sourcecodeDefiner ) {
     }
 protected:
     TxActualType* make_builtin_type( const TxTypeDeclaration* declaration,
-                                             const std::vector<const TxTypeExpressionNode*>& ifNodes, bool mutableType ) override {
-        return new TxActualType( get_type_class_handler( TXTC_REFERENCE ), declaration, mutableType, this->baseTypeNode, ifNodes );
+                                             std::vector<const TxTypeExpressionNode*>&& ifNodes, bool mutableType ) override {
+        return new TxActualType( get_type_class_handler( TXTC_REFERENCE ), declaration, mutableType, this->baseTypeNode, std::move( ifNodes ) );
     }
 public:
     TxRefTypeDefNode( const TxLocation& ploc, TxTypeExpressionNode* baseTypeNode,
-                      const std::vector<TxDeclarationNode*>& declNodes )
-            : TxBuiltinTypeDefiningNode( ploc, TXBT_REFERENCE, baseTypeNode, declNodes ) {
+                      std::vector<TxDeclarationNode*>&& declNodes )
+            : TxBuiltinTypeDefiningNode( ploc, TXBT_REFERENCE, baseTypeNode, std::move( declNodes ) ) {
     }
 
     TxRefTypeDefNode* make_ast_copy() const override {
@@ -371,18 +375,18 @@ public:
 
 class TxArrayTypeDefNode final : public TxBuiltinTypeDefiningNode {
     TxArrayTypeDefNode( const TxLocation& ploc, const TxArrayTypeDefNode* original,
-                        TxTypeExpressionNode* baseTypeNode, const std::vector<TxDeclarationNode*>& declNodes, TxDerivedTypeNode* sourcecodeDefiner )
-            : TxBuiltinTypeDefiningNode( ploc, original, baseTypeNode, declNodes, sourcecodeDefiner ) {
+                        TxTypeExpressionNode* baseTypeNode, std::vector<TxDeclarationNode*>&& declNodes, TxDerivedTypeNode* sourcecodeDefiner )
+            : TxBuiltinTypeDefiningNode( ploc, original, baseTypeNode, std::move( declNodes ), sourcecodeDefiner ) {
     }
 protected:
     TxActualType* make_builtin_type( const TxTypeDeclaration* declaration,
-                                             const std::vector<const TxTypeExpressionNode*>& ifNodes, bool mutableType ) override {
-        return new TxActualType( get_type_class_handler( TXTC_ARRAY ), declaration, mutableType, this->baseTypeNode, ifNodes );
+                                             std::vector<const TxTypeExpressionNode*>&& ifNodes, bool mutableType ) override {
+        return new TxActualType( get_type_class_handler( TXTC_ARRAY ), declaration, mutableType, this->baseTypeNode, std::move( ifNodes ) );
     }
 public:
     TxArrayTypeDefNode( const TxLocation& ploc, TxTypeExpressionNode* baseTypeNode,
-                        const std::vector<TxDeclarationNode*>& declNodes )
-            : TxBuiltinTypeDefiningNode( ploc, TXBT_ARRAY, baseTypeNode, declNodes ) {
+                        std::vector<TxDeclarationNode*>&& declNodes )
+            : TxBuiltinTypeDefiningNode( ploc, TXBT_ARRAY, baseTypeNode, std::move( declNodes ) ) {
     }
 
     TxArrayTypeDefNode* make_ast_copy() const override {
@@ -485,7 +489,9 @@ static TxTypeDeclNode* make_builtin_integer( const TxLocation& parseLoc, Builtin
     auto baseTypeNode = new TxNamedTypeNode( parseLoc, BUILTIN_TYPE_NAMES[parentId] );
     auto typeDecl = new TxTypeDeclNode( parseLoc, TXD_PUBLIC | TXD_BUILTIN | TXD_FINAL,
                                         new TxIdentifierNode( parseLoc, BUILTIN_TYPE_NAMES[id] ), nullptr,
-                                        new TxIntegerTypeDefNode( parseLoc, id, baseTypeNode, size, sign, constructors[id] ), false, true );
+                                        new TxIntegerTypeDefNode( parseLoc, id, baseTypeNode, size, sign,
+                                                                  std::move( constructors[id] ) ),
+                                        false, true );
     return typeDecl;
 }
 
@@ -495,7 +501,9 @@ static TxTypeDeclNode* make_builtin_floating( const TxLocation& parseLoc, Builti
     auto baseTypeNode = new TxNamedTypeNode( parseLoc, BUILTIN_TYPE_NAMES[parentId] );
     auto typeDecl = new TxTypeDeclNode( parseLoc, TXD_PUBLIC | TXD_BUILTIN | TXD_FINAL,
                                         new TxIdentifierNode( parseLoc, BUILTIN_TYPE_NAMES[id] ), nullptr,
-                                        new TxFloatingTypeDefNode( parseLoc, id, baseTypeNode, size, constructors[id] ), false, true );
+                                        new TxFloatingTypeDefNode( parseLoc, id, baseTypeNode, size,
+                                                                   std::move( constructors[id] ) ),
+                                        false, true );
     return typeDecl;
 }
 
@@ -710,9 +718,10 @@ TxParsingUnitNode* BuiltinTypes::createTxModuleAST() {
     auto pctx = this->builtinParserContext;
 
     { // create the Any root type:
-        auto anyMembers = make_any_methods( pctx );
-        auto anyTypeDecl = new TxTypeDeclNode( PLOC(pctx), TXD_PUBLIC | TXD_BUILTIN | TXD_ABSTRACT, new TxIdentifierNode( PLOC(pctx), "Any" ), nullptr,
-                                               new TxAnyTypeDefNode( PLOC(pctx), anyMembers ), false, true );
+        auto anyTypeDecl = new TxTypeDeclNode( PLOC(pctx), TXD_PUBLIC | TXD_BUILTIN | TXD_ABSTRACT,
+                                               new TxIdentifierNode( PLOC(pctx), "Any" ), nullptr,
+                                               new TxAnyTypeDefNode( PLOC(pctx), make_any_methods( pctx ) ),
+                                               false, true );
         this->builtinTypes[TXBT_ANY] = anyTypeDecl;
     }
 
@@ -782,7 +791,9 @@ TxParsingUnitNode* BuiltinTypes::createTxModuleAST() {
     // create the boolean type:
     this->builtinTypes[TXBT_BOOL] = new TxTypeDeclNode(
             PLOC(pctx), TXD_PUBLIC | TXD_BUILTIN | TXD_FINAL, new TxIdentifierNode( PLOC(pctx), "Bool" ), nullptr,
-            new TxBoolTypeDefNode( PLOC(pctx), new TxNamedTypeNode( PLOC(pctx), "Elementary" ), constructors[TXBT_BOOL] ), false, true );
+            new TxBoolTypeDefNode( PLOC(pctx), new TxNamedTypeNode( PLOC(pctx), "Elementary" ),
+                                   std::move( constructors[TXBT_BOOL] ) ),
+                                   false, true );
 
     // create the function base type:
     this->builtinTypes[TXBT_FUNCTION] = new TxTypeDeclNode(
@@ -836,7 +847,8 @@ TxParsingUnitNode* BuiltinTypes::createTxModuleAST() {
         } );
         this->builtinTypes[TXBT_ARRAY] = new TxTypeDeclNode(
                 PLOC(pctx), TXD_PUBLIC | TXD_BUILTIN, new TxIdentifierNode( PLOC(pctx), "Array" ), paramNodes,
-                new TxArrayTypeDefNode( PLOC(pctx), new TxNamedTypeNode( PLOC(pctx), "Any" ), arrayMembers ), false, true );
+                new TxArrayTypeDefNode( PLOC(pctx), new TxNamedTypeNode( PLOC(pctx), "Any" ), std::move( arrayMembers ) ),
+                false, true );
     }
 
     // create the interface base type:

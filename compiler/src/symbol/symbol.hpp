@@ -116,6 +116,9 @@ protected:
      * @throws exceptions if unsuccessful (never returns null) */
     virtual TxEntitySymbol* declare_entity( const std::string& plainName, const TxNode* declarer, TxNode* definingNode );
 
+    /** For use by the root package only. */
+    TxScopeSymbol();
+
 public:
     TxScopeSymbol( TxScopeSymbol* parentScope, const std::string& name );
 
@@ -126,7 +129,7 @@ public:
     }
 
     /** Returns true if this symbol has an outer (parent) scope, or false if it is a root scope. */
-    inline bool has_outer() const {
+    [[maybe_unused]] inline bool has_outer() const {
         return this->outer;
     }
 
@@ -165,7 +168,7 @@ public:
 
     virtual const TxFieldDeclaration* declare_field( const std::string& plainName, const TxNode* declarer,
                                                      TxFieldDefiningNode* fieldDefiner, TxDeclarationFlags declFlags,
-                                                     TxFieldStorage storage, const TxIdentifier& dataspace );
+                                                     TxFieldStorage storage /*, const TxIdentifier& dataspace*/ );
 
     /** Gets a symbol from this namespace. */
     virtual TxScopeSymbol* get_member_symbol( const std::string& name ) {
@@ -209,7 +212,7 @@ class TxEntitySymbol : public TxScopeSymbol {
 
     std::vector<const TxTypeDeclaration*> typeSpecDeclarations;
 
-    const TxEntityDeclaration* get_distinct_decl() const;
+    [[maybe_unused]] const TxEntityDeclaration* get_distinct_decl() const;
 
 protected:
     virtual void declare_symbol( const TxParseOrigin& origin, TxScopeSymbol* symbol ) override {

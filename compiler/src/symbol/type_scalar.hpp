@@ -18,8 +18,8 @@ public:
     static const TxBoolTypeClassHandler boolTypeClassHandler;
 
     TxBoolType( const TxTypeDeclaration* declaration, const TxTypeExpressionNode* baseTypeNode,
-                const std::vector<const TxTypeExpressionNode*>& interfaceNodes )
-            : TxActualType( &boolTypeClassHandler, declaration, true, baseTypeNode, interfaceNodes ) {
+                std::vector<const TxTypeExpressionNode*>&& interfaceNodes )
+            : TxActualType( &boolTypeClassHandler, declaration, true, baseTypeNode, std::move( interfaceNodes ) ) {
     }
 };
 
@@ -27,8 +27,8 @@ public:
 class TxConcreteScalarType : public TxActualType {
 protected:
     TxConcreteScalarType( const TxTypeClassHandler* typeClassHandler, const TxTypeDeclaration* declaration, const TxTypeExpressionNode* baseTypeNode,
-                          const std::vector<const TxTypeExpressionNode*>& interfaceNodes )
-            : TxActualType( typeClassHandler, declaration, true, baseTypeNode, interfaceNodes ) {
+                          std::vector<const TxTypeExpressionNode*>&& interfaceNodes )
+            : TxActualType( typeClassHandler, declaration, true, baseTypeNode, std::move( interfaceNodes ) ) {
     }
 };
 
@@ -77,9 +77,9 @@ class TxIntegerType final : public TxConcreteScalarType {
 public:
     TxIntegerType( const TxTypeDeclaration* declaration,
                    const TxTypeExpressionNode* baseTypeNode,
-                   const std::vector<const TxTypeExpressionNode*>& interfaceNodes,
+                   std::vector<const TxTypeExpressionNode*>&& interfaceNodes,
                    int size, bool sign )
-            : TxConcreteScalarType( new TxIntegerTypeClassHandler( size, sign ), declaration, baseTypeNode, interfaceNodes) {
+            : TxConcreteScalarType( new TxIntegerTypeClassHandler( size, sign ), declaration, baseTypeNode, std::move( interfaceNodes )) {
     }
 };
 
@@ -105,8 +105,8 @@ class TxFloatingType final : public TxConcreteScalarType {
 public:
     TxFloatingType( const TxTypeDeclaration* declaration,
                     const TxTypeExpressionNode* baseTypeNode,
-                    const std::vector<const TxTypeExpressionNode*>& interfaceNodes,
+                    std::vector<const TxTypeExpressionNode*>&& interfaceNodes,
                     int size )
-            : TxConcreteScalarType( new TxFloatingTypeClassHandler( size ), declaration, baseTypeNode, interfaceNodes ) {
+            : TxConcreteScalarType( new TxFloatingTypeClassHandler( size ), declaration, baseTypeNode, std::move( interfaceNodes ) ) {
     }
 };
