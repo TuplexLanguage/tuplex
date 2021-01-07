@@ -17,7 +17,7 @@ TxQualType TxConstructorCalleeExprNode::define_type( TxTypeResLevel typeResLevel
 
 TxFunctionCallNode::TxFunctionCallNode( const TxLocation& ploc, TxExpressionNode* callee,
                                         const std::vector<TxExpressionNode*>* argsExprList, bool doesNotReturn )
-        : TxExpressionNode( ploc ), doesNotReturn( doesNotReturn ), //isInitInvokation( isInitInvokation ),
+        : TxExpressionNode( ploc ), doesNotReturn( doesNotReturn ),
           callee( callee ), origArgsExprList( argsExprList ), argsExprList( make_args_vec( argsExprList ) ) {
     this->callee->set_applied_func_args( this->origArgsExprList );
 }
@@ -28,13 +28,15 @@ TxQualType TxFunctionCallNode::define_type( TxTypeResLevel typeResLevel ) {
     // The automatic type conversions thus considered shall then be applied upon function invocation.
     // Prepare for resolving possible function overloading by registering actual function signature with
     // the callee node, BEFORE the callee node type is resolved:
-    auto ctype = this->callee->resolve_type( typeResLevel ).type();
-    if ( ctype->get_type_class() != TXTC_FUNCTION ) {
-        CERR_THROWRES( this, "Callee of function call expression is not of function type: " << ctype );
+    {
+        auto ctype = this->callee->resolve_type( typeResLevel ).type();
+        if ( ctype->get_type_class() != TXTC_FUNCTION ) {
+            CERR_THROWRES( this, "Callee of function call expression is not of function type: " << ctype );
+        }
+        this->calleeType = ctype;
     }
-    this->calleeType = ctype;
 
-    auto constructorType = dynamic_cast<const TxConstructorType*>( this->calleeType );
+    auto * const constructorType = dynamic_cast<const TxConstructorType*>( this->calleeType );
     if ( constructorType ) {
         // Stack construction syntactically looks like a function call, e.g. Int(42)
         // If the callee is a constructor, we substitute this function call with a stack construction expression:
@@ -44,10 +46,10 @@ TxQualType TxFunctionCallNode::define_type( TxTypeResLevel typeResLevel ) {
             auto constructedType = calleeField->get_constructed_type( typeResLevel );
             auto typeDeclNode = new TxQualTypeExprNode( new TxTypeDeclWrapperNode( this->ploc, constructedType->get_declaration() ) );
 
-            // Implementation note: Declaration pass is already run on the args, but we need to run it on the new construction node
-            // and its new children, and we need to run resolution pass on the whole sub-tree.
-            auto wrappedArgs = make_expr_wrapper_vec( this->origArgsExprList );
-            this->inlinedExpression = new TxStackConstructionNode( this->ploc, typeDeclNode, wrappedArgs );
+//            // Implementation note: Declaration pass is already run on the args, but we need to run it on the new construction node
+//            // and its new children, and we need to run resolution pass on the whole sub-tree.
+//            auto wrappedArgs = make_expr_wrapper_vec( this->origArgsExprList );
+            this->inlinedExpression = new TxStackConstructionNode( this->ploc, typeDeclNode, this->origArgsExprList );
             inserted_node( this->inlinedExpression, this, "inlinedexpr" );
             return constructedType;
         }
@@ -58,7 +60,7 @@ TxQualType TxFunctionCallNode::define_type( TxTypeResLevel typeResLevel ) {
         auto calleeArgTypes = this->calleeType->argument_types();
         auto arrayArgElemType = this->calleeType->vararg_elem_type();
         if ( !arrayArgElemType ) {
-            if ( auto fixedArrayArgType = this->calleeType->fixed_array_arg_type() ) {
+            if ( auto fixedArrayArgType = this->calleeType->fixed_array_arg_type()) {
                 arrayArgElemType = fixedArrayArgType->element_type().type();
             }
         }
@@ -68,24 +70,23 @@ TxQualType TxFunctionCallNode::define_type( TxTypeResLevel typeResLevel ) {
 //                && !( varArgElemType && this->argsExprList->size() >= calleeArgTypes.size() - 1 )) {
 //            CERROR(this, "Callee of function call expression has mismatching argument count: " << this->calleeType);
 //        }
-//        else
-        {
+
             if ( arrayArgElemType
                  && !( calleeArgTypes.size() == this->origArgsExprList->size()
-                       && get_reinterpretation_degree( this->origArgsExprList->back(), calleeArgTypes.back() ) >= 0 ) ) {
+                       && get_reinterpretation_degree( this->origArgsExprList->back(), calleeArgTypes.back()) >= 0 )) {
                 // Calling a var-args function, and last provided arg does not directly match the var-arg tail arg.
                 // transform the passed var-args into an array which is passed as the last argument
                 unsigned lastCalleeArgIx = calleeArgTypes.size() - 1;
                 auto arrayArgs = new std::vector<TxMaybeConversionNode*>();
                 for ( unsigned i = lastCalleeArgIx; i < this->argsExprList->size(); i++ ) {
-                    arrayArgs->push_back( this->argsExprList->at( i ) );
+                    arrayArgs->push_back( this->argsExprList->at( i ));
                 }
                 this->argsExprList->resize( lastCalleeArgIx );
 
                 TxLocation varArgLoc = this->ploc;
-                if ( !arrayArgs->empty() )
+                if ( !arrayArgs->empty())
                     varArgLoc = TxLocation( arrayArgs->front()->ploc.begin, arrayArgs->back()->ploc.end, arrayArgs->front()->ploc.parserCtx );
-                auto typeDeclWrNode = new TxTypeDeclWrapperNode( varArgLoc, arrayArgElemType->get_declaration() );
+                auto typeDeclWrNode = new TxTypeDeclWrapperNode( varArgLoc, arrayArgElemType->get_declaration());
                 auto elemTypeExpr = new TxQualTypeExprNode( typeDeclWrNode );
                 auto filledArrayNode = new TxFilledArrayLitNode( varArgLoc, elemTypeExpr, arrayArgs );
                 auto arrayArgNode = new TxMaybeConversionNode( filledArrayNode );
@@ -106,8 +107,9 @@ TxQualType TxFunctionCallNode::define_type( TxTypeResLevel typeResLevel ) {
                 // TODO: check dataspace rules if function arg is a reference
                 argExpr->insert_conversion( typeResLevel, argDefType );  // generates compilation error upon mismatch
             }
-        }
+    }
 
+    {
         if ( this->calleeType->modifiable_closure() && !constructorType ) {
             ASSERT( this->callee->get_data_graph_origin_expr(), "Callee with modifiable closere didn't have origin expression: " << this->callee );
             if ( !this->callee->get_data_graph_origin_expr()->check_chain_mutable() ) {
@@ -181,21 +183,20 @@ static TxGenSpecTypeNode* get_mutable_specialization( TxTypeResLevel typeResLeve
 TxQualType TxModifiableValueNode::define_type( TxTypeResLevel typeResLevel ) {
     TxQualType qtype = this->exprNode->resolve_type( typeResLevel );
     if ( !qtype.is_modifiable() ) {
-        auto typeEnt = qtype.type();
+        const TxActualType* typeEnt = qtype.type();
         if ( !typeEnt->is_mutable() ) {
             if ( typeEnt->is_generic_specialization() && typeEnt->get_source_base_type()->is_mutable() ) {
                 // copying an immutable type to a modifiable field is ok if we can obtain the mutable specialization
                 // corresponding to the source's immutable specialization
                 this->mutTypeDefNode = get_mutable_specialization( typeResLevel, this->exprNode, typeEnt );
                 inserted_node( mutTypeDefNode, this, "mut-type" );
-                qtype = TxQualType( mutTypeDefNode->resolve_type( typeResLevel ).type(), true );
-                LOG_DEBUG( LOGGER(), "Made mutable specialization from " << typeEnt << "  to " << qtype );
+                typeEnt = mutTypeDefNode->resolve_type( typeResLevel ).type();
+                LOG_DEBUG( LOGGER(), "Made mutable specialization of " << qtype.type() << "  to " << typeEnt );
             }
             else
-                CERR_THROWRES( this, "Can't use immutable type as modifiable: " << qtype );
+                CERR_THROWRES( this, "Can't use immutable type as modifiable: " << typeEnt );
         }
-        else
-            qtype = TxQualType( typeEnt, true );
+        qtype = TxQualType( typeEnt, true );
     }
     return qtype;
 }

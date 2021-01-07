@@ -35,9 +35,9 @@ public:
     }
 
     /** If necessary and permitted, inserts a new conversion expression that wraps the original expression.
-     * If a conversion node is created, symbol declaration pass is run on it.
      * Will cause a compilation error to be generated in the resolution pass if the types don't match
      * so that conversion isn't possible.
+     * Resolves this node's type, with the specified TxTypeResLevel.
      * @param explic_ if true, forces conversion between types that don't permit implicit conversion
      */
     void insert_conversion( TxTypeResLevel typeResLevel, const TxActualType* resultType, bool explic_ = false );

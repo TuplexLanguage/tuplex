@@ -1,14 +1,11 @@
 #include "ast_conv.hpp"
-#include "inner_conv.hpp"
-#include "ast_exprs.hpp"
 #include "ast_maybe_conv_node.hpp"
 #include "ast_ref.hpp"
 #include "ast_constexpr.hpp"
 #include "tx_error.hpp"
 #include "tx_logging.hpp"
 #include <cmath>
-#include <utility>
-#include <float.h>
+#include <cfloat>
 
 /** Evaluates if the operand is a statically constant scalar value that fits in the required type without loss of precision. */
 static bool statically_converts_to( TxExpressionNode* originalExpr, TxQualType originalType, TxQualType requiredType ) {
@@ -127,7 +124,7 @@ static TxExpressionNode* inner_wrap_conversion( TxExpressionNode* originalExpr, 
     if ( requiredType.is_modifiable() && !originalType.is_modifiable() )
         return nullptr;  // should we do this check here?
     else if ( originalType.type() == requiredType.type() ) {
-        return originalExpr;  // assume correct to not check modifiability here...
+        return originalExpr;
     }
 
     if ( explic || originalType->auto_converts_to( *requiredType ) ) {
@@ -179,7 +176,9 @@ static TxExpressionNode* inner_wrap_conversion( TxExpressionNode* originalExpr, 
  *
  * Assumes that originalExpr declaration pass has already run.
  * If a conversion node is created, the caller must insert it and run compilation passes as appropriate.
- * Returns null if conversion failed.
+ *
+ * Does not return NULL.
+ * Throws resolution_error if conversion failed.
  */
 static TxExpressionNode* inner_validate_wrap_convert( TxExpressionNode* originalExpr,
                                                       TxQualType requiredType,
@@ -237,8 +236,13 @@ static TxExpressionNode* inner_validate_wrap_convert( TxExpressionNode* original
 
 TxExpressionNode* make_conversion( TxExpressionNode* originalExpr, TxQualType requiredType, bool explic ) {
     ASSERT( originalExpr->is_context_set(), "Conversion's original expression hasn't run declaration pass: " << originalExpr );
+//    if ( auto* convExpr = dynamic_cast<TxMaybeConversionNode*>( originalExpr ) ) {
+//        std::cerr << "wrapped expr already a conversion node: " << convExpr << std::endl;
+//        convExpr->insert_qual_conversion( TXR_TYPE_CREATION, requiredType, explic );
+//        return convExpr;
+//    }
     auto exprNode = inner_validate_wrap_convert( originalExpr, requiredType, explic );
-    if ( exprNode && exprNode != originalExpr ) {
+    if ( exprNode != originalExpr ) {
         LOG_TRACE( originalExpr->LOGGER(), "Wrapping conversion to type " << requiredType->str() << " around " << originalExpr );
     }
     return exprNode;

@@ -13,12 +13,8 @@ protected:
     /** injected by outer expression if applicable */
     const std::vector<TxExpressionNode*>* appliedFuncArgs = nullptr;
 
-//    virtual void resolution_pass() override {
-//        this->resolve_type( typeResLevel );
-//    }
-
 public:
-    TxExpressionNode( const TxLocation& ploc )
+    explicit TxExpressionNode( const TxLocation& ploc )
             : TxTypeResolvingNode( ploc ) {
     }
 
@@ -44,7 +40,7 @@ public:
         return nullptr;
     }
 
-    virtual bool is_value() const override {
+    bool is_value() const override {
         return true;
     }
 

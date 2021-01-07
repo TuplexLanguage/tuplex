@@ -166,8 +166,13 @@ public:
     }
 
     /** Factory method that produces the TxExpressionNode to replace the function call with.
+     * The returned expression node (and possibly subnodes) may be newly created,
+     * or may be from the existing nodes passed to this method.
+     * In any case, the returned expression node is to substitute the passed nodes in the AST.
+     * If the returned expression node is newly created, it will not have run any passes, and must be inserted.
+     *
      * Note that the argument expressions will have run the resolution pass before this call, but not calleeExpr.
-     * The returned expression will have run the declaration pass. */
+     */
     virtual TxExpressionNode* make_inline_expr( TxExpressionNode* calleeExpr, std::vector<TxMaybeConversionNode*>* argsExprList ) const = 0;
 };
 

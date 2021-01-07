@@ -4,6 +4,7 @@
 #include "ast_maybe_conv_node.hpp"
 #include "ast/ast_entitydecls.hpp"
 #include "ast/ast_wrappers.hpp"
+#include "ast/ast_declpass.hpp"
 #include "ast/type/ast_typearg_node.hpp"
 #include "ast/type/ast_types.hpp"
 
@@ -25,6 +26,7 @@ class TxFunctionCallNode : public TxExpressionNode {
     TxExpressionNode* inlinedExpression = nullptr;  // substitutes the function/constructor call if non-null
     std::vector<TxMaybeConversionNode*>* varargsList = nullptr;  // since FilledArrayNode isn't currently able to "own" them
 
+    /** Wraps the expression nodes with TxMaybeConversionNode. */
     static std::vector<TxMaybeConversionNode*>* make_args_vec( const std::vector<TxExpressionNode*>* argsExprList ) {
         auto* copyVec = new std::vector<TxMaybeConversionNode*>( argsExprList->size() );
         std::transform( argsExprList->cbegin(), argsExprList->cend(), copyVec->begin(),
@@ -162,7 +164,7 @@ public:
         THROW_LOGIC( "Unsupported: code_gen() for node type " << this );
     }
 
-    virtual TxMemProviderNode* make_ast_copy() const override = 0;
+    TxMemProviderNode* make_ast_copy() const override = 0;
 
     llvm::Value* code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const override = 0;
 };
@@ -299,8 +301,6 @@ protected:
 
     void resolution_pass() override {
         TxExpressionNode::resolution_pass();
-//        this->typeExpr->resolution_pass();
-//        this->constructorCall->resolution_pass();
         if ( auto calleeType = this->constructorCall->callee->resolve_type( TXR_FULL_RESOLUTION ) ) {
             if ( auto inlineCalleeType = dynamic_cast<const TxInlineFunctionType*>( calleeType.type() ) ) {
                 // This constructor is an inlineable function that returns the initializer value
@@ -308,6 +308,7 @@ protected:
                 // We replace the constructor call with the initialization expression:
                 this->initializationExpression = inlineCalleeType->make_inline_expr( this->constructorCall->callee,
                                                                                      this->constructorCall->argsExprList );
+                inserted_node( this->initializationExpression, this, "inlinedconstr" );
             }
         }
     }

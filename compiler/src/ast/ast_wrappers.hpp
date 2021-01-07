@@ -96,7 +96,7 @@ public:
 
 /** Helper function that wraps a vector of TxExpressionNode. The returned vector contains TxExprWrapperNode instances. */
 template<class N>
-std::vector<TxExpressionNode*>* make_expr_wrapper_vec( const std::vector<N*>* nodeVec ) {
+[[maybe_unused]] std::vector<TxExpressionNode*>* make_expr_wrapper_vec( const std::vector<N*>* nodeVec ) {
     if ( !nodeVec )
         return nullptr;
     auto* wrapperVec = new std::vector<TxExpressionNode*>( nodeVec->size() );

@@ -42,10 +42,12 @@ void TxNode::visit_ast( const AstVisitor& visitor, const AstCursor& cursor, cons
             //    LOG( this->LOGGER(), NOTE, "Skipping compilation pass " << visitor.pass << " in " << this );
             return;
         }
-//        else if ( visitor.pass > TXP_DECLARATION && visitor.pass > this->lastPass+1 ) {
-//            LOG( this->LOGGER(), WARN, "Skipped compilation pass " << this->lastPass+1
-//                 << " to " << visitor.pass-1 << " in " << this );
-//        }
+#ifdef DEVMODE
+        else if ( visitor.pass > TXP_DECLARATION && visitor.pass > this->lastPass+1 ) {
+            LOG( this->LOGGER(), ALERT, "Skipped compilation pass " << this->lastPass+1
+                 << " to " << visitor.pass-1 << " in " << this );
+        }
+#endif
 
         if ( visitor.preFunc )
             visitor.preFunc( this, cursor, role, aux );
