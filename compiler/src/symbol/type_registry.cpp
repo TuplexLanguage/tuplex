@@ -340,7 +340,6 @@ static const TxActualType* matches_existing_specialization( const TxActualType* 
                 }
             }
         }
-        //if (baseType->get_type_class()!=TXTC_REFERENCE) std::cerr << "NOT ACCEPTING PRE-EXISTING TYPE " << existingBaseType << std::endl;
         matchOK = false;
         break;
     }
@@ -396,9 +395,9 @@ static const TxActualType* get_existing_type( const TxActualType* genBaseType,
             existingSpecDeclI != genBaseType->get_declaration()->get_symbol()->type_spec_cend();
             existingSpecDeclI++ ) {
         auto existingType = (*existingSpecDeclI)->get_definer()->qtype().type();
-        // FIXME: not guaranteed to know type class here (since not guaranteed to be integrated):
-        if (( genBaseType->get_type_class() == TXTC_INTERFACE  // interfaces are implicitly mutable
-              || existingType->is_mutable() == mutableType )
+        // Note, not guaranteed to know type class here (since not guaranteed to be integrated).
+        // Interfaces are implicitly mutable.
+        if ( ( existingType->is_mutable() || !mutableType )
             && bool( existingType->get_decl_flags() & TXD_EXPERROR ) == expError
             && existingType->get_bindings().size() == bindings.size())
             if ( auto matchingType = matches_existing_specialization( genBaseType, existingType, bindings ))
@@ -622,11 +621,6 @@ const TxActualType* TypeRegistry::make_type_specialization( const TxTypeResolvin
     baseDecl->get_symbol()->add_type_specialization( newSpecTypeDecl->get_declaration() );
 
     const TxActualType* specializedType = specTypeExpr->resolve_type( TXR_TYPE_CREATION ).type();
-//    if ( !specializedType->is_initialized() ) {
-//        // Note, we can't force initialization of genBaseType here, or there can be infinite recursion
-//        if ( genBaseType->is_initialized() )
-//            specializedType->initialize_with_type_class( genBaseType->type_class_handler());
-//    }
     LOG_DEBUG( this->LOGGER(), "Created new specialized type " << specializedType << " with base type " << genBaseType );
     // Invoking the full type resolution pass here can cause infinite recursion
     // (since the same source text construct may be recursively reprocessed),
@@ -743,7 +737,7 @@ public:
 };
 
 const TxActualType* TypeRegistry::get_interface_adapter( const TxNode* origin, const TxActualType* interfaceType,
-                                                   const TxActualType* adaptedType ) {
+                                                         const TxActualType* adaptedType ) {
     while ( interfaceType->is_same_vtable_type() && !interfaceType->is_explicit_declaration() )
         interfaceType = interfaceType->get_semantic_base_type();
     while ( adaptedType->is_same_vtable_type() && !adaptedType->is_explicit_declaration() )

@@ -111,7 +111,7 @@ static bool statically_converts_to( TxExpressionNode* originalExpr, TxQualType o
 
 
 bool auto_converts_to( TxExpressionNode* originalExpr, TxQualType requiredType ) {
-    auto originalType = originalExpr->resolve_type( TXR_FULL_RESOLUTION );
+    auto originalType = originalExpr->resolve_type( TXR_TYPE_CREATION );
     return ( originalType->auto_converts_to( *requiredType )
              || ( originalType->is_scalar() && requiredType->is_scalar()
                   && statically_converts_to( originalExpr, originalType.type(), requiredType ) ) );
@@ -184,7 +184,7 @@ static TxExpressionNode* inner_validate_wrap_convert( TxExpressionNode* original
                                                       TxQualType requiredType,
                                                       bool explic ) {
     // Note: Resolution pass is not run on the created wrapper nodes.
-    auto originalType = originalExpr->resolve_type( TXR_FULL_RESOLUTION );
+    auto originalType = originalExpr->resolve_type( TXR_TYPE_CREATION );
 
     if ( auto newExpr = inner_wrap_conversion( originalExpr, originalType, requiredType, explic ) )
         return newExpr;
@@ -236,11 +236,6 @@ static TxExpressionNode* inner_validate_wrap_convert( TxExpressionNode* original
 
 TxExpressionNode* make_conversion( TxExpressionNode* originalExpr, TxQualType requiredType, bool explic ) {
     ASSERT( originalExpr->is_context_set(), "Conversion's original expression hasn't run declaration pass: " << originalExpr );
-//    if ( auto* convExpr = dynamic_cast<TxMaybeConversionNode*>( originalExpr ) ) {
-//        std::cerr << "wrapped expr already a conversion node: " << convExpr << std::endl;
-//        convExpr->insert_qual_conversion( TXR_TYPE_CREATION, requiredType, explic );
-//        return convExpr;
-//    }
     auto exprNode = inner_validate_wrap_convert( originalExpr, requiredType, explic );
     if ( exprNode != originalExpr ) {
         LOG_TRACE( originalExpr->LOGGER(), "Wrapping conversion to type " << requiredType->str() << " around " << originalExpr );

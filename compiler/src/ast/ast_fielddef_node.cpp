@@ -99,11 +99,11 @@ TxQualType TxFieldDefiningNode::define_type( TxTypeResLevel typeResLevel ) {
             if ( qtype->get_type_class() == TXTC_ARRAY ) {
                 // This implementation relaxes the auto-conversion check to allow assignment of arrays with unknown C.
                 // We only handle auto-dereferencing of the rvalue:
-                auto rtype = this->initExpression->originalExpr->resolve_type( TXR_FULL_RESOLUTION );
+                auto rtype = this->initExpression->originalExpr->resolve_type( typeResLevel );
                 if ( rtype->get_type_class() == TXTC_REFERENCE )
-                    this->initExpression->insert_qual_conversion( TXR_FULL_RESOLUTION, rtype->target_type() );
+                    this->initExpression->insert_qual_conversion( typeResLevel, rtype->target_type() );
                 else
-                    this->initExpression->resolve_type( TXR_FULL_RESOLUTION );
+                    this->initExpression->resolve_type( typeResLevel );
             }
             else {
                 if ( is_not_properly_concrete( this, qtype ) ) {

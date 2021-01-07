@@ -16,9 +16,7 @@ void TxTypeCreatingNode::typeexpr_declaration_pass() {
 }
 
 void TxTypeCreatingNode::type_pass() {
-//    std::cerr << "type_pass() of " << this << std::endl;
     auto type = this->resolve_type( TXR_TYPE_CREATION );
-    const_cast<TxActualType*>(type.type())->integrate();
 }
 
 TxQualType TxTypeCreatingNode::define_type( TxTypeResLevel typeResLevel ) {

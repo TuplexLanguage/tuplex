@@ -12,7 +12,7 @@ class TxTypeExpressionNode : public TxTypeResolvingNode {
 protected:
     bool get_decl_interface_kw() const { return this->interfaceKW; }
 
-    virtual void declaration_pass() override final {
+    void declaration_pass() final {
         this->typeexpr_declaration_pass();
     }
 
@@ -20,15 +20,15 @@ protected:
     virtual void typeexpr_declaration_pass() { }
 
 public:
-    TxTypeExpressionNode( const TxLocation& ploc )
+    explicit TxTypeExpressionNode( const TxLocation& ploc )
             : TxTypeResolvingNode( ploc ) {
     }
 
-    virtual void set_interface( bool ifkw ) { this->interfaceKW = ifkw; }
+    virtual void set_interface( bool ifkw ) { this->interfaceKW = ifkw; this->mutableType |= ifkw; }
 
     virtual void set_requires_mutable( bool mut ) { this->mutableType = mut; }
 
-    virtual TxTypeExpressionNode* make_ast_copy() const override = 0;
+    TxTypeExpressionNode* make_ast_copy() const override = 0;
 
     /** Returns true if this type expression requires the produced type to be mutable. Used by subclasses upon type creation. */
     bool requires_mutable_type() const { return this->mutableType; }
@@ -42,4 +42,4 @@ public:
 
 
 class TxQualType;
-bool is_not_properly_concrete( const TxNode* node, const TxQualType type );
+bool is_not_properly_concrete( const TxNode* node, TxQualType type );

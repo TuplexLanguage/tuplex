@@ -4,7 +4,7 @@
 #include "ast_types.hpp"
 
 
-bool is_not_properly_concrete( const TxNode* node, const TxQualType type ) {
+bool is_not_properly_concrete( const TxNode* node, TxQualType type ) {
     if ( !type->is_concrete() ) {
         if ( !node->context().is_generic_dependent() /*&& !type->is_generic_param()*/ )
             return true;
