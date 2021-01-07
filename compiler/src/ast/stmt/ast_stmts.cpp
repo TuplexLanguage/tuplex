@@ -74,20 +74,18 @@ TxMemberInitNode::TxMemberInitNode( const TxLocation& ploc, TxIdentifierNode* id
 }
 
 void TxMemberInitNode::visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) {
-    if ( this->context().is_type_generic() || this->context().is_type_gen_dep_bindings() ) {
+    if ( visitor.pass > TXP_DECLARATION
+         && ( this->context().is_type_generic() || this->context().is_type_gen_dep_bindings() ) ) {
         // if the member to construct is TYPE parameter dependent, skip resolution and verification
-        if ( this->constructorCallExpr->callee->is_context_set() ) {
-            auto constrCallee = static_cast<TxConstructorCalleeExprNode*>( this->constructorCallExpr->callee );
-            try {
-                // FIXME: we should not have type resolution logic in visit_descendants()
-                if ( constrCallee->get_constructed_type( TXR_TYPE_CREATION )->is_generic_param() ) {
-                    //std::cerr << this << " skipping visit of " << this->constructorCallExpr << std::endl;
-                    return;
-                }
+        auto constrCallee = static_cast<TxConstructorCalleeExprNode*>( this->constructorCallExpr->callee );
+        try {
+            if ( constrCallee->get_constructed_type( TXR_TYPE_CREATION )->is_generic_param() ) {
+                //std::cerr << this << " skipping visit of " << this->constructorCallExpr << std::endl;
+                return;
             }
-            catch ( const resolution_error& err ) {
-                //LOG(this->LOGGER(), DEBUG, "Caught resolution error in " << this << ": " << err);
-            }
+        }
+        catch ( const resolution_error& err ) {
+            LOG( LOGGER(), ALERT, "Caught resolution error in " << this << ": " << err );
         }
     }
     this->constructorCallExpr->visit_ast( visitor, cursor, "initializer", aux );

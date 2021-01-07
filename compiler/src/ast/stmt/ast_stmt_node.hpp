@@ -18,7 +18,7 @@ protected:
     virtual void set_exp_error_stmt() { }
     friend class TxExpErrStmtNode;
 
-    virtual void declaration_pass() override final {
+    void declaration_pass() final {
         if (this->predecessor) {
             // place statement in the effective sub-scope of its predecessor
             this->lexContext._scope = this->predecessor->get_stmt_successor_scope();
@@ -36,11 +36,11 @@ protected:
     }
 
 public:
-    TxStatementNode( const TxLocation& ploc )
+    explicit TxStatementNode( const TxLocation& ploc )
             : TxNode( ploc ) {
     }
 
-    virtual TxStatementNode* make_ast_copy() const override = 0;
+    TxStatementNode* make_ast_copy() const override = 0;
 
     /** Returns true if this statement / compound statement *may* end with a break or continue statement. */
     virtual bool may_end_with_non_return_stmt() const {
