@@ -281,9 +281,11 @@ int TxDriver::compile( const std::vector<std::string>& startSourceFiles, const s
 
     /*--- generate LLVM code ---*/
 
-    int ret = this->llvm_compile( outputFileName );
-    if ( ret )
-        return 3;
+    if ( !this->options.no_codegen ) {
+        int ret = this->llvm_compile( outputFileName );
+        if ( ret )
+            return 3;
+    }
 
     return 0;
 }

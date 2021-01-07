@@ -20,6 +20,7 @@ public:
     bool run_verifier = false;
     bool run_jit = false;
     bool no_bc_output = false;
+    bool no_codegen = false;
     bool suppress_asserts = false;
     bool allow_tx = false;
     std::string txPath;
