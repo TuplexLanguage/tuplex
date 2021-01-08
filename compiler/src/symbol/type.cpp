@@ -277,7 +277,7 @@ void TxActualType::initialize_type() {
         else if ( this->typeClass == TXTC_INTERFACEADAPTER ) {
             this->modifiesVTable = true;
         }
-        else if ( !this->interfaces.empty() ) {
+        else if ( !this->interfaces.empty() ) {  // FIXME: interfaces not resolved yet here
             // If there are interfaces we assume that will cause the vtable will be extended in preparation.
             // This may cause false positives, but we need to determine this flag in the type's initialization phase.
             this->modifiesVTable = true;
@@ -293,59 +293,74 @@ void TxActualType::initialize_with_type_class( const TxTypeClassHandler* typeCla
     this->initialize_type();
 }
 
-void TxActualType::resolve_params( TxTypeResLevel pass ) {
+void TxActualType::resolve_params( TxTypeResLevel typeResLevel ) {
     // resolve type parameters, bindings:
     for ( auto paramDecl : this->params ) {
-        paramDecl->get_definer()->resolve_type( pass );
+        paramDecl->get_definer()->resolve_type( typeResLevel );
     }
     for ( auto bindingDecl : this->bindings ) {
-        bindingDecl->get_definer()->resolve_type( pass );
+        bindingDecl->get_definer()->resolve_type( typeResLevel );
     }
 }
 
 void TxActualType::integrate() {
-    if ( !this->hasIntegrated ) {
-        LOG_TRACE( this->LOGGER(), "Integrating type " << this );
-        // connect with super types:
-        if ( this->baseTypeNode ) {
-            if ( ! this->baseType )
-                this->baseType = const_cast<TxTypeExpressionNode*>(this->baseTypeNode)->resolve_type( TXR_FULL_RESOLUTION ).type();
-            else
-                const_cast<TxTypeExpressionNode*>(this->baseTypeNode)->resolve_type( TXR_FULL_RESOLUTION );
-            std::transform( this->interfaceNodes.cbegin(), this->interfaceNodes.cend(), std::back_inserter( this->interfaces ),
-                            []( const TxTypeExpressionNode* n ) {
-                                auto t = const_cast<TxTypeExpressionNode*>(n)->resolve_type( TXR_FULL_RESOLUTION ).type();
-                                return t;
-                            } );
-        }
+    if ( !this->narrowIntegration.has_run() )
+        // we only attempt this once
+        this->integrate( true );
+}
 
-        // integrate super types:
-        if ( this->genericBaseType )
-            const_cast<TxActualType*>( this->genericBaseType )->integrate();
-        if ( this->baseType )
-            const_cast<TxActualType*>( this->baseType )->integrate();
-        for ( auto interface : this->interfaces ) {
-            const_cast<TxActualType*>( interface )->integrate();
-        }
+void TxActualType::integrate( bool wide ) {
+    // Splitting integration into super types and generic parameters & bindings allows params/bindings
+    // to refer back and integrate this type, thus enabling legal recursive definitions of generic specializations.
 
-        // initialize this type:
-        if ( !this->typeClassHandler ) {
-            this->initialize_with_type_class( this->baseType->type_class_handler());
-        }
-        this->hasIntegrated = true;  // (setting it here allows params/bindings to refer back and integrate this type)
+    if ( !this->narrowIntegration.is_done() )
+        narrowIntegration.execute( this, []( TxActualType* type ){ type->inner_integrate( false ); } );
 
-        // integrate type parameters, bindings:
-        for ( auto paramDecl : this->params ) {
-            const_cast<TxActualType*>( paramDecl->get_definer()->resolve_type( TXR_FULL_RESOLUTION ).type() )->integrate();
-        }
-        for ( auto bindingDecl : this->bindings ) {
-            const_cast<TxActualType*>( bindingDecl->get_definer()->resolve_type( TXR_FULL_RESOLUTION ).type() )->integrate();
-        }
-
-        this->autogenerate_constructors();
-
-        this->validate_type();
+    if ( wide ) {
+        if ( !this->wideIntegration.is_done())
+            wideIntegration.execute( this, []( TxActualType* type ) { type->inner_integrate( true ); } );
     }
+}
+
+void TxActualType::inner_integrate( bool wide ) {
+    LOG_DEBUG( this->LOGGER(), "Integrating type " << this );
+    // connect with super types:
+    if ( this->baseTypeNode && !this->baseType ) {
+        this->baseType = const_cast<TxTypeExpressionNode*>(this->baseTypeNode)->resolve_type( TXR_TYPE_CREATION ).type();
+        std::transform( this->interfaceNodes.cbegin(), this->interfaceNodes.cend(),
+                        std::back_inserter( this->interfaces ),
+                        []( const TxTypeExpressionNode* n ) {
+                            return const_cast<TxTypeExpressionNode*>(n)->resolve_type( TXR_TYPE_CREATION ).type();
+                        } );
+    }
+
+    // integrate super types:
+    if ( this->genericBaseType )
+        const_cast<TxActualType*>( this->genericBaseType )->integrate( wide );
+    if ( this->baseType )
+        const_cast<TxActualType*>( this->baseType )->integrate( wide );
+    for ( auto interface : this->interfaces )
+        const_cast<TxActualType*>( interface )->integrate( wide );
+
+    // initialize this type:
+    if ( !this->typeClassHandler ) {
+        this->initialize_with_type_class( this->baseType->type_class_handler());
+    }
+
+    if ( !wide )
+        return;
+
+    LOG_DEBUG( this->LOGGER(), "Integrating params & bindings of type " << this );
+    for ( auto paramDecl : this->params ) {
+        const_cast<TxActualType*>( paramDecl->get_definer()->qtype().type())->integrate( true );
+    }
+    for ( auto bindingDecl : this->bindings ) {
+        const_cast<TxActualType*>( bindingDecl->get_definer()->qtype().type())->integrate( true );
+    }
+
+    this->autogenerate_constructors();
+
+    this->validate_type();
 }
 
 void TxActualType::validate_type() const {
@@ -537,7 +552,7 @@ bool TxActualType::is_construction_type() const {
 }
 
 const TxActualType* TxActualType::get_construction_type() const {
-    ASSERT( this->hasIntegrated, "Can't get construction type of unintegrated type " << this->get_declaration() );
+    ASSERT( this->narrowIntegration.is_done(), "Can't get construction type of unintegrated type " << this->get_declaration() );
     auto allocType = this;
     while ( !allocType->is_construction_type() )
         allocType = allocType->get_base_type();
@@ -564,13 +579,13 @@ void TxActualType::autogenerate_constructors() {
 
     for ( auto instanceFieldDecl : instanceFieldsToInitialize ) {
         if ( !instanceFieldDecl->get_definer()->initExpression ) {
-            auto fieldType = instanceFieldDecl->get_definer()->resolve_type( TXR_TYPE_CREATION );
+            auto fieldType = instanceFieldDecl->get_definer()->resolve_type( TXR_FULL_RESOLUTION );
             if ( !fieldType->is_generic_param() ) {
                 // check if instance field has a constructor that accepts a single argument of its own type
                 bool hasCopyConstructor = false;
                 auto fieldConstrType = fieldType->get_construction_type();
                 for ( auto fieldConstr : fieldConstrType->constructors ) {
-                    auto constrType = fieldConstr->get_definer()->resolve_type( TXR_TYPE_CREATION );
+                    auto constrType = fieldConstr->get_definer()->resolve_type( TXR_FULL_RESOLUTION );
                     if ( constrType->argument_types().size() == 1 ) {
                         // FUTURE: Perhaps accept copy constructors that take reference to own type
                         //         (probably requires dataspaces design to be detailed first)
@@ -1168,8 +1183,8 @@ uint32_t TxActualType::get_elementary_type_id() const {
 
 static TxEntitySymbol* lookup_inherited_binding( const TxActualType* type, const std::string& fullParamName ) {
     TxIdentifier ident( fullParamName );
-    auto parentName = ident.parent().str();
-    auto paramName = ident.name();
+    //auto parentName = ident.parent().str();
+    const auto& paramName = ident.name();
     // search hierarchy for the top-most binding with the specified plain name
     // (this skips potential shadowing type parameters further down the type hierarchy)
     TxEntitySymbol* foundBoundSym = nullptr;

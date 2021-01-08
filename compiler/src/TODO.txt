@@ -196,9 +196,13 @@ Improve debugging info so that tuples' members can be inspected - DONE
 
 Inclusive ranges syntax, e.g. 1..=10 for [1,10] inclusive - DONE
 
+Make interface required keyword for interface definitions, and make them implicitly mutable - DONE
+
+!! NEXT:  fix lookup / codegen error in ../autotest/lang/lookuptest.tx (with -compileall)
+
 !! NEXT:  Arrays and Ranges site pages
 
-!! NEXT:  Make interface required keyword for interface definitions, and make them implicitly mutable
+!! NEXT: make TXD_ABSTRACT flag be automatically set for all interfaces
 
 !! NEXT:  Change keyword from 'virtual' to 'static'
 

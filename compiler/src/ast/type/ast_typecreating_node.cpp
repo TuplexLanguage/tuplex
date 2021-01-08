@@ -17,6 +17,7 @@ void TxTypeCreatingNode::typeexpr_declaration_pass() {
 
 void TxTypeCreatingNode::type_pass() {
     auto type = this->resolve_type( TXR_TYPE_CREATION );
+    //const_cast<TxActualType*>(type.type())->integrate();
 }
 
 TxQualType TxTypeCreatingNode::define_type( TxTypeResLevel typeResLevel ) {
@@ -46,5 +47,7 @@ void TxGenParamTypeNode::set_requires_mutable( bool mut ) {
 
 const TxActualType* TxGenParamTypeNode::create_type( TxTypeResLevel typeResLevel ) {
     // create empty specialization (uniquely named but identical type)
-    return this->registry().create_type( this->get_declaration(), this->constraintTypeNode, {}, true /*this->requires_mutable_type()*/ );
+    return this->registry().create_type( this->get_declaration(), this->constraintTypeNode,
+                                         std::vector<const TxTypeExpressionNode*>(),
+                                         true /*this->requires_mutable_type()*/ );
 }

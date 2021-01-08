@@ -95,6 +95,54 @@ bool is_concrete_sinteger_type( const TxActualType* type );
 bool is_concrete_floating_type( const TxActualType* type );
 
 
+class RecursionGuard {
+    const bool do_throw;
+    bool startedRslv = false;
+    bool hasRun = false;
+    bool done = false;
+
+public:
+    explicit RecursionGuard( bool do_throw ) : do_throw( do_throw ) { }
+
+    template< typename Obj, typename Func >
+    void execute( Obj* obj, Func f ) {
+        if ( !done ) {
+            if ( this->hasRun ) {
+                if ( do_throw )
+                    CERR_THROWRES( obj, "Previous resolution invocation failed for " << obj );
+                else {
+                    LOG( obj->LOGGER(), ALERT, "Previous resolution invocation failed for " << obj );
+                    return;
+                }
+            }
+
+            if ( this->startedRslv ) {
+                if ( do_throw )
+                    CERR_THROWRES( obj, "Recursive definition of " << obj );
+                else {
+                    LOG( obj->LOGGER(), INFO, "Skipping recursive definition of " << obj );
+                    return;
+                }
+            }
+            this->startedRslv = true;
+            try {
+                f( obj );
+                done = true;
+            }
+            catch ( const resolution_error& err ) {
+                this->hasRun = true;
+                throw;
+            }
+            this->hasRun = true;
+        }
+    }
+
+    inline bool has_run() const { return this->hasRun; }
+
+    inline bool is_done() const { return this->done; }
+};
+
+
 /** An instance of this class represents a type definition.
  *
  * Type instances are not to be constructed directly, they may only by created from the built-in
@@ -192,8 +240,8 @@ class TxActualType : public TxEntity { //public virtual TxParseOrigin, public Pr
     /** False unless this type is generic and has at least one unbound VALUE type parameter. */
     bool valueGeneric = false;
 
-    /** true when integrate() has completed */
-    bool hasIntegrated = false;
+    RecursionGuard narrowIntegration{ true };
+    RecursionGuard wideIntegration{ false };
 
     /** true after prepare_members() has started - guards against recursive data types */
     bool startedPrepare = false;
@@ -233,6 +281,9 @@ protected:
 
     /** Gets the Any root type. */
     const TxActualType* get_root_any_qtype() const;
+
+    void integrate( bool wide );
+    void inner_integrate( bool wide );
 
     /** Prepares this type's members, including data layout. Called after resolution phase has completed.
      * @return true if a data type recursion has been discovered */
@@ -274,7 +325,7 @@ public:
     }
 
     inline bool is_integrated() const {
-        return this->hasIntegrated;
+        return this->wideIntegration.is_done();
     }
 
     inline bool is_prepared() const {
@@ -285,7 +336,7 @@ public:
     void initialize_with_type_class( const TxTypeClassHandler* typeClassInstance );
 
     /** resolve type parameters and bindings */
-    void resolve_params( TxTypeResLevel pass );
+    void resolve_params( TxTypeResLevel typeResLevel );
 
     /** Integrates this type with its declaration dependencies - base class, interfaces, generic parameters/bindings.
      * Will also initialize this type with its type class if is isn't already. */
@@ -360,7 +411,7 @@ public:
     /** Gets the base type (parent) of this type.
      * ('Any' is the only type that has no base type, in which case null is returned.) */
     inline const TxActualType* get_base_type() const {
-        ASSERT( this->hasIntegrated, "Can't get base type of unintegrated type " << this->get_declaration() );
+        ASSERT( this->narrowIntegration.is_done(), "Can't get base type of unintegrated type " << this->get_declaration() );
         return this->baseType;
     }
 
@@ -389,7 +440,7 @@ public:
     }
 
     inline const std::vector<const TxActualType*>& get_interfaces() const {
-        ASSERT( this->hasIntegrated, "Can't get interfaces of unintegrated type " << this->get_declaration() );
+        ASSERT( this->narrowIntegration.is_done(), "Can't get interfaces of unintegrated type " << this->get_declaration() );
         return this->interfaces;
     }
 

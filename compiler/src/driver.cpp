@@ -492,7 +492,7 @@ void TxDriver::add_reachable( TxNode* node ) {
             }
         }
     }
-    ASSERT( false, "Orphan top level decl node for " << node );
+    //ASSERT( false, "Orphan top level decl node for " << node );
 }
 
 bool TxDriver::add_import( const TxIdentifier& moduleName ) {

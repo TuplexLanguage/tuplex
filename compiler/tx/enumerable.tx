@@ -8,15 +8,15 @@ type ~ Ordinal <: ULong
 /** An Enumerable type has a bijective mapping between its values and positive natural numbers,
  * referred to as ordinals.
  */
-interface Enumerable{ E derives Enumerable{E} } <: Comparable{ E } :
-
+interface Enumerable{ E derives Enumerable{E} } : ##<: Comparable{ E } :
+/*
     override compare( other : E ) -> Int :
         so := self.ordinal()
         oo := other.ordinal()
         if so < oo:  return -1;
         if so > oo:  return 1
         return 0
-
+*/
 
     /** returns the last (highest) ordinal for this type */
     virtual abstract last_ordinal() -> Ordinal

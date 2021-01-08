@@ -173,7 +173,7 @@ void TxFieldDeclNode::verification_pass() const {
     }
 }
 
-TxTypeDeclNode::TxTypeDeclNode( const TxLocation& ploc, const TxDeclarationFlags declFlags, TxIdentifierNode* typeName,
+TxTypeDeclNode::TxTypeDeclNode( const TxLocation& ploc, TxDeclarationFlags declFlags, TxIdentifierNode* typeName,
                 const std::vector<TxDeclarationNode*>* typeParamDecls, TxTypeCreatingNode* typeCreatingNode,
                 bool interfaceKW, bool mutableType )
         : TxDeclarationNode( ploc, declFlags ), typeName( typeName ),
@@ -217,7 +217,7 @@ void TxTypeDeclNode::declaration_pass() {
             CERROR( this, "Failed to declare type " << this->typeName );
             return;
         }
-        this->_declaration = declaration;
+        //this->_declaration = declaration;
         LOG_TRACE( this->LOGGER(), this << ": Declared type " << declaration );
     }
 
@@ -248,16 +248,16 @@ const std::vector<const TxEntityDeclaration*>& TxTypeDeclNode::get_type_params()
 
 void TxTypeDeclNode::verification_pass() const {
     if ( auto qtype = this->typeCreatingNode->attempt_qtype() ) {
-        if ( qtype->is_initialized() ) {
+        if ( qtype->is_initialized() ) {  // earlier errors may cause this to be uninitialized
             if ( this->interfaceKW ) {
-                if ( this->typeCreatingNode->qtype()->get_type_class() != TXTC_INTERFACE )
-                    CERROR( this, "Interface type cannot derive from non-interface type: " << this->typeCreatingNode->qtype() );
+                if ( qtype->get_type_class() != TXTC_INTERFACE )
+                    CERROR( this, "Interface type cannot derive from non-interface type: " << qtype );
             }
             else {
-                if ( this->typeCreatingNode->qtype()->get_type_class() == TXTC_INTERFACE )
-                    if ( !( this->get_decl_flags() & ( TXD_GENPARAM | TXD_GENBINDING | TXD_IMPLICIT ) ) )
-                        //&& !this->typeExpression->get_type()->is_modifiable() )
-                        CWARNING( this, "Interface type not declared with 'interface' keyword: " << this->typeCreatingNode->qtype() );
+                if ( qtype->get_type_class() == TXTC_INTERFACE ) {
+                    if ( !( this->get_decl_flags() & ( TXD_GENPARAM | TXD_GENBINDING | TXD_IMPLICIT )))
+                        CERROR( this, "Interface type not declared with 'interface' keyword: " << qtype );
+                }
             }
         }
     }

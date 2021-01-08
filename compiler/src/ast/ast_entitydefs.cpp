@@ -26,8 +26,13 @@ TxQualType TxTypeResolvingNode::resolve_type( TxTypeResLevel typeResLevel ) {
         }
         ASSERT( this->_type, "NULL-resolved type but no exception thrown in " << this );
         this->hasResolved = true;
+        this->startedRslv = false;
     }
     if ( typeResLevel == TXR_FULL_RESOLUTION && !this->_type->is_integrated() ) {
+        if ( this->startedRslv ) {
+            CERR_THROWRES( this, "Recursive definition of type '" << this->get_descriptor() << "'" );
+        }
+        this->startedRslv = true;
         const_cast<TxActualType*>(this->_type.type())->integrate();
     }
     return this->_type;

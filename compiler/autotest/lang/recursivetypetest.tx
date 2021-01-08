@@ -24,8 +24,8 @@ type Node derives Tuple :
 ## guard against recursive type definitions:
 
 ## since these are mutually recursive, one of them will report the error:
-#experr 0: type First derives Secnd
-#experr 1: type Secnd derives First
+#experr 1: type First derives Secnd
+#experr 0: type Secnd derives First
 
 
 ## data recursion via reference is OK:

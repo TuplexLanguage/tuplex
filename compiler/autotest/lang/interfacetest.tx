@@ -16,7 +16,11 @@
 #experr 1: interface BadDerivation9 derives Bool
 
 
-## FUTURE: support #expwarn: type WarnInterface : Interface
+## interfaces must be declared with the interface keyword
+#experr 1: type WarnInterface derives Interface
+
+#experr 1: type WarnInterface2 derives Interface :
+    abstract a_method()->Int
 
 
 ## 'abstract' tests
