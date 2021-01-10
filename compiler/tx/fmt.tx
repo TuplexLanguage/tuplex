@@ -19,11 +19,11 @@ type MultiStringer <: Tuple, Stringer :
 
 
 type StringFormat :
-    virtual final FLAG_MINUS : UByte = 1
-    virtual final FLAG_PLUS  : UByte = 2
-    virtual final FLAG_SPACE : UByte = 4
-    virtual final FLAG_ZERO  : UByte = 8
-    virtual final FLAG_HASH  : UByte = 16
+    static final FLAG_MINUS : UByte = 1
+    static final FLAG_PLUS  : UByte = 2
+    static final FLAG_SPACE : UByte = 4
+    static final FLAG_ZERO  : UByte = 8
+    static final FLAG_HASH  : UByte = 16
 
     flags     : UByte
     width     : UInt

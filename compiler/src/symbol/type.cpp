@@ -810,9 +810,9 @@ bool TxActualType::inner_prepare_members() {
                     auto overriddenField = this->virtualFields.get_field( field->get_unique_name() );
                     if ( overriddenField->get_decl_flags() & TXD_FINAL )
                         CERROR( field, "Can't override a base type field that is declared 'final': " << field );
-                    if ( overriddenField->get_decl_flags() & TXD_VIRTUAL
-                         && !( fieldDecl->get_decl_flags() & TXD_VIRTUAL ) )
-                        CERROR( field, "Field overrides a virtual field but is not declared 'virtual': " << field );
+                    if ( overriddenField->get_decl_flags() & TXD_STATIC
+                         && !( fieldDecl->get_decl_flags() & TXD_STATIC ) )
+                        CERROR( field, "Field overrides a static field but is not declared 'static': " << field );
                     if ( !( field->qtype()->is_assignable_to( *overriddenField->qtype() ) ) )
                         CERROR( field, "Overriding member's type " << field->qtype() << std::endl
                                 << "   not assignable to overridden member's type " << overriddenField->qtype() );

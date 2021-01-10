@@ -19,10 +19,10 @@ interface Enumerable{ E derives Enumerable{E} } : ##<: Comparable{ E } :
 */
 
     /** returns the last (highest) ordinal for this type */
-    virtual abstract last_ordinal() -> Ordinal
+    static abstract last_ordinal() -> Ordinal
 
     /** returns the value for the specified ordinal (panics upon out-of-bounds) */
-    virtual abstract value( ordinal : Ordinal ) -> E
+    static abstract value( ordinal : Ordinal ) -> E
 
 
     /** returns the ordinal for this value */

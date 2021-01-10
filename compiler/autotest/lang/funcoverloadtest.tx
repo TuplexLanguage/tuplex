@@ -35,13 +35,11 @@ main()->Int :
 /*
     function ptr storages (internal):
     global
-    virtual
-    virtual
+    static
 
     lambda obj storages:
     global
-    virtual
-    virtual
+    static
     instance
     stack
 
@@ -54,7 +52,7 @@ main()->Int :
     A declared function name is semantically always a function
     that holds its own closure (if any).
     I.e. it is a "lambda object".
-    
+
     Function declarations that are
      - statically constant
      - direct-defined (i.e. closure = current scope)
@@ -66,19 +64,19 @@ main()->Int :
      - actual lambda object, or
      - merely a function pointer, to be combined with the
        base pointer which is the "self" closure pointer
-    
+
     You can't take a reference to an implicit function/lambda
     since it has no storage. You can however assign it to a
     lambda object field (and then take a reference to that).
 
-    
+
     myglobalF := func () { }
-    
+
     type MyType :
-        virtual mystaticF := func () { }
-        
-        virtual myvirtualF := func () { }
-        
+        static mystaticF := func () { }
+
+        static myvirtualF := func () { }
+
         myinlineinstanceF := func () { self.valid() }
         ## doesn't need actual storage in instance struct
         ## Q: can this be determined without the method sytx?
@@ -90,9 +88,9 @@ main()->Int :
         ## does need actual storage in instance struct
 
 
-        virtual func mystaticF() { }
+        static func mystaticF() { }
 
         func myinlineinstanceF() { self.valid() }
 
-    
+
 */

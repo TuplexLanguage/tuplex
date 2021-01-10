@@ -39,7 +39,7 @@ void TxFieldDeclNode::declaration_pass() {
         if ( !lambdaExpr && !( flags & TXD_ABSTRACT ) )
             CERROR( this, "Missing modifier 'abstract' for method that has no body" );
 
-        if ( flags & TXD_VIRTUAL ) {
+        if ( flags & TXD_STATIC ) {
             storage = TXS_VIRTUAL;
         }
         else {
@@ -49,8 +49,8 @@ void TxFieldDeclNode::declaration_pass() {
         }
     }
     else if ( dynamic_cast<TxModule*>( lexContext.scope() ) ) {  // if in global scope
-        if ( flags & TXD_VIRTUAL )
-            CERROR( this, "'virtual' is invalid modifier for module scope field " << this->fieldDef->get_descriptor() );
+        if ( flags & TXD_STATIC )
+            CERROR( this, "'static' is invalid modifier for module scope field " << this->fieldDef->get_descriptor() );
         if ( flags & TXD_FINAL )
             CERROR( this, "'final' is invalid modifier for module scope field " << this->fieldDef->get_descriptor() );
         if ( flags & TXD_OVERRIDE )
@@ -63,17 +63,22 @@ void TxFieldDeclNode::declaration_pass() {
         if ( flags & TXD_EXTERNC )
             CERROR( this, "'externc' is not a valid modifier for a non-global field: " << this->fieldDef->get_descriptor() );
         if ( flags & TXD_ABSTRACT ) {
-            if ( !( flags & TXD_VIRTUAL ) )
-                CERROR( this, "'abstract' fields must also be declared 'virtual': " << this->fieldDef->get_descriptor() );
             if ( !( flags & ( TXD_PROTECTED | TXD_PUBLIC ) ) )
                 CERROR( this, "'abstract' fields cannot be private (since private are non-virtual): " << this->fieldDef->get_descriptor() );
         }
-        if ( flags & TXD_VIRTUAL ) {
+//        if ( flags & TXD_VIRTUAL ) {
+//            storage = TXS_VIRTUAL;
+//        }
+        if ( flags & TXD_STATIC ) {
             storage = TXS_VIRTUAL;
         }
         else {
+            if ( flags & TXD_FINAL )
+                CERROR( this, "'final' is not a valid modifier for an instance field: " << this->fieldDef->get_descriptor() );
             if ( flags & TXD_OVERRIDE )
-                CERROR( this, "'override' is not a valid modifier for a non-virtual field: " << this->fieldDef->get_descriptor() );
+                CERROR( this, "'override' is not a valid modifier for an instance field: " << this->fieldDef->get_descriptor() );
+            if ( flags & TXD_ABSTRACT )
+                CERROR( this, "'abstract' is not a valid modifier for an instance field: " << this->fieldDef->get_descriptor() );
             storage = TXS_INSTANCE;
         }
     }

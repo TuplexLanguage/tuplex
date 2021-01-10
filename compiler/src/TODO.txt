@@ -164,6 +164,16 @@ Clean up tests and tx code with new structure syntax - DONE
 Make blog post about new syntax - DONE
 
 
+AST passes refactoring
+----------------------
+Make all AST nodes' state unambiguous - avoid the tree having mix of "originally created nodes" with
+inserted wrapper nodes, transformed constructor calls, argument vectors etc - where the compiler pass state
+becomes unclear.
+ - Each compiler pass should execute exactly once on each node. - DONE
+ - It should be perfectly clear which state the node is in. - DONE
+ - perhaps pass PASS info with visitor - DONE
+
+
 Remaining core array features:
 ------------------------------
 Review array mutability vs element mutability handling - DONE
@@ -187,7 +197,6 @@ Freeing memory (delete statement) - DONE
 Destructors
 
 
-
 Misc
 ----
 LLVM 11 update - DONE
@@ -198,15 +207,13 @@ Inclusive ranges syntax, e.g. 1..=10 for [1,10] inclusive - DONE
 
 Make interface required keyword for interface definitions, and make them implicitly mutable - DONE
 
+Change keyword from 'virtual' to 'static' - DONE
+
+!! NEXT:  Colon after sub-module header
+
 !! NEXT:  fix lookup / codegen error in ../autotest/lang/lookuptest.tx (with -compileall)
 
 !! NEXT:  Arrays and Ranges site pages
-
-!! NEXT: make TXD_ABSTRACT flag be automatically set for all interfaces
-
-!! NEXT:  Change keyword from 'virtual' to 'static'
-
-!! NEXT:  Colon after sub-module header
 
 Improved FFI support
  - opaque 64b pointer type
@@ -218,25 +225,9 @@ Number parsing functions atou() atoi() atof()
 ========= MILESTONE ==========
 
 
-
 Dataspace support
  - overhaul syntax and grammar handling
  - full semantics and verification
-
-
-
-REFACTORING
------------
-Make all AST nodes' state unambiguous - avoid the tree having mix of "originally created nodes" with
-inserted wrapper nodes, transformed constructor calls, argument vectors etc - where the compiler pass state
-becomes unclear.
- - Each compiler pass should execute exactly once on each node.
- - It should be perfectly clear which state the node is in.
- - Preferably, there shouldn't be an ocean of if statements to process on the nodes - and the passes should
-   (typically) not need to run several times on the same subtree.
- -> perhaps pass PASS info with visitor?
- -> perhaps merge declaration pass with node construction?
-
 
 
 Advanced array and range features
@@ -365,6 +356,8 @@ Implement advanced debugging info
  - generic type parameters?
 
 break and continue out of nested loops
+
+Make TXD_ABSTRACT flag be automatically set for all interfaces
 
 Make 'abstract' qualifier optional for members in Interface types?
 

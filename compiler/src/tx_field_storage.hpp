@@ -5,7 +5,8 @@
 /** Specifies the storage type for a field entity / value.
  * GLOBAL are globally declared fields, i.e. outside of any type definition.
  * STATIC and VIRTUAL are statically allocated fields within a type definition.
- * VIRTUAL fields are like STATIC but subject to polymorphic lookup.
+ * VIRTUAL fields are subject to polymorphic lookup.
+ * STATIC fields are an "optimization" of virtual that will never need polymorphic lookup (e.g. constructors; private)
  * INSTANCEMETHOD is a special case, where the function pointer is static/virtual and the 'self' ref is provided in runtime
  * INSTANCE fields are members of type instances (i.e. object members).
  * STACK fields are regular "auto" variables, including function arguments, bound to a field declaration.

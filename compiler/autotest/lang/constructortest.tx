@@ -22,14 +22,14 @@ type EmptyTypeD derives Tuple :
 
 
 type ~Upper :
-    virtual FOO : Int = 14
+    static FOO : Int = 14
     _e : ~Float = 345.67
     _f : Int
 
 
 type ~Lower derives Upper :
-    #experr 1: virtual ERR : Int;  ## missing initializer
-    virtual BAR : Int = 19
+    #experr 1: static ERR : Int;  ## missing initializer
+    static BAR : Int = 19
     _f : ~Int;  ## modifiable _f that shadows parent non-mod _f
     _g : Int
     _h : Int = 4

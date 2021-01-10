@@ -19,7 +19,7 @@ COPY := CONSTANT
 #experr 1: NONCONSTC : ~Int = 8
 
 
-#experr 1: virtual  TOO_VIRTUAL   : Int = 5
+#experr 1: static  TOO_VIRTUAL   : Int = 5
 #experr 1: override TOO_OVERRIDE : Int = 5
 #experr 1: final    TOO_FINAL    : Int = 5
 #experr 1: abstract TOO_ABSTRACT
@@ -75,21 +75,21 @@ CONST_LEN := CONST_ARRAY.L
 #experr 0: REC8 := REC7
 
 
-## corresponding test for virtual type members:
+## corresponding test for static type members:
 type Compound :
-    virtual OK : Int = 4
+    static OK : Int = 4
 
-    #experr 1: virtual RECA := RECB
-    #experr 0: virtual RECB := RECA
+    #experr 1: static RECA := RECB
+    #experr 0: static RECB := RECA
 
-    #experr 1: virtual RECC : Int = RECD
-    #experr 0: virtual RECD : Int = RECC
+    #experr 1: static RECC : Int = RECD
+    #experr 0: static RECD : Int = RECC
 
-    #experr 1: virtual RECE := RECF
-    #experr 0: virtual RECF : Int = RECE
+    #experr 1: static RECE := RECF
+    #experr 0: static RECF : Int = RECE
 
-    #experr 1: virtual RECG : Int = RECH
-    #experr 0: virtual RECH := RECG
+    #experr 1: static RECG : Int = RECH
+    #experr 0: static RECH := RECG
 
 
 

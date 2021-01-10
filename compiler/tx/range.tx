@@ -138,7 +138,7 @@ type ERange{ E derives Enumerable } <: Tuple, Range{ E } :
             panic "Invalid range index: " %d index %% " >= " %d self._indexLimit
         return self._get_abs_ix( ULong( index ) )
 
-    ## FUTURE: When overloading of virtual methods supported, let these override has() and get()
+    ## FUTURE: When overloading of static methods supported, let these override has() and get()
 
     /** Returns true if this range has the specified index. If index is negative, it is relative to range's end. */
     has_( index : Long ) -> Bool :

@@ -40,7 +40,7 @@ type ~ AType :  ## mutable type
 
 /*
 type ~ OptRef{T} :
-    virtual NULL : UByte = 0
+    static NULL : UByte = 0
     _r : Ref{Any}
 
     self() :

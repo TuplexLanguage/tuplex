@@ -5,7 +5,7 @@ interface Comparable{ E } derives Interface :
 
 interface Enumerable{ E derives Enumerable{E} } derives Comparable{ E } :
 
-    virtual abstract value( ordinal: ULong ) -> E
+    static abstract value( ordinal: ULong ) -> E
 
     abstract ordinal() -> ULong
 
@@ -22,7 +22,7 @@ interface Enumerable{ E derives Enumerable{E} } derives Comparable{ E } :
 
 
 type MyUInt <: Tuple, Enumerable{ MyUInt } :
-    virtual override value( ordinal: ULong ) -> MyUInt :
+    static override value( ordinal: ULong ) -> MyUInt :
         return MyUInt( UInt( ordinal ) )
 
 

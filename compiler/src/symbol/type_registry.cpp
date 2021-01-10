@@ -25,7 +25,7 @@
 
 
 /** the flags that may be inherited when specializing a type */
-static const TxDeclarationFlags DECL_FLAG_FILTER = TXD_VIRTUAL | TXD_PUBLIC | TXD_PROTECTED | TXD_ABSTRACT | TXD_FINAL | TXD_IMPLICIT
+static const TxDeclarationFlags DECL_FLAG_FILTER = TXD_STATIC | TXD_PUBLIC | TXD_PROTECTED | TXD_ABSTRACT | TXD_FINAL | TXD_IMPLICIT
                                                    | TXD_EXPERROR;
 
 Logger& TypeRegistry::REGLOGGER = Logger::get( "REGISTRY" );
@@ -771,7 +771,7 @@ const TxActualType* TypeRegistry::get_interface_adapter( const TxNode* origin, c
     auto adapterTypeNode = new TxAdapterTypeNode( loc, interfaceType, adaptedType );
 
     // override the adaptee type id virtual field member:
-    auto tidFieldDecl = new TxFieldDeclNode( loc, TXD_PUBLIC | TXD_VIRTUAL | TXD_OVERRIDE | TXD_IMPLICIT,
+    auto tidFieldDecl = new TxFieldDeclNode( loc, TXD_PUBLIC | TXD_STATIC | TXD_OVERRIDE | TXD_IMPLICIT,
                                              new TxNonLocalFieldDefNode( loc, new TxIdentifierNode( loc, "$adTypeId" ),
                                                                          new TxNamedTypeNode( loc, "tx.UInt" ), nullptr ) );
     auto fieldDecls = new std::vector<TxDeclarationNode*>( { tidFieldDecl } );

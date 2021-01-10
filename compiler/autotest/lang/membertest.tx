@@ -1,7 +1,7 @@
 
 type ~ CompoundType derives Tuple :
-    virtual SFIELD := -1
-    virtual SFIELD2 := 2.73
+    static SFIELD := -1
+    static SFIELD2 := 2.73
     field0 : Long
     field1 : ~Long
     field2 : ~Float
@@ -10,7 +10,7 @@ type ~ CompoundType derives Tuple :
     field5 : ~InnerCompType
     field6 : ~&~InnerCompType
     type ~ InnerCompType derives Tuple :
-        virtual PI := 3.14
+        static PI := 3.14
         blaha : ~Float
 
     self() :
@@ -25,30 +25,30 @@ type ~ Subtype derives CompoundType : {
 
 type MemberInitTestType :
 /*
-Private virtual can be truly virtual.
-Public virtual is virtual, but referencing them without a base expression is non-polymorphic.
+Private static can be truly static.
+Public static is static, but referencing them without a base expression is non-polymorphic.
 */
-    virtual FIELD1 := 4
-    virtual FIELD2 := FIELD1 + 1
-    virtual FIELD3 := FIELD4
-    virtual FIELD4 := FIELD1
-    virtual FIELD5 := FIELD6 + 1
-    virtual FIELD6 := FIELD1 + 1
+    static FIELD1 := 4
+    static FIELD2 := FIELD1 + 1
+    static FIELD3 := FIELD4
+    static FIELD4 := FIELD1
+    static FIELD5 := FIELD6 + 1
+    static FIELD6 := FIELD1 + 1
 
-    virtual PUB_FIELD1 := 4
-    virtual PUB_FIELD2 := PUB_FIELD1 + 1
-    virtual PUB_FIELD3 := PUB_FIELD4
-    virtual PUB_FIELD4 := PUB_FIELD1
-    virtual PUB_FIELD5 := PUB_FIELD6 + 1
-    virtual PUB_FIELD6 := PUB_FIELD1 + 1
+    static PUB_FIELD1 := 4
+    static PUB_FIELD2 := PUB_FIELD1 + 1
+    static PUB_FIELD3 := PUB_FIELD4
+    static PUB_FIELD4 := PUB_FIELD1
+    static PUB_FIELD5 := PUB_FIELD6 + 1
+    static PUB_FIELD6 := PUB_FIELD1 + 1
 
     /* TODO: initializers with modifiable statics
-    virtual ~PUB_MFIELD1 := 4
-    virtual ~PUB_MFIELD2 := PUB_MFIELD1 + 1
-    virtual ~PUB_MFIELD3 := PUB_MFIELD4
-    virtual ~PUB_MFIELD4 := PUB_MFIELD1
-    virtual ~PUB_MFIELD5 := PUB_MFIELD6 + 1
-    virtual ~PUB_MFIELD6 := PUB_MFIELD1 + 1
+    static ~PUB_MFIELD1 := 4
+    static ~PUB_MFIELD2 := PUB_MFIELD1 + 1
+    static ~PUB_MFIELD3 := PUB_MFIELD4
+    static ~PUB_MFIELD4 := PUB_MFIELD1
+    static ~PUB_MFIELD5 := PUB_MFIELD6 + 1
+    static ~PUB_MFIELD6 := PUB_MFIELD1 + 1
     */
 
     /* TODO: controlled error message upon recursive definition
@@ -78,7 +78,7 @@ testfunc() :
     #experr: ro_obj.field1 = 133;  ## can't change mutable field of non-mutable object
 
     obj := ~CompoundType()
-    #experr: obj.SFIELD = 133;  ## non-mutable virtual field
+    #experr: obj.SFIELD = 133;  ## non-mutable static field
     obj.field1 = 133
     obj.field2 = CompoundType.SFIELD2 * 10.0
     assert obj.field1 == 133

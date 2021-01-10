@@ -7,7 +7,7 @@ type CustomIntRef derives Ref{Int} : {
 }
 
 #experr 1: type ECustomRef{T} derives Ref{T} :
-    virtual CONSTANT := 2
+    static CONSTANT := 2
 
 
 #experr 1: type ECustomIntRef derives Ref{Int} :

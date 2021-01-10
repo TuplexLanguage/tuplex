@@ -7,7 +7,7 @@ enum TxDeclarationFlags {
     // can be declared in source:
     TXD_PUBLIC = 1 << 0,
     TXD_PROTECTED = 1 << 1,
-    TXD_VIRTUAL = 1 << 2,
+    TXD_STATIC = 1 << 2,
     TXD_EXTERNC = 1 << 3,
     TXD_ABSTRACT = 1 << 4,
     TXD_FINAL = 1 << 5,
@@ -43,7 +43,7 @@ inline std::string to_string( TxDeclarationFlags flags ) {
     sprintf( buf, "%c%c%c%c%c%c%c%c%c%c%c%c%c%c%c",
              ( flags & TXD_PUBLIC ) ? 'P' : '-',
              ( flags & TXD_PROTECTED ) ? 'R' : '-',
-             ( flags & TXD_VIRTUAL ) ? 'V' : '-',
+             ( flags & TXD_STATIC ) ? 'S' : '-',
              ( flags & TXD_EXTERNC ) ? 'X' : '-',
              ( flags & TXD_ABSTRACT ) ? 'A' : '-',
              ( flags & TXD_FINAL ) ? 'F' : '-',

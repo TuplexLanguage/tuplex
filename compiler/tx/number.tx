@@ -2,7 +2,7 @@ module tx
 
 
 interface Number{N derives Number{N}} :
-    virtual abstract MAX : N
+    static abstract MAX : N
 
-    virtual abstract MIN : N
+    static abstract MIN : N
 

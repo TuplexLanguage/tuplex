@@ -12,13 +12,13 @@ CONSTANT := 42
 
 #experr 1: type BadType2 derives Tuple :
     instfield : Float
-    virtual FOO : Int = 2.73;  ## bad type conversion
-    virtual BAR := 7
+    static FOO : Int = 2.73;  ## bad type conversion
+    static BAR := 7
 
 
 #experr 1: type BadType3 derives UnknownType :
-    virtual good := 21
-    virtual found := 22
+    static good := 21
+    static found := 22
 
 
 type OkType derives Tuple :
@@ -27,11 +27,11 @@ type OkType derives Tuple :
         #experr: super()
         #init: instfield( f )
 
-    virtual good := 14
-    #experr 1: virtual FOO : Int = 2.73;  ## bad type conversion
-    virtual BAR := 7
-    virtual missed := 17
-    virtual found := 18
+    static good := 14
+    #experr 1: static FOO : Int = 2.73;  ## bad type conversion
+    static BAR := 7
+    static missed := 17
+    static found := 18
 
 
 #experr: bad_func1()

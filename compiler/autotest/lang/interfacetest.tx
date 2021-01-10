@@ -34,10 +34,10 @@
 
 ## an abstract (non-interface) type can have both abstract and concrete members:
 abstract type AbstractType derives Tuple :
-    virtual foo : Int = 2
-    virtual abstract bar : Int
-    #experr 1: virtual abstract bad : Int = 3;  ## can't specify initializer for abstract field
-    ## currently don't have private: #experr 3: virtual abstract mac : Int;  ## 'abstract' fields cannot be private (since private are non-virtual)
+    static foo : Int = 2
+    static abstract bar : Int
+    #experr 1: static abstract bad : Int = 3;  ## can't specify initializer for abstract field
+    ## currently don't have private: #experr 3: static abstract mac : Int;  ## 'abstract' fields cannot be private (since private are non-static)
 
     instanceField : Int
     #experr: abstract abstrInstanceField : Int;  ## instance fields can't be abstract
@@ -54,10 +54,10 @@ abstract type AbstractType derives Tuple :
 
 ## a concrete type can't have abstract members:
 type ConcreteType derives Tuple :
-    virtual foo : Int = 2
-    #experr 1: virtual abstract bar : Int;      ## a concrete type can't have abstract members
-    #experr 2: virtual abstract bad : Int = 3;  ## can't specify initializer for abstract field
-    ## currently don't have private: #experr 3: virtual abstract mac : Int;   ## 'abstract' fields cannot be private (since private are non-virtual)
+    static foo : Int = 2
+    #experr 1: static abstract bar : Int;      ## a concrete type can't have abstract members
+    #experr 2: static abstract bad : Int = 3;  ## can't specify initializer for abstract field
+    ## currently don't have private: #experr 3: static abstract mac : Int;   ## 'abstract' fields cannot be private (since private are non-static)
 
     instanceField : Int
     #experr: abstract abstrInstanceField : Int;  ## instance fields can't be abstract
@@ -79,7 +79,7 @@ interface IntfA :
     mixin_method_2()->Int : { return 2; }
 
     #experr 1: instField : Int;  ## interface can't have instance members
-    virtual ifField : Int = 17
+    static ifField : Int = 17
 
 
 type Type derives Tuple, IntfA :

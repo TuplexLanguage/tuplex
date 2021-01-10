@@ -138,7 +138,7 @@ YY_DECL;
 
 /* keywords: */
 %token KW_MODULE KW_IMPORT KW_TYPE KW_INTERFACE
-%token KW_BUILTIN KW_VIRTUAL KW_ABSTRACT KW_FINAL KW_OVERRIDE KW_EXTERNC
+%token KW_BUILTIN KW_STATIC KW_ABSTRACT KW_FINAL KW_OVERRIDE KW_EXTERNC
 %token KW_MUTABLE KW_REFERENCE KW_DERIVES
 %token KW_WHILE KW_FOR KW_IF KW_ELSE KW_IN KW_IS
 %token KW_RETURN KW_BREAK KW_CONTINUE KW_NEW KW_DELETE
@@ -149,7 +149,7 @@ YY_DECL;
 
 /* keywords reserved but not currently used */
 %token KW_PUBLIC KW_PROTECTED
-%token KW_STATIC KW_CONST KW_EXTENDS KW_IMPLEMENTS
+%token KW_VIRTUAL KW_CONST KW_EXTENDS KW_IMPLEMENTS
 %token KW_SWITCH KW_CASE KW_WITH KW_AS
 %token KW_AND KW_OR KW_NOT
 %token KW_RAISES KW_TRY KW_EXCEPT KW_FINALLY KW_RAISE
@@ -167,7 +167,7 @@ YY_DECL;
 %type <TxIdentifier*> opt_module_decl
 %type <TxIdentifierNode*> identifier dataspace
 
-%type <TxDeclarationFlags> declaration_flags opt_visibility opt_externc opt_virtual opt_abstract opt_override opt_final opt_builtin
+%type <TxDeclarationFlags> declaration_flags opt_visibility opt_externc opt_static opt_abstract opt_override opt_final opt_builtin
 %type <bool> opt_mutable type_or_if
 %type <TxParsingUnitNode*> parsing_unit
 %type <TxModuleNode*> sub_module
@@ -360,7 +360,7 @@ experr_decl : KW_EXPERR COLON              { BEGIN_TXEXPERR(@1, new ExpectedErro
             ;
 
 
-declaration_flags : opt_visibility opt_builtin opt_externc opt_virtual opt_abstract opt_override opt_final
+declaration_flags : opt_visibility opt_builtin opt_externc opt_static opt_abstract opt_override opt_final
                         { $$ = ($1 | $2 | $3 | $4 | $5 | $6 | $7); } ;
 
 opt_visibility : %empty        { $$ = TXD_NONE; }
@@ -369,7 +369,7 @@ opt_visibility : %empty        { $$ = TXD_NONE; }
                ;
 opt_builtin    : %empty { $$ = TXD_NONE; } | KW_BUILTIN  { $$ = TXD_BUILTIN;  } ;
 opt_externc    : %empty { $$ = TXD_NONE; } | KW_EXTERNC  { $$ = TXD_EXTERNC;  } ;
-opt_virtual    : %empty { $$ = TXD_NONE; } | KW_VIRTUAL  { $$ = TXD_VIRTUAL;  } ;
+opt_static     : %empty { $$ = TXD_NONE; } | KW_STATIC   { $$ = TXD_STATIC;  } ;
 opt_abstract   : %empty { $$ = TXD_NONE; } | KW_ABSTRACT { $$ = TXD_ABSTRACT; } ;
 opt_override   : %empty { $$ = TXD_NONE; } | KW_OVERRIDE { $$ = TXD_OVERRIDE; } ;
 opt_final      : %empty { $$ = TXD_NONE; } | KW_FINAL    { $$ = TXD_FINAL;    } ;

@@ -1,18 +1,18 @@
 
 abstract interface Enumerable{ E derives Enumerable{E} } :
     /** returns the last (highest) ordinal for this type */
-    virtual abstract last_ordinal() -> UInt
+    static abstract last_ordinal() -> UInt
 
     /** returns the value for the specified ordinal (panics upon out-of-bounds) */
-    virtual abstract value( ordinal: UInt ) -> E
+    static abstract value( ordinal: UInt ) -> E
 
     /** returns the ordinal for this value */
     abstract ordinal() -> UInt
 
-    virtual first() -> E :
+    static first() -> E :
         return E.value( 0 )
 
-    virtual last() -> E :
+    static last() -> E :
         return E.value( E.last_ordinal() )
 
 

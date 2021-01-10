@@ -4,10 +4,10 @@ import tx.String
 
 
 type ~ File <: Tuple, tx.ByteWriter, tx.ByteReader : {
-    virtual final STATE_UNOPEN : UByte = 0;
-    virtual final STATE_ERROR  : UByte = 1;
-    virtual final STATE_OPEN   : UByte = 2;
-    virtual final STATE_CLOSED : UByte = 3;
+    static final STATE_UNOPEN : UByte = 0;
+    static final STATE_ERROR  : UByte = 1;
+    static final STATE_OPEN   : UByte = 2;
+    static final STATE_CLOSED : UByte = 3;
 
     _cfile : ~ULong = 0;
     _state : ~UByte = STATE_UNOPEN;
@@ -27,7 +27,7 @@ type ~ File <: Tuple, tx.ByteWriter, tx.ByteReader : {
     /** Opens the named file in the specified mode. */
     open_mode( name : String, mode : String ) ~ -> Int : {
         if self._state != STATE_UNOPEN:  panic "Invalid operation when state is " %d self._state;
-        
+
         self._cfile = tx.c.fopen( name._bytes, mode._bytes );
         if self._cfile != 0:
             self._state = STATE_OPEN;
@@ -40,7 +40,7 @@ type ~ File <: Tuple, tx.ByteWriter, tx.ByteReader : {
 
     close() ~ : {
         if self._state != STATE_OPEN:  panic "Invalid operation when state is " %d self._state;
-        
+
         self._state = STATE_CLOSED;
         tx.c.fclose( self._cfile );
     }

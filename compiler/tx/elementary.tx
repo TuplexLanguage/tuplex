@@ -20,15 +20,15 @@ builtin type ~ Byte          derives Signed, Number{Byte}, Enumerable{Byte} :
             return self^ == o^
         return FALSE
 
-    virtual override MIN : Byte = -128_B
-    virtual override MAX : Byte =  127_B
+    static override MIN : Byte = -128_B
+    static override MAX : Byte =  127_B
 
     /** returns the last (highest) ordinal for this type */
-    virtual override last_ordinal() -> Ordinal :
+    static override last_ordinal() -> Ordinal :
         return 255_UB
 
     /** returns the value for the specified ordinal */
-    virtual override value( ordinal: Ordinal ) -> Byte :
+    static override value( ordinal: Ordinal ) -> Byte :
         ##if ordinal > self.last_ordinal():  panic
         return Byte( ordinal - 128 )
 
@@ -50,15 +50,15 @@ builtin type ~ Short         derives Signed, Number{Short}, Enumerable{Short} :
             return self^ == o^
         return FALSE
 
-    virtual override MIN : Short = -32768_S
-    virtual override MAX : Short =  32767_S
+    static override MIN : Short = -32768_S
+    static override MAX : Short =  32767_S
 
     /** returns the last (highest) ordinal for this type */
-    virtual override last_ordinal() -> Ordinal :
+    static override last_ordinal() -> Ordinal :
         return 65535_US
 
     /** returns the value for the specified ordinal */
-    virtual override value( ordinal: Ordinal ) -> Short :
+    static override value( ordinal: Ordinal ) -> Short :
         ##if ordinal > self.last_ordinal():  panic
         return Short( ordinal - 32768 )
 
@@ -81,15 +81,15 @@ builtin type ~ Int           derives Signed, Number{Int}, Enumerable{Int} :
 
         return FALSE
 
-    virtual override MIN : Int = -2147483648_I
-    virtual override MAX : Int =  2147483647_I
+    static override MIN : Int = -2147483648_I
+    static override MAX : Int =  2147483647_I
 
     /** returns the last (highest) ordinal for this type */
-    virtual override last_ordinal() -> Ordinal :
+    static override last_ordinal() -> Ordinal :
         return 4294967295_UI
 
     /** returns the value for the specified ordinal */
-    virtual override value( ordinal: Ordinal ) -> Int :
+    static override value( ordinal: Ordinal ) -> Int :
         ##if ordinal > self.last_ordinal():  panic
         return Int( ordinal - 2147483648 )
 
@@ -111,15 +111,15 @@ builtin type ~ Long          derives Signed, Number{Long}, Enumerable{Long} :
             return self^ == o^
         return FALSE
 
-    virtual override MIN : Long = -9223372036854775808_L
-    virtual override MAX : Long =  9223372036854775807_L
+    static override MIN : Long = -9223372036854775808_L
+    static override MAX : Long =  9223372036854775807_L
 
     /** returns the last (highest) ordinal for this type */
-    virtual override last_ordinal() -> Ordinal :
+    static override last_ordinal() -> Ordinal :
         return 18446744073709551615_UL
 
     /** returns the value for the specified ordinal */
-    virtual override value( ordinal: Ordinal ) -> Long :
+    static override value( ordinal: Ordinal ) -> Long :
         return Long( ordinal - 9223372036854775808 )
 
     /** returns the ordinal for this value */
@@ -140,15 +140,15 @@ builtin type ~ UByte          derives Unsigned, Number{UByte}, Enumerable{UByte}
             return self^ == o^
         return FALSE
 
-    virtual override MIN : UByte = 0_UB
-    virtual override MAX : UByte = 255_UB
+    static override MIN : UByte = 0_UB
+    static override MAX : UByte = 255_UB
 
     /** returns the last (highest) ordinal for this type */
-    virtual override last_ordinal() -> Ordinal :
+    static override last_ordinal() -> Ordinal :
         return 255_UB
 
     /** returns the value for the specified ordinal */
-    virtual override value( ordinal: Ordinal ) -> UByte :
+    static override value( ordinal: Ordinal ) -> UByte :
         ##if ordinal > self.last_ordinal():  panic
         return UByte( ordinal )
 
@@ -170,15 +170,15 @@ builtin type ~ UShort         derives Unsigned, Number{UShort}, Enumerable{UShor
             return self^ == o^
         return FALSE
 
-    virtual override MIN : UShort = 0_US
-    virtual override MAX : UShort = 65535_US
+    static override MIN : UShort = 0_US
+    static override MAX : UShort = 65535_US
 
     /** returns the last (highest) ordinal for this type */
-    virtual override last_ordinal() -> Ordinal :
+    static override last_ordinal() -> Ordinal :
         return 65535_US
 
     /** returns the value for the specified ordinal */
-    virtual override value( ordinal: Ordinal ) -> UShort :
+    static override value( ordinal: Ordinal ) -> UShort :
         ##if ordinal > self.last_ordinal():  panic
         return UShort( ordinal )
 
@@ -200,16 +200,16 @@ builtin type ~ UInt           derives Unsigned, Number{UInt}, Enumerable{UInt} :
             return self^ == o^
         return FALSE
 
-    virtual override MIN : UInt = 0_UI
-    virtual override MAX : UInt = 4294967295_UI
+    static override MIN : UInt = 0_UI
+    static override MAX : UInt = 4294967295_UI
 
     /** returns the last (highest) ordinal for this type */
-    virtual override last_ordinal() -> Ordinal :
+    static override last_ordinal() -> Ordinal :
         ##if ordinal > self.last_ordinal():  panic
         return 4294967295_UI
 
     /** returns the value for the specified ordinal */
-    virtual override value( ordinal: Ordinal ) -> UInt :
+    static override value( ordinal: Ordinal ) -> UInt :
         return UInt( ordinal )
 
     /** returns the ordinal for this value */
@@ -230,15 +230,15 @@ builtin type ~ ULong          derives Unsigned, Number{ULong}, Enumerable{ULong}
             return self^ == o^
         return FALSE
 
-    virtual override MIN : ULong = 0_UL
-    virtual override MAX : ULong = 18446744073709551615_UL
+    static override MIN : ULong = 0_UL
+    static override MAX : ULong = 18446744073709551615_UL
 
     /** returns the last (highest) ordinal for this type */
-    virtual override last_ordinal() -> Ordinal :
+    static override last_ordinal() -> Ordinal :
         return 18446744073709551615_UL
 
     /** returns the value for the specified ordinal */
-    virtual override value( ordinal: Ordinal ) -> ULong :
+    static override value( ordinal: Ordinal ) -> ULong :
         return ULong( ordinal )
 
     /** returns the ordinal for this value */
@@ -260,8 +260,8 @@ builtin type ~ Half          derives Floatingpoint, Number{Half} :
         return FALSE
 
 */
-    virtual override MIN : Half = -65503.0
-    virtual override MAX : Half = 65503.0
+    static override MIN : Half = -65503.0
+    static override MAX : Half = 65503.0
 
     override string( writer : &~tx.ByteWriter ) :
         ; ##to_string( writer, self )
@@ -306,11 +306,11 @@ builtin type ~ Bool          derives Elementary, Enumerable{Bool} :
         return FALSE
 
     /** returns the last (highest) ordinal for this type */
-    virtual override last_ordinal() -> Ordinal :
+    static override last_ordinal() -> Ordinal :
         return 1
 
     /** returns the value for the specified ordinal */
-    virtual override value( ordinal: Ordinal ) -> Bool :
+    static override value( ordinal: Ordinal ) -> Bool :
         return Bool( ordinal )
 
     /** returns the ordinal for this value */

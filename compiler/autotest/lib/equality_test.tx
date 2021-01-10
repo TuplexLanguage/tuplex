@@ -14,19 +14,19 @@ type Body <: Tuple, Face :
 
 
 type SimpleGenTest{L,R} :
-    virtual test_eq( left : &L, same : &R, diff : &R ) :
+    static test_eq( left : &L, same : &R, diff : &R ) :
         Self.test_eq_op( left, same, diff )
         if !isa( _typeid( left ), _typeid{ Ref } ):
             Self.test_equals( left, same, diff )
 
-    virtual test_eq_op( left : &L, same : &R, diff : &R ) :
+    static test_eq_op( left : &L, same : &R, diff : &R ) :
         assert left^ == left^
         assert same^ == same^
         assert diff^ == diff^
         assert left^ == same^
         assert left^ != diff^
 
-    virtual test_equals( left : &L, same : &R, diff : &R ) :
+    static test_equals( left : &L, same : &R, diff : &R ) :
         assert left.equals( left )
         assert same.equals( same )
         assert diff.equals( diff )
@@ -36,24 +36,24 @@ type SimpleGenTest{L,R} :
 
 type GenTest{L,R} :
 
-    virtual test_eq_val( left : &L, same : &R, diff : &R ) :
+    static test_eq_val( left : &L, same : &R, diff : &R ) :
         tester := SimpleGenTest{L,R}()
         tester.test_eq( left, same, diff )
 
-    virtual test_eq_ref( left : &L, same : &R, diff : &R ) :
+    static test_eq_ref( left : &L, same : &R, diff : &R ) :
         tester := SimpleGenTest{Ref{L},Ref{R}}()
         lr := &left;  sr := &same;  dr := &diff
         tester.test_eq( lr, lr, sr )
         tester.test_eq( lr, lr, dr )
 
-    virtual test_eq_arr_cop( left : &L, same : &R, diff : &R ) :
+    static test_eq_arr_cop( left : &L, same : &R, diff : &R ) :
         tester := SimpleGenTest{Array{L,3},Array{R,3}}()
         l := [ left^, left^, left^ ]
         s := [ same^, same^, same^ ]
         d := [ diff^, diff^, diff^ ]
         tester.test_eq( &l, &s, &d )
 
-    virtual test_eq_arr_ref( left : &L, same : &R, diff : &R ) :
+    static test_eq_arr_ref( left : &L, same : &R, diff : &R ) :
         tester := SimpleGenTest{Array{&L,3},Array{&L,3}}()
         l : Array{&L,3} = [ left, left, left ]
         s : Array{&L,3} = [ same, same, same ]
@@ -61,7 +61,7 @@ type GenTest{L,R} :
         tester.test_eq( &l, &l, &s )
         tester.test_eq( &l, &l, &d )
 
-    virtual test_eq( left : &L, same : &R, diff : &R ) :
+    static test_eq( left : &L, same : &R, diff : &R ) :
         Self.test_eq_val( left, same, diff )
         Self.test_eq_ref( left, same, diff )
         Self.test_eq_arr_cop( left, same, diff )

@@ -121,7 +121,7 @@ Subtype{F,K} derives Array<Ref{F},(K+1)> :
     type tx#Array#E is Ref<Subtype.F>
 
     ## reinterpretation in usage scope via reentrant expr?
-    ## that still only supports virtual values though
+    ## that still only supports static values though
     tx#Array#L is Subtype.K+1
 
 

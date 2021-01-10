@@ -32,8 +32,8 @@ main()->Int :
 
 
 type Outer{S} :
-    #experr 1: virtual statErrMemb : S;  ## virtual members dependent on type parameters not supported (how would they be initialized?)
-    virtual statMemb : Byte = 14B
+    #experr 1: static statErrMemb : S;  ## static members dependent on type parameters not supported (how would they be initialized?)
+    static statMemb : Byte = 14B
     instMemb : S
     trivMemb : Int
 
@@ -42,7 +42,7 @@ type Outer{S} :
 
     /** indirectly dependent on Outer's type parameters, i.e. indirectly generic */
     type Inner :
-        virtual statMemb : Int = 32
+        static statMemb : Int = 32
         instMemb : S
         trivMemb : Int
         thatMemb : Outer{S}
@@ -57,7 +57,7 @@ type Outer{S} :
     /** Independent on Outer's type parameters, i.e. theoretically always concrete and the same.
      * However we currently treat all entities within a generic type as distinct per specialization. */
     type Indep :
-        virtual statMemb : Float = 1.1
+        static statMemb : Float = 1.1
         instMemb : Float
         trivMemb : Int
 
@@ -67,7 +67,7 @@ type Outer{S} :
 
     /** Nested generic type. */
     type Nested{T,U} :
-        virtual statMemb : Float = 1.1
+        static statMemb : Float = 1.1
         instS : S
         instT : T
         instU : U

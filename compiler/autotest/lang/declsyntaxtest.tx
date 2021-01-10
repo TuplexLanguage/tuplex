@@ -1,6 +1,6 @@
 
 type Foo :
-    virtual STAT_MEMB := 42
+    static STAT_MEMB := 42
     instMemb := 17
 
 
