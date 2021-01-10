@@ -6,7 +6,7 @@ double_a_value( val : Int )->Int :
 
 
 
-module test.modul.submod
+module test.modul.submod :
     SUB_FIELD : Int = 42
 
 

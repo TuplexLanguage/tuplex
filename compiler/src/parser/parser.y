@@ -290,12 +290,13 @@ block_end   : DEDENT         ;
 brace_begin : LBRACE | LBRACE NEWLINE ;
 brace_end   : RBRACE | RBRACE NEWLINE ;
 
-sub_module : KW_MODULE module_identifier
+sub_module : KW_MODULE module_identifier COLON
                block_begin  opt_import_stmts  opt_module_members  block_end
-                 { $$ = new TxModuleNode( @$, $2, $4, &$5->declarations, &$5->modules );
+                 { $$ = new TxModuleNode( @$, $2, $5, &$6->declarations, &$6->modules );
                    parserCtx->validate_module_name( $$, $2 );
                  }
-           | KW_MODULE module_identifier brace_begin  opt_import_stmts  opt_module_members  brace_end
+           | KW_MODULE module_identifier
+               brace_begin  opt_import_stmts  opt_module_members  brace_end
                  { $$ = new TxModuleNode( @$, $2, $4, &$5->declarations, &$5->modules );
                    parserCtx->validate_module_name( $$, $2 );
                  }

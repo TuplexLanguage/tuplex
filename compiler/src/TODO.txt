@@ -209,11 +209,15 @@ Make interface required keyword for interface definitions, and make them implici
 
 Change keyword from 'virtual' to 'static' - DONE
 
-!! NEXT:  Colon after sub-module header
+Colon after sub-module header - DONE
+
+!! NEXT:  Complete and publich Module site page
 
 !! NEXT:  fix lookup / codegen error in ../autotest/lang/lookuptest.tx (with -compileall)
 
 !! NEXT:  Arrays and Ranges site pages
+
+Public Docker instance
 
 Improved FFI support
  - opaque 64b pointer type
