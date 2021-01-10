@@ -39,6 +39,8 @@ public:
             this->arguments->push_back( make_field_def_node( arg ) );
     }
 
+    TxTypeClass resolve_type_class() override { return TXTC_FUNCTION; }
+
     virtual TxFunctionHeaderNode* make_ast_copy() const override {
         return new TxFunctionHeaderNode( this->funcTypeNode->make_ast_copy() );
     }

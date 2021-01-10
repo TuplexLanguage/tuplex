@@ -8,14 +8,10 @@
  */
 class TxArgTypeDefNode : public TxTypeResolvingNode {
 protected:
-    virtual TxQualType define_type( TxTypeResLevel typeResLevel ) override {
+    TxQualType define_type( TxTypeResLevel typeResLevel ) override {
         LOG_TRACE( this->LOGGER(), "defining  type  of " << this );
         return this->typeExpression->resolve_type( typeResLevel );
     }
-
-//    virtual void resolution_pass() override {
-//        this->resolve_type( typeResLevel );
-//    }
 
 public:
     TxIdentifierNode* fieldName;
@@ -29,15 +25,15 @@ public:
             : TxArgTypeDefNode( ploc, new TxIdentifierNode( ploc, fieldName ), typeExpression ) {
     }
 
-    virtual TxArgTypeDefNode* make_ast_copy() const override {
+    TxArgTypeDefNode* make_ast_copy() const override {
         return new TxArgTypeDefNode( this->ploc, this->fieldName->make_ast_copy(), this->typeExpression->make_ast_copy() );
     }
 
-    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) override {
+    void visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) override {
         this->typeExpression->visit_ast( visitor, cursor, "type", aux );
     }
 
-    virtual const std::string& get_descriptor() const override {
+    const std::string& get_descriptor() const override {
         return this->fieldName->get_descriptor();
     }
 };

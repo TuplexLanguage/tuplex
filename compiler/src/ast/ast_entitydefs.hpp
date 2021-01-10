@@ -16,7 +16,6 @@ class Constant;
  * Type and field definitions, as well as value expressions, produce and/or use an entity.
  * If the node resolves a field entity, it will also resolve the type of that field.
  * This means all instances of this node will resolve a type, both type-defining and field-defining ones.
- * The entity is produced/resolved during the resolution pass.
  */
 class TxEntityResolvingNode : public TxNode {
 protected:

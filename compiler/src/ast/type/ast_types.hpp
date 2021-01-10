@@ -99,6 +99,10 @@ public:
         ASSERT( typeArgs && !typeArgs->empty(), "NULL or empty typeargs" );
     }
 
+    TxTypeClass resolve_type_class() override {
+        return this->genTypeExpr->resolve_type_class();
+    }
+
     TxGenSpecTypeNode* make_ast_copy() const override {
         return new TxGenSpecTypeNode( this->ploc, this->genTypeExpr->make_ast_copy(), make_node_vec_copy( this->typeArgs ) );
     }
@@ -148,6 +152,8 @@ public:
             : TxReferenceTypeNode( ploc, dataspace, new TxTypeArgumentNode( targetType ) ) {
     }
 
+    TxTypeClass resolve_type_class() override { return TXTC_REFERENCE; }
+
     TxReferenceTypeNode* make_ast_copy() const override {
         return new TxReferenceTypeNode( this->ploc, this->dataspace, this->targetTypeNode->make_ast_copy() );
     }
@@ -192,6 +198,8 @@ public:
                                ( capacityExpr ? new TxTypeArgumentNode( new TxMaybeConversionNode( capacityExpr ) ) : nullptr ) ) {
     }
 
+    TxTypeClass resolve_type_class() override { return TXTC_ARRAY; }
+
     TxArrayTypeNode* make_ast_copy() const override {
         return new TxArrayTypeNode( this->ploc, this->elementTypeNode->make_ast_copy(),
                                     ( this->capacityNode ? this->capacityNode->make_ast_copy() : nullptr ) );
@@ -214,14 +222,14 @@ public:
 class TxDerivedTypeNode : public TxTypeCreatingNode {
     TxTypeDeclNode* superRefTypeNode = nullptr;
 
-    TxTypeResolvingNode* builtinTypeDefiner = nullptr;
+    TxTypeCreatingNode* builtinTypeDefiner = nullptr;
 
     /** Initializes certain implicit type members such as 'Super' for types with a body. */
     void init_implicit_types();
 
     friend class TxBuiltinTypeDefiningNode;
 
-    void set_builtin_type_definer( TxTypeResolvingNode* builtinTypeDef ) {
+    void set_builtin_type_definer( TxTypeCreatingNode* builtinTypeDef ) {
         this->builtinTypeDefiner = builtinTypeDef;
     }
 
@@ -262,6 +270,8 @@ public:
         : TxDerivedTypeNode(ploc, baseType, new std::vector<TxTypeExpressionNode*>(), new std::vector<TxDeclarationNode*>()) { }
 
     void set_requires_mutable( bool mut ) override;
+
+    TxTypeClass resolve_type_class() override;
 
     TxDerivedTypeNode* make_ast_copy() const override {
         return new TxDerivedTypeNode( this->ploc, this->baseTypeNode->make_ast_copy(),
@@ -316,6 +326,8 @@ public:
               modifying( modifying ), arguments( arguments ),
               returnField( make_return_field( returnType ) ) {
     }
+
+    TxTypeClass resolve_type_class() override { return TXTC_FUNCTION; }
 
     TxFunctionTypeNode* make_ast_copy() const override {
         return new TxFunctionTypeNode( this->ploc, this->modifying, make_node_vec_copy( this->arguments ),

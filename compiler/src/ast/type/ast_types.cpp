@@ -85,7 +85,7 @@ const TxActualType* TxDerivedTypeNode::create_type( TxTypeResLevel typeResLevel 
     ASSERT( this->get_declaration(), "No declaration for derived type " << *this );
 
     if ( this->builtinTypeDefiner ) {
-        return const_cast<TxActualType*>( this->builtinTypeDefiner->resolve_type( typeResLevel ).type() );
+        return this->builtinTypeDefiner->resolve_type( typeResLevel ).type();
     }
 
     // copy vector because of const conversion:
@@ -93,6 +93,14 @@ const TxActualType* TxDerivedTypeNode::create_type( TxTypeResLevel typeResLevel 
     return this->registry().create_type( this->get_declaration(), this->baseTypeNode,
                                          std::move( ifNodes ), this->requires_mutable_type());
 }
+
+TxTypeClass TxDerivedTypeNode::resolve_type_class() {
+    if ( this->builtinTypeDefiner )
+        return this->builtinTypeDefiner->resolve_type_class();
+    else
+        return this->baseTypeNode->resolve_type_class();
+}
+
 
 void TxDerivedTypeNode::set_requires_mutable( bool mut ) {
     TxTypeExpressionNode::set_requires_mutable( mut );

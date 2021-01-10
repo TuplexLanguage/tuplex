@@ -725,6 +725,8 @@ public:
             : TxTypeCreatingNode( ploc ), interfaceType( interfaceType ), adaptedType( adaptedType ) {
     }
 
+    TxTypeClass resolve_type_class() override { return TXTC_INTERFACEADAPTER; }
+
     /** Creates a copy of this node and all its descendants for purpose of generic specialization. */
     TxAdapterTypeNode* make_ast_copy() const override {
         THROW_LOGIC( "Can't reinterpret TxAdapterTypeNode: " << this );

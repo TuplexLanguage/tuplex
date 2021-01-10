@@ -28,10 +28,16 @@ public:
 
     virtual void set_requires_mutable( bool mut ) { this->mutableType = mut; }
 
-    TxTypeExpressionNode* make_ast_copy() const override = 0;
-
     /** Returns true if this type expression requires the produced type to be mutable. Used by subclasses upon type creation. */
     bool requires_mutable_type() const { return this->mutableType; }
+
+    /** Resolves the type class of the type resolved by this type expression.
+     * Experimental design.
+     * The default implementation in this class simply resolves the actual type and returns its type class.
+     */
+    virtual TxTypeClass resolve_type_class();
+
+    TxTypeExpressionNode* make_ast_copy() const override = 0;
 
     /** Performs the code generation pass for this type expression and its sub-expressions.
      * This propagates code generation to type members.

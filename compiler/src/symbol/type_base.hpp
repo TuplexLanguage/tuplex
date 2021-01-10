@@ -251,6 +251,12 @@ class TxActualType : public TxEntity { //public virtual TxParseOrigin, public Pr
     /** Examines the members of this type and identifies generic parameters and bindings. Called from constructor. */
     void examine_members();
 
+    /** resolve type parameters and bindings */
+    void resolve_params( TxTypeResLevel typeResLevel );
+
+    /** resolve base type and interfaces (for when this type was created with unresolved base type nodes) */
+    void resolve_supers();
+
     /** Initializes this type, determines the kind of derivation. Called when the type class is known. */
     void initialize_type();
 
@@ -334,9 +340,6 @@ public:
 
     /** Initializes this type and sets its type class. */
     void initialize_with_type_class( const TxTypeClassHandler* typeClassInstance );
-
-    /** resolve type parameters and bindings */
-    void resolve_params( TxTypeResLevel typeResLevel );
 
     /** Integrates this type with its declaration dependencies - base class, interfaces, generic parameters/bindings.
      * Will also initialize this type with its type class if is isn't already. */

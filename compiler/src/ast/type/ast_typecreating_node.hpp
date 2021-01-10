@@ -77,6 +77,8 @@ public:
 
     void set_requires_mutable( bool mut ) override;
 
+    TxTypeClass resolve_type_class() override;
+
     TxGenParamTypeNode* make_ast_copy() const override {
         return new TxGenParamTypeNode( this->ploc, this->constraintTypeNode->make_ast_copy() );
     }

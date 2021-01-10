@@ -51,3 +51,7 @@ const TxActualType* TxGenParamTypeNode::create_type( TxTypeResLevel typeResLevel
                                          std::vector<const TxTypeExpressionNode*>(),
                                          true /*this->requires_mutable_type()*/ );
 }
+
+TxTypeClass TxGenParamTypeNode::resolve_type_class() {
+    return this->constraintTypeNode->resolve_type_class();
+}

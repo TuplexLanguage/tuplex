@@ -12,21 +12,23 @@ class TxQualTypeExprNode : public TxTypeExpressionNode {
 protected:
     TxTypeExpressionNode* _typeNode;
 
-    virtual TxQualType define_type( TxTypeResLevel typeResLevel ) override {
+    TxQualType define_type( TxTypeResLevel typeResLevel ) override {
         return _typeNode->resolve_type( typeResLevel );
     }
 
-    virtual void verification_pass() const override;
+    void verification_pass() const override;
 
 public:
-    TxQualTypeExprNode( TxTypeExpressionNode* typeNode )
+    explicit TxQualTypeExprNode( TxTypeExpressionNode* typeNode )
             : TxQualTypeExprNode( typeNode->ploc, typeNode ) {
     }
     TxQualTypeExprNode( const TxLocation& ploc, TxTypeExpressionNode* typeNode )
             : TxTypeExpressionNode( ploc ), _typeNode( typeNode ) {
     }
 
-    virtual TxQualTypeExprNode* make_ast_copy() const override {
+    TxTypeClass resolve_type_class() override { return this->_typeNode->resolve_type_class(); }
+
+    TxQualTypeExprNode* make_ast_copy() const override {
         return new TxQualTypeExprNode( ploc, _typeNode->make_ast_copy() );
     }
 
@@ -38,11 +40,11 @@ public:
         this->_typeNode->code_gen_type( context );
     }
 
-    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) override {
+    void visit_descendants( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* aux ) override {
         this->_typeNode->visit_ast( visitor, cursor, "type", aux );
     }
 
-    virtual const std::string& get_descriptor() const override {
+    const std::string& get_descriptor() const override {
         return this->_typeNode->get_descriptor();
     }
 };
@@ -51,7 +53,7 @@ public:
 class TxSetQualTypeExprNode : public TxQualTypeExprNode {
     bool _modifiable;
 
-    virtual TxQualType define_type( TxTypeResLevel typeResLevel ) override;
+    TxQualType define_type( TxTypeResLevel typeResLevel ) override;
 
 public:
     TxSetQualTypeExprNode( const TxLocation& ploc, TxTypeExpressionNode* baseType, bool mod )
@@ -59,7 +61,7 @@ public:
         this->_typeNode->set_requires_mutable( mod );
     }
 
-    virtual TxSetQualTypeExprNode* make_ast_copy() const override {
+    TxSetQualTypeExprNode* make_ast_copy() const override {
         return new TxSetQualTypeExprNode( this->ploc, this->_typeNode->make_ast_copy(), _modifiable );
     }
 
@@ -67,7 +69,7 @@ public:
         return this->_modifiable;
     }
 
-    void set_modifiable( bool mod ) {
+    [[maybe_unused]] void set_modifiable( bool mod ) {
         ASSERT( !this->attempt_qtype(), "Can't set modifiable after type already has been resolved in " << this );
         this->_modifiable = mod;
         this->_typeNode->set_requires_mutable( mod );
@@ -77,14 +79,14 @@ public:
 /** Automatically makes the qualified type modifiable if the actual type is mutable.
  * Used to automatically make constructors modifying (i.e. syntactic sugar). */
 class TxFlexModTypeExprNode : public TxQualTypeExprNode {
-    virtual TxQualType define_type( TxTypeResLevel typeResLevel ) override;
+    TxQualType define_type( TxTypeResLevel typeResLevel ) override;
 
 public:
     TxFlexModTypeExprNode( const TxLocation& ploc, TxTypeExpressionNode* baseType )
             : TxQualTypeExprNode( ploc, baseType ) {
     }
 
-    virtual TxFlexModTypeExprNode* make_ast_copy() const override {
+    TxFlexModTypeExprNode* make_ast_copy() const override {
         return new TxFlexModTypeExprNode( this->ploc, this->_typeNode->make_ast_copy() );
     }
 };
@@ -96,16 +98,16 @@ protected:
         this->_typeNode->set_requires_mutable( reqMut );
     }
 
-    virtual void typeexpr_declaration_pass() override;
+    void typeexpr_declaration_pass() override;
 
-    virtual TxQualType define_type( TxTypeResLevel typeResLevel ) override;
+    TxQualType define_type( TxTypeResLevel typeResLevel ) override;
 
 public:
     TxModifiableTypeNode( const TxLocation& ploc, TxTypeExpressionNode* typeNode )
             : TxModifiableTypeNode( ploc, typeNode, true ) {
     }
 
-    virtual TxModifiableTypeNode* make_ast_copy() const override {
+    TxModifiableTypeNode* make_ast_copy() const override {
         return new TxModifiableTypeNode( this->ploc, this->_typeNode->make_ast_copy() );
     }
 
@@ -119,18 +121,18 @@ class TxMaybeModTypeNode : public TxModifiableTypeNode {
     bool _modifiable;
 
 protected:
-    virtual void typeexpr_declaration_pass() override;
+    void typeexpr_declaration_pass() override;
 
 public:
     TxMaybeModTypeNode( const TxLocation& ploc, TxTypeExpressionNode* baseType )
             : TxModifiableTypeNode( ploc, baseType, false ), _modifiable() {
     }
 
-    virtual TxMaybeModTypeNode* make_ast_copy() const override {
+    TxMaybeModTypeNode* make_ast_copy() const override {
         return new TxMaybeModTypeNode( this->ploc, this->_typeNode->make_ast_copy() );
     }
 
-    virtual bool is_modifiable() const override {
+    bool is_modifiable() const override {
         return this->_modifiable;
     }
 
@@ -144,7 +146,7 @@ public:
 /** Removes the 'modifiable' modifier on a type. Should only be relevant in combination with TYPE type parameters. */
 class TxConstTypeNode : public TxQualTypeExprNode {
 protected:
-    virtual TxQualType define_type( TxTypeResLevel typeResLevel ) override {
+    TxQualType define_type( TxTypeResLevel typeResLevel ) override {
         return TxQualType( _typeNode->resolve_type( typeResLevel ).type(), false );
     }
 
@@ -153,18 +155,18 @@ public:
             : TxQualTypeExprNode( ploc, typeNode ) {
     }
 
-//    virtual void set_interface( bool ifkw ) override {
+//    void set_interface( bool ifkw ) override {
 //        TxTypeExpressionNode::set_interface( ifkw );
 //        this->typeNode->set_interface( ifkw );
 //    }
 //
-//    virtual void set_requires_mutable( bool mut ) override {
+//    void set_requires_mutable( bool mut ) override {
 //        // Note, will not compile for this type expression
 //        TxTypeExpressionNode::set_requires_mutable( mut );
 //        this->typeNode->set_requires_mutable( mut );
 //    }
 
-    virtual TxConstTypeNode* make_ast_copy() const override {
+    TxConstTypeNode* make_ast_copy() const override {
         return new TxConstTypeNode( this->ploc, this->_typeNode->make_ast_copy() );
     }
 };

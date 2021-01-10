@@ -3,6 +3,10 @@
 #include "../ast_entitydecls.hpp"
 #include "ast_types.hpp"
 
+TxTypeClass TxTypeExpressionNode::resolve_type_class() {
+    std::cerr << "#### Default implementation invoked on " << this << std::endl;
+    return this->resolve_type( TXR_TYPE_CREATION )->get_type_class();
+}
 
 bool is_not_properly_concrete( const TxNode* node, TxQualType type ) {
     if ( !type->is_concrete() ) {

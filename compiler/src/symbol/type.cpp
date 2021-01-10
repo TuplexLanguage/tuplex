@@ -141,7 +141,21 @@ TxActualType::TxActualType( const TxTypeDeclaration* declaration,
     //this->initialize_with_type_class( this->baseType->type_class_handler());
 
     // It may be possible to resolve the type class of the base type without causing infinite recursion.
-    // This would however probably require some parallel method hierarchy to resolve_type().
+    // This would however probably require some parallel method hierarchy to resolve_type():
+
+//    if ( this->genericBaseType ) {
+//        //std::cerr << "Has genericBaseType: " << this << " <<:: " << this->genericBaseType << std::endl;
+//        if ( this->genericBaseType->is_initialized() )
+//            this->initialize_with_type_class( this->genericBaseType->type_class_handler() );
+//        else
+//            std::cerr << "Uninitialized genericBaseType: " << this->genericBaseType << std::endl;
+//    }
+//    else {
+//        auto typeClass = const_cast<TxTypeExpressionNode*>(this->baseTypeNode)->resolve_type_class();
+//        std::cerr << "NO  genericBaseType: " << this << " \tbaseTypeNode: " << this->baseTypeNode << std::endl
+//                  << "    typeClass=" << typeClass << std::endl;
+//        this->initialize_with_type_class( get_type_class_handler( typeClass ) );
+//    }
 }
 
 const TxNode* TxActualType::get_origin_node() const {
@@ -277,7 +291,7 @@ void TxActualType::initialize_type() {
         else if ( this->typeClass == TXTC_INTERFACEADAPTER ) {
             this->modifiesVTable = true;
         }
-        else if ( !this->interfaces.empty() ) {  // FIXME: interfaces not resolved yet here
+        else if ( !this->interfaces.empty() || !this->interfaceNodes.empty() ) {
             // If there are interfaces we assume that will cause the vtable will be extended in preparation.
             // This may cause false positives, but we need to determine this flag in the type's initialization phase.
             this->modifiesVTable = true;
@@ -303,6 +317,15 @@ void TxActualType::resolve_params( TxTypeResLevel typeResLevel ) {
     }
 }
 
+void TxActualType::resolve_supers() {
+    this->baseType = const_cast<TxTypeExpressionNode*>(this->baseTypeNode)->resolve_type( TXR_TYPE_CREATION ).type();
+    std::transform( this->interfaceNodes.cbegin(), this->interfaceNodes.cend(),
+                    std::back_inserter( this->interfaces ),
+                    []( const TxTypeExpressionNode* n ) {
+                        return const_cast<TxTypeExpressionNode*>(n)->resolve_type( TXR_TYPE_CREATION ).type();
+                    } );
+}
+
 void TxActualType::integrate() {
     if ( !this->narrowIntegration.has_run() )
         // we only attempt this once
@@ -326,12 +349,7 @@ void TxActualType::inner_integrate( bool wide ) {
     LOG_DEBUG( this->LOGGER(), "Integrating type " << this );
     // connect with super types:
     if ( this->baseTypeNode && !this->baseType ) {
-        this->baseType = const_cast<TxTypeExpressionNode*>(this->baseTypeNode)->resolve_type( TXR_TYPE_CREATION ).type();
-        std::transform( this->interfaceNodes.cbegin(), this->interfaceNodes.cend(),
-                        std::back_inserter( this->interfaces ),
-                        []( const TxTypeExpressionNode* n ) {
-                            return const_cast<TxTypeExpressionNode*>(n)->resolve_type( TXR_TYPE_CREATION ).type();
-                        } );
+        this->resolve_supers();
     }
 
     // integrate super types:
