@@ -1,4 +1,17 @@
 #/bin/bash
+# Script file to create a Tuplex release bundle containing the
+# binaries, scripts, test suite, and tx standard library sources.
+
+ARG=$1
+ZIP=true
+if [ -n "$ARG" ]; then
+   if [ "$ARG" = "-nozip" ]; then
+      ZIP=false
+   else
+      echo "Unrecognized option: " $ARG
+      exit 1
+   fi
+fi
 
 # Cause subsequent commands which fail to exit the shell script immediately:
 set -e
@@ -13,11 +26,11 @@ else
     exit 1
 fi
 
-ROOT_DIR=..
-if [ -d "$ROOT_DIR/tx" ]; then
-    echo "Found the Tuplex root directory: " $ROOT_DIR
+HOME_DIR=..
+if [ -d "$HOME_DIR/tx" ]; then
+    echo "Found the Tuplex home directory: " $HOME_DIR
 else
-    echo "Could not find the Tuplex root directory: " $ROOT_DIR
+    echo "Could not find the Tuplex root directory: " $HOME_DIR
     exit 1
 fi
 
@@ -26,14 +39,15 @@ mkdir -p releases
 DATE=$(date +"%y%m%d")
 DEST=releases/tx_rel_$DATE
 
-echo "Copying files to "$DEST
-
 if [ -d $DEST ]; then
-    echo "Target directory " $DEST " already exists, deleting it"
+    echo "Target directory" $DEST "already exists, deleting existing copy"
     rm -r $DEST
 fi
+
+echo "Copying files to "$DEST
+
 mkdir $DEST
-cp -r -t $DEST $ROOT_DIR/tx $ROOT_DIR/scripts $ROOT_DIR/autotest
+cp -r -t $DEST $HOME_DIR/tx $HOME_DIR/scripts $HOME_DIR/autotest
 cp -r -t $DEST $BIN_DIR
 
 # reassign 'latest' dir symlink
@@ -41,8 +55,10 @@ rm -f releases/latest
 ln -r -s $DEST releases/latest
 
 
-echo "Creating archive " $DEST.tar
+if [ "$ZIP" = true ]; then
+   echo "Creating archive " $DEST.tar
 
-tar cf $DEST.tar $DEST
-zip $DEST.tar.zip $DEST.tar
-rm $DEST.tar
+   tar cf $DEST.tar $DEST
+   zip $DEST.tar.zip $DEST.tar
+   rm $DEST.tar
+fi
