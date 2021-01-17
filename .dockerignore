@@ -1,0 +1,53 @@
+# a comment - this is ignored
+# Examples:
+# no .a files
+#*.a
+# but do track lib.a, even though you're ignoring .a files above
+#!lib.a
+# ignore doc/notes.txt, but not doc/server/arch.txt
+#doc/*.txt
+# ignore all .txt files in the doc/ directory
+#doc/**/*.txt
+# only ignore the root TODO file, not subdir/TODO
+#/TODO
+
+# git directory
+.git/
+
+# Eclipse files
+.project
+.cproject
+.settings/
+.metadata/
+RemoteSystemsTempFiles/
+.userdict.txt
+
+# CLion files
+.idea/
+
+# Build files
+**/cmake-build*/
+**/build*/
+
+# ignore all built files in case of in-source build
+/compiler/generated/
+/compiler/bin/
+
+# ignore all CMake files in case of in-source build
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+compile_commands.json
+*.cbp
+
+# Tuplex compiler output files
+*.bc
+*.o
+*.out
+
+# ignore tmp/ directories
+tmp/
+
+# emacs backup files
+*~

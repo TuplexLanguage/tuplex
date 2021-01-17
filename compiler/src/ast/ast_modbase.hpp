@@ -40,6 +40,9 @@ class TxModuleNode : public TxNode {
 protected:
     virtual void declaration_pass() override {
         this->lexContext._scope = static_cast<TxModule*>( this->lexContext._scope )->declare_module( *this, *this->ident, this->builtin );
+        if ( this->lexContext._scope == nullptr )
+            // so context is not uninitialized in case of error:
+            this->lexContext._scope = this->parent()->context()._scope;
     }
 
 public:

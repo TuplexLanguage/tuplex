@@ -1,14 +1,22 @@
 module test.modul
 
-
 double_a_value( val : Int )->Int :
     return val * 2
-
 
 
 module test.modul.submod :
     SUB_FIELD : Int = 42
 
+
+## TODO: Support experr for module declarations
+#experr 1: module test2 :
+    FIELD := 42
+
+#experr 1: module test2.more :     ## qualified module name doesn't match file's module
+    FIELD := 43
+
+#experr 1: module test.othermod :  ## qualified module name doesn't match file's module
+    FIELD := 44
 
 
 main() :

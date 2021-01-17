@@ -211,7 +211,9 @@ Change keyword from 'virtual' to 'static' - DONE
 
 Colon after sub-module header - DONE
 
-!! NEXT:  Complete and publich Module site page
+Complete and publish Module site page - DONE
+
+Complete and publish new build howto site page, including Docker, and essential paths and command usage
 
 !! NEXT:  fix lookup / codegen error in ../autotest/lang/lookuptest.tx (with -compileall)
 

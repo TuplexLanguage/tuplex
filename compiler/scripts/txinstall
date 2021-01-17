@@ -1,27 +1,42 @@
-#/bin/bash
+#!/bin/bash
 # Ensures the necessary build tools are installed and then builds tuplex.
-# This script is in the repo and can be run directly:  tuplex/proto/scripts/txinstall
-
-echo "THIS SCRIPT IS OUTDATED, NEEDS TO BE UPDATED FOR LLVM 11"
-exit 1
+# This script is in the repo and can be run directly:  tuplex/compiler/scripts/txinstall
 
 set -x  # command echo on
 
 ###################
-## Install the packages with the build tools needed to build the tuplex compiler:
-sudo apt-get update
-sudo apt-get install cmake make gcc g++ flex bison
+## Install the packages with the build tools and LLVM needed to build the tuplex compiler:
+
+sudo apt update
+sudo apt install -y bison cmake make gcc g++ libllvm11 llvm-11-dev
+
+# Note: Check http://apt.llvm.org/ in case of issues or for other Linux flavors
 
 
 ###################
-## Install LLVM 5.0, also needed to build Tuplex:
+## Build the Tuplex compiler:
 
-# Required for add-apt-repository (needed for LLVM installation):
-sudo apt-get install software-properties-common
+# Add LLVM 11 to the command path:
+# (To make this permament for all bash sessions, it can be appended to ~/.bashrc or similar file.)
+export PATH=$PATH:/usr/lib/llvm-11/bin
 
-# Install LLVM 5.0:
-# !!!!! Note: Check http://apt.llvm.org/ for Linux flavors other than Ubuntu Xenial (16.04)
-sudo add-apt-repository 'deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-5.0 main'
-wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key|sudo apt-key add -
-sudo apt-get update
-sudo apt-get install llvm-5.0 llvm-5.0-dev
+# cd to the compiler's directory:
+cd tuplex/compiler
+
+# create a build directory (for out-of-source building):
+mkdir -p build-release
+cd build-release
+
+# build it:
+cmake ..
+make -j9  # recommended value: number of CPU cores + 1
+
+
+###################
+## Add Tuplex paths and set Tuplex env vars:
+# (These assume pwd is the build directory)
+# (To make this permament for all bash sessions, it can be appended to ~/.bashrc or similar file.)
+
+export TUPLEX_HOME=$PWD/..
+export PATH=$PATH:$TUPLEX_HOME/scripts
+export PATH=$PATH:$PWD/bin

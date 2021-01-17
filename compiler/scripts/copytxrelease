@@ -1,4 +1,4 @@
-#/bin/bash
+#!/bin/bash
 # Script file to create a Tuplex release bundle containing the
 # binaries, scripts, test suite, and tx standard library sources.
 

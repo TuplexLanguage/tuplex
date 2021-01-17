@@ -1,13 +1,17 @@
-#/bin/bash
+#!/bin/bash
 # Wrapper script to attempt to find the current build version of txc.
-# It currently looks for bin/txc under the current directory which works if standing in a build dir.
 # Scripts such as txts sets TXCBIN so that the same executable is consistently found in their execution.
+# If TXCBIN is not set, this wrapper looks for bin/txc under the current directory, which works if standing
+# in a tuplex build or release dir.
+# Otherwise it assumes txc has been added to the command path.
 # If in a release environment, instead add the Tuplex release bin dir to the path.
 
 if [ -n "$TXCBIN" ]; then
     TXC=$TXCBIN
-else
+elif [ -f "bin/txc" ]; then
     TXC=bin/txc
+else
+    TXC=txc
 fi
 
 if [ -f "$TXC" ]; then

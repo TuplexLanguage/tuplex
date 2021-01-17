@@ -120,7 +120,7 @@ public:
                 if ( do_throw )
                     CERR_THROWRES( obj, "Recursive definition of " << obj );
                 else {
-                    LOG( obj->LOGGER(), INFO, "Skipping recursive definition of " << obj );
+                    LOG_DEBUG( obj->LOGGER(), "Skipping recursive definition of " << obj );
                     return;
                 }
             }

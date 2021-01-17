@@ -1,0 +1,66 @@
+#########
+# Stage 1 - fetch build tools, fetch Tuplex source, and build it
+FROM ubuntu:20.04 as builder
+
+LABEL maintainer "Maintainer <tuplex@chervil.se>"
+LABEL description="This is a Ubuntu Docker image for building the Tuplex compiler"
+
+# Install general build tools
+# Install software to fetch the Tuplex source, and needed LLVM components
+RUN apt-get update && apt-get install -y \
+    bison \
+    cmake \
+    make \
+    gcc \
+    g++ \
+    curl \
+    ca-certificates \
+    unzip \
+    libllvm11 \
+    llvm-11-dev \
+    --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/*
+
+# Add LLVM to path
+ENV PATH $PATH:/usr/lib/llvm-11/bin
+
+# Fetch the Tuplex source
+RUN curl -sSL https://github.com/TuplexLanguage/tuplex/archive/master.zip --output /usr/master.zip && \
+     unzip -q /usr/master.zip -d /usr && \
+     ln -s /usr/tuplex-master /usr/tuplex && \
+     rm /usr/master.zip
+
+# Build tuplex
+# Create a Tuplex release bundle (without sources and build files)
+RUN mkdir /usr/tuplex/compiler/build-release && \
+    cd /usr/tuplex/compiler/build-release && \
+    cmake .. && \
+    make -j7 && \
+    ../scripts/copytxrelease -nozip
+
+
+#########
+# Stage 2 - produce a minimal release image with build results
+FROM ubuntu:20.04
+
+LABEL maintainer "Maintainer <tuplex@chervil.se>"
+LABEL description="This is a Ubuntu Docker image for running the Tuplex compiler"
+
+# Install software to fetch the Tuplex source, and needed LLVM components
+RUN apt-get update && apt-get install -y \
+    python3-minimal \
+    libllvm11 \
+    nano-tiny \
+    --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /usr/tuplex/compiler/build-release/releases/latest /usr/tuplex/compiler
+
+# Add Tuplex bin and scripts to path
+ENV PATH /usr/tuplex/compiler/scripts:/usr/tuplex/compiler/bin:$PATH
+
+# Set Tuplex' source path var
+ENV TUPLEX_HOME /usr/tuplex/compiler
+ENV TUPLEX_MODULE_PATHS .
+
+WORKDIR /usr/tuplex/compiler

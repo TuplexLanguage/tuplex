@@ -1,15 +1,23 @@
-#/bin/bash
+#!/bin/bash
 
-ROOT_DIR=..
-if [ -d "$ROOT_DIR/autotest" ]; then
-    echo "Found the Tuplex root directory: " $ROOT_DIR
+if [ -n "$TUPLEX_HOME" ]; then
+    HOME_DIR="$TUPLEX_HOME"
+elif [ -f "./autotest/test.py" ]; then
+    HOME_DIR=.
+elif [ -f "../autotest/test.py" ]; then
+    HOME_DIR=..
 else
-    echo "Could not find the Tuplex root directory: " $ROOT_DIR
+    echo "Could not find the Tuplex root directory: " $HOME_DIR
     echo "Is the current directory not a build directory?"
     exit 1
 fi
+echo "Found the Tuplex home directory: " $HOME_DIR
 
-export TXCBIN=`pwd`/bin/txc
+if [ -f "$TUPLEX_HOME/bin/txc" ]; then
+    export TXCBIN=$TUPLEX_HOME/bin/txc
+elif [ -f "./bin/txc" ]; then
+    export TXCBIN=`pwd`/bin/txc
+fi
 if [ -f "$TXCBIN" ]; then
     echo "Found the txc binary: " $TXCBIN
 else
@@ -17,4 +25,4 @@ else
     exit 1
 fi
 
-python3 $ROOT_DIR/autotest/test.py
+python3 $HOME_DIR/autotest/test.py

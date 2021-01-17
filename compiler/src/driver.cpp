@@ -82,11 +82,11 @@ int TxDriver::compile( const std::vector<std::string>& startSourceFiles, const s
     }
     this->firstSourceFilename = startSourceFiles.front();
 
-    if ( options.sourceSearchPaths.empty())
-        this->_LOG.config( "Source search path is empty" );
+    if ( options.moduleSearchPaths.empty())
+        this->_LOG.config( "Module search path is empty" );
     else
-        for ( const auto& pathItem : options.sourceSearchPaths )
-            this->_LOG.config( "Source search path item: '%s'", pathItem.c_str());
+        for ( const auto& pathItem : options.moduleSearchPaths )
+            this->_LOG.config( "Module search path item: '%s'", pathItem.c_str());
 
     /*--- prepare the root package and built-in types ---*/
 
@@ -124,19 +124,19 @@ int TxDriver::compile( const std::vector<std::string>& startSourceFiles, const s
 
     /*--- enqueue initial sources ---*/
 
-    if ( !this->options.txPath.empty()) {
+    if ( !this->options.homePath.empty()) {
         // add the tx namespace sources
-        std::string txPath( this->options.txPath );
-        if ( file_status( txPath ) == 2 ) {
+        std::string homePath( this->options.homePath );
+        if ( file_status( homePath ) == 2 ) {
             // path item exists and is a directory
-            this->_LOG.config( "Including tx namespace source path '%s'", txPath.c_str());
-            if ( !is_path_separator( txPath.back()))
-                txPath.push_back( get_path_separator());
-            txPath.append( BUILTIN_NS );
-            this->add_all_in_dir( BUILTIN_NS, txPath, true );
+            this->_LOG.config( "Including Tuplex home path '%s'", homePath.c_str());
+            if ( !is_path_separator( homePath.back()))
+                homePath.push_back( get_path_separator());
+            homePath.append( BUILTIN_NS );
+            this->add_all_in_dir( BUILTIN_NS, homePath, true );
         }
         else {
-            _LOG.error( "tx namespace source path is not a valid directory: '%s'", txPath.c_str() );
+            _LOG.error( "Home path / tx namespace source path is not a valid directory: '%s'", homePath.c_str() );
         }
     }
 
@@ -506,7 +506,7 @@ bool TxDriver::add_import( const TxIdentifier& moduleName ) {
     }
     // TODO: guard against or handle circular imports
     const std::string moduleFileName = moduleName.str() + ".tx";
-    for ( auto& pathItem : this->options.sourceSearchPaths ) {
+    for ( auto& pathItem : this->options.moduleSearchPaths ) {
         if ( file_status( pathItem ) == 2 ) {
             // path item exists and is a directory
 

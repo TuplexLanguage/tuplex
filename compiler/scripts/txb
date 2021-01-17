@@ -1,4 +1,4 @@
-#/bin/bash
+#!/bin/bash
 # Script that builds a tuplex program binary (via LLVM bitcode file (.bc)).
 # Runs optimization passes.
 

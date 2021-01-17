@@ -30,8 +30,9 @@ int main( int argc, const char **argv )
 
     bool explicit_jit = false;
     bool explicit_bc = false;
+    bool explicit_tx_path = false;
 
-    options.txPath = ".";
+    options.homePath = ".";
 
     // FUTURE: revamp; and pass digested options string in options struct
     for ( int a = 1; a < argc; a++ ) {
@@ -68,10 +69,10 @@ int main( int argc, const char **argv )
                 printf( "  %-22s %s\n", "-cnoassert", "Suppress code generation for assert statements" );
                 // unofficial option  printf( "  %-22s %s\n", "-allowtx", "Permit source code to declare within the tx namespace" );
                 printf( "  %-22s %s\n", "-notx", "Exclude the tx namespace source code (basic built-in definitions will still exist)" );
-                printf( "  %-22s %s\n", "-tx <path>", "Location of the tx directory containing the tx namespace source code (default is .)" );
+                printf( "  %-22s %s\n", "-tx <path>", "Location of the Tuplex home directory (overrides TUPLEX_HOME environment variable; default is .)" );
                 printf( "  %-22s %s\n", "-o  | -output <file>", "Explicitly specify LLVM bitcode output file name" );
-                printf( "  %-22s %s\n", "-sp <pathlist>", "Set source files search paths (overrides TUPLEX_PATH environment variable)" );
-                printf( "  %-22s %s\n", "-sourcepath <pathlist>", "Set source files search paths (overrides TUPLEX_PATH environment variable)" );
+                printf( "  %-22s %s\n", "-mp <pathlist>", "Set module files search paths (overrides TUPLEX_MODULE_PATHS environment variable; default is .)" );
+                printf( "  %-22s %s\n", "-modulepaths <pathlist>", "Set module files search paths (overrides TUPLEX_MODULE_PATHS environment variable; default is .)" );
                 return 0;
             }
             else if ( !strcmp( argv[a], "-version" ) || !strcmp( argv[a], "--version" ) ) {
@@ -130,21 +131,24 @@ int main( int argc, const char **argv )
                 options.suppress_asserts = true;
             else if ( !strcmp( argv[a], "-allowtx" ) )
                 options.allow_tx = true;
-            else if ( !strcmp( argv[a], "-notx" ) )
-                options.txPath = "";
+            else if ( !strcmp( argv[a], "-notx" ) ) {
+                options.homePath = "";
+                explicit_tx_path = true;
+            }
             else if ( !strcmp( argv[a], "-tx" ) ) {
                 if ( ++a >= argc ) {
                     LOG.error( "Invalid command options, specified %s without subsequent argument", argv[a - 1] );
                     return 1;  // exits
                 }
-                options.txPath = argv[a];
+                options.homePath = argv[a];
+                explicit_tx_path = true;
             }
-            else if ( !strcmp( argv[a], "-sp" ) || !strcmp( argv[a], "-sourcepath" ) ) {
+            else if ( !strcmp( argv[a], "-mp" ) || !strcmp( argv[a], "-modulepaths" ) ) {
                 if ( ++a >= argc ) {
                     LOG.error( "Invalid command options, specified %s without subsequent argument", argv[a - 1] );
                     return 1;  // exits
                 }
-                options.sourceSearchPaths = get_path_list( argv[a] );
+                options.moduleSearchPaths = get_path_list( argv[a] );
             }
             else if ( !strcmp( argv[a], "-o" ) || !strcmp( argv[a], "-output" ) ) {
                 if ( ++a >= argc ) {
@@ -191,15 +195,21 @@ int main( int argc, const char **argv )
     if ( options.allow_tx )
         LOG.warning("Compiler set to allow declaration in and extension of built-in namespace (tx) from user code." );
 
+    if ( ! explicit_tx_path ) {
+        auto homePath = get_environment_variable( "TUPLEX_HOME" );
+        if ( !homePath.empty() )
+            options.homePath = homePath;
+    }
+
     if ( startSourceFiles.empty() ) {
         startSourceFiles.emplace_back( "-" );  // this will read source from stdin
         // (will also write output to stdout unless an output filename has been specified)
     }
 
-    if ( options.sourceSearchPaths.empty() )
-        options.sourceSearchPaths = get_path_list( get_environment_variable( "TUPLEX_PATH" ) );
-    if ( options.sourceSearchPaths.empty() )
-        options.sourceSearchPaths.emplace_back("." );  // if no search paths provided, the current directory is searched
+    if ( options.moduleSearchPaths.empty() )
+        options.moduleSearchPaths = get_path_list( get_environment_variable( "TUPLEX_MODULE_PATHS" ) );
+    if ( options.moduleSearchPaths.empty() )
+        options.moduleSearchPaths.emplace_back( "." );  // if no module paths provided, the current directory is searched
 
     if ( separateJobs ) {
         // TODO: by default strip directory of outputFileName (write it to current directory unless output dir specified)

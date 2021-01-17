@@ -98,7 +98,7 @@ source_files = [
 
     "adv_inheritance_test.tx",
 
-    "matrixtest.tx",
+#    "matrixtest.tx",
 
     "syntax_intro.tx",
 ]
