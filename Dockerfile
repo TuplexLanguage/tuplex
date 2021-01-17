@@ -25,12 +25,12 @@ RUN apt-get update && apt-get install -y \
 ENV PATH $PATH:/usr/lib/llvm-11/bin
 
 # Copy the Tuplex source from the host context
-COPY compiler /usr/tuplex/compiler
+COPY compiler /usr/local/tuplex/compiler
 
 # Build tuplex
 # Create a Tuplex release bundle (without sources and build files)
-RUN mkdir /usr/tuplex/compiler/build-release && \
-    cd /usr/tuplex/compiler/build-release && \
+RUN mkdir /usr/local/tuplex/compiler/build-release && \
+    cd /usr/local/tuplex/compiler/build-release && \
     cmake .. && \
     make -j7 && \
     ../scripts/copytxrelease -nozip
@@ -51,13 +51,13 @@ RUN apt-get update && apt-get install -y \
     --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=builder /usr/tuplex/compiler/build-release/releases/latest /usr/tuplex/compiler
+COPY --from=builder /usr/local/tuplex/compiler/build-release/releases/latest /usr/local/tuplex/compiler
 
 # Add Tuplex bin and scripts to path
-ENV PATH /usr/tuplex/compiler/scripts:/usr/tuplex/compiler/bin:$PATH
+ENV PATH /usr/local/tuplex/compiler/scripts:/usr/local/tuplex/compiler/bin:$PATH
 
 # Set Tuplex' source path var
-ENV TUPLEX_HOME /usr/tuplex/compiler
+ENV TUPLEX_HOME /usr/local/tuplex/compiler
 ENV TUPLEX_MODULE_PATHS .
 
-WORKDIR /usr/tuplex/compiler/
+WORKDIR /usr/local/tuplex/compiler/
